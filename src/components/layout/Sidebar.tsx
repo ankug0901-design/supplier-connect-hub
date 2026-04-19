@@ -91,7 +91,7 @@ export function Sidebar() {
           <img src={embossLogo} alt="Emboss Marketing" className="h-10 w-auto" />
           <div>
             <h1 className="text-base font-bold leading-tight">Emboss</h1>
-            <p className="text-xs text-sidebar-foreground/60">Logistics Portal</p>
+            <p className="text-xs text-sidebar-foreground/60">Supplier Portal</p>
           </div>
         </div>
 
