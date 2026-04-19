@@ -343,6 +343,63 @@ export type Database = {
           },
         ]
       }
+      supplier_registrations: {
+        Row: {
+          account_number: string | null
+          account_type: string | null
+          bank_name: string | null
+          company: string
+          created_at: string
+          documents_uploaded: string[] | null
+          email: string
+          id: string
+          ifsc_code: string | null
+          msme_number: string | null
+          notes: string | null
+          pan_number: string | null
+          status: string | null
+          tan_number: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_number?: string | null
+          account_type?: string | null
+          bank_name?: string | null
+          company: string
+          created_at?: string
+          documents_uploaded?: string[] | null
+          email: string
+          id?: string
+          ifsc_code?: string | null
+          msme_number?: string | null
+          notes?: string | null
+          pan_number?: string | null
+          status?: string | null
+          tan_number?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_number?: string | null
+          account_type?: string | null
+          bank_name?: string | null
+          company?: string
+          created_at?: string
+          documents_uploaded?: string[] | null
+          email?: string
+          id?: string
+          ifsc_code?: string | null
+          msme_number?: string | null
+          notes?: string | null
+          pan_number?: string | null
+          status?: string | null
+          tan_number?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       suppliers: {
         Row: {
           address: string | null
