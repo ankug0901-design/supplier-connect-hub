@@ -108,7 +108,7 @@ export default function Payments() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Transactions</p>
-                <p className="text-2xl font-bold">{mockPayments.length}</p>
+                <p className="text-2xl font-bold">{payments.length}</p>
               </div>
             </div>
           </div>
@@ -146,82 +146,88 @@ export default function Payments() {
         </div>
 
         {/* Payments Table */}
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Invoice
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Amount
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Transaction ID
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredPayments.map((payment, index) => {
-                  const StatusIcon = statusIcons[payment.status];
-                  return (
-                    <tr
-                      key={payment.id}
-                      className="transition-colors hover:bg-muted/50 animate-slide-up"
-                      style={{ animationDelay: `${index * 50}ms` }}
-                    >
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <span className="font-medium text-foreground">{payment.invoiceNumber}</span>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                        {new Date(payment.date).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
-                        {formatCurrency(payment.amount)}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                        {payment.transactionId || '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <Badge variant="outline" className={cn('capitalize gap-1', statusStyles[payment.status])}>
-                          <StatusIcon className="h-3 w-3" />
-                          {payment.status}
-                        </Badge>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-right">
-                        {payment.status === 'completed' && (
-                          <Button variant="ghost" size="sm" className="gap-1">
-                            <Download className="h-3 w-3" />
-                            Receipt
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {isLoading ? (
+          <div className="flex min-h-[40vh] items-center justify-center rounded-xl border border-border bg-card">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
-          {filteredPayments.length === 0 && (
-            <div className="py-12 text-center text-muted-foreground">
-              No payments found matching your criteria.
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Invoice
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Date
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Amount
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Transaction ID
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredPayments.map((payment: any, index: number) => {
+                    const StatusIcon = statusIcons[payment.status] || Clock;
+                    return (
+                      <tr
+                        key={payment.id}
+                        className="transition-colors hover:bg-muted/50 animate-slide-up"
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <span className="font-medium text-foreground">{payment.invoiceNumber}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                          {new Date(payment.date).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
+                          {formatCurrency(Number(payment.amount || 0))}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                          {payment.transactionId || '-'}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <Badge variant="outline" className={cn('capitalize gap-1', statusStyles[payment.status] || '')}>
+                            <StatusIcon className="h-3 w-3" />
+                            {payment.status}
+                          </Badge>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-right">
+                          {payment.status === 'completed' && (
+                            <Button variant="ghost" size="sm" className="gap-1">
+                              <Download className="h-3 w-3" />
+                              Receipt
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+            {filteredPayments.length === 0 && (
+              <div className="py-12 text-center text-muted-foreground">
+                No payments found matching your criteria.
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
