@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
-const navigation = [
+const supplierNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Purchase Orders', href: '/purchase-orders', icon: FileText },
   { name: 'Invoices', href: '/invoices', icon: Receipt },
