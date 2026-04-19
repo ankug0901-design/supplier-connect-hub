@@ -196,7 +196,17 @@ export default function Shipments() {
                 <h3 className="font-medium text-foreground">Upload Filled Template</h3>
                 <p className="text-xs text-muted-foreground">Only .xlsx files are accepted</p>
               </div>
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 p-8 transition-colors hover:border-primary hover:bg-muted/50">
+              <label
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                className={cn(
+                  'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors',
+                  isDragging
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border bg-muted/30 hover:border-primary hover:bg-muted/50'
+                )}
+              >
                 <FileSpreadsheet className="mb-2 h-10 w-10 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">
                   {excelFile ? excelFile.name : 'Click to upload .xlsx'}
