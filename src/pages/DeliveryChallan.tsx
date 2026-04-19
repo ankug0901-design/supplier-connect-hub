@@ -79,9 +79,10 @@ export default function DeliveryChallan() {
   };
 
   const downloadTemplate = () => {
+    window.open('https://n8n.srv1141999.hstgr.cloud/webhook/dc-template-download', '_blank');
     toast({
-      title: 'Template Downloaded',
-      description: 'Excel template has been downloaded.',
+      title: 'Opening Template',
+      description: 'The DC Upload Template will download in a new tab.',
     });
   };
 
@@ -170,10 +171,14 @@ export default function DeliveryChallan() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Upload Shipment Details</Label>
-                  <Button variant="link" size="sm" onClick={downloadTemplate} className="h-auto p-0 text-xs">
+                  <Button variant="link" size="sm" onClick={downloadTemplate} className="h-auto gap-1 p-0 text-xs">
+                    <Download className="h-3 w-3" />
                     Download Template
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Download the DC Upload Template and fill in your shipment details before uploading.
+                </p>
                 <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 p-8 transition-colors hover:border-primary hover:bg-muted/50">
                   <FileSpreadsheet className="mb-2 h-10 w-10 text-muted-foreground" />
                   <span className="text-sm font-medium text-foreground">
@@ -213,13 +218,22 @@ export default function DeliveryChallan() {
             <div className="flex items-start gap-3">
               <AlertCircle className="mt-0.5 h-5 w-5 text-info" />
               <div>
-                <h4 className="font-medium text-foreground">Excel Format Requirements</h4>
-                <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                  <li>• Include columns: Item Description, Quantity, Unit, Vehicle No.</li>
-                  <li>• Each row represents one item in the shipment</li>
-                  <li>• Separate sheets for multiple challans</li>
-                  <li>• Download template for correct format</li>
-                </ul>
+                <h4 className="font-medium text-foreground">Required Template Columns</h4>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Your uploaded file must contain these columns in order:
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {[
+                    'DC_Number','Challan_Date','DeliverTo_Company','DeliverTo_Address',
+                    'DeliverTo_City','DeliverTo_State','DeliverTo_Pincode',
+                    'Item1_Desc','Item1_Qty','Item1_Rate',
+                    'SubTotal','GST_Type','GST_Percent','Total_Amount',
+                  ].map((col) => (
+                    <code key={col} className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-foreground">
+                      {col}
+                    </code>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
