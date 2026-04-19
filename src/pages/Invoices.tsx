@@ -168,10 +168,25 @@ export default function Invoices() {
                         {formatCurrency(Number(invoice.amount || 0))}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
-                        <div className="flex items-center gap-1">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">{invoice.attachments?.length ?? 0} files</span>
-                        </div>
+                        {invoice.hasAttachment ? (
+                          <a
+                            href={invoice.viewUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                            title={invoice.attachmentName || 'View attachment in Zoho'}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            <span className="max-w-[160px] truncate">
+                              {invoice.attachmentName || 'View attachment'}
+                            </span>
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                            <FileText className="h-4 w-4" />
+                            No file
+                          </span>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         <Badge variant="outline" className={cn('capitalize', statusStyles[invoice.status] || '')}>
@@ -180,12 +195,20 @@ export default function Invoices() {
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Download className="h-4 w-4" />
-                          </Button>
+                          {invoice.viewUrl && (
+                            <a href={invoice.viewUrl} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" title="View in Zoho">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </a>
+                          )}
+                          {invoice.hasAttachment && (
+                            <a href={invoice.viewUrl} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Download attachment">
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </a>
+                          )}
                         </div>
                       </td>
                     </tr>
