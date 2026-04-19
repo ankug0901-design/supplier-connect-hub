@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
-const navigation = [
+const supplierNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Purchase Orders', href: '/purchase-orders', icon: FileText },
   { name: 'Invoices', href: '/invoices', icon: Receipt },
@@ -98,17 +98,20 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {navigation.map(renderNavItem)}
-
-          {isAdmin && (
-            <div className="pt-4">
-              <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
-                Admin
-              </p>
-              <div className="space-y-1">
-                {adminNavigation.map(renderNavItem)}
+          {isAdmin ? (
+            <>
+              {renderNavItem({ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard })}
+              <div className="pt-4">
+                <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                  Admin
+                </p>
+                <div className="space-y-1">
+                  {adminNavigation.map(renderNavItem)}
+                </div>
               </div>
-            </div>
+            </>
+          ) : (
+            supplierNavigation.map(renderNavItem)
           )}
         </nav>
 
