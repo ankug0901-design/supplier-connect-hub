@@ -23,7 +23,7 @@ const supplierNavigation = [
   { name: 'Invoices', href: '/invoices', icon: Receipt },
   { name: 'Payments', href: '/payments', icon: CreditCard },
   { name: 'Delivery Challan', href: '/delivery-challan', icon: Truck },
-  { name: 'AWB Downloads', href: '/awb', icon: Package },
+  { name: 'Shipments', href: '/shipments', icon: Truck },
 ];
 
 const adminNavigation = [

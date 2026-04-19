@@ -12,7 +12,7 @@ import Invoices from "./pages/Invoices";
 import InvoiceUpload from "./pages/InvoiceUpload";
 import Payments from "./pages/Payments";
 import DeliveryChallan from "./pages/DeliveryChallan";
-import AWBDownload from "./pages/AWBDownload";
+import Shipments from "./pages/Shipments";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminSuppliers from "./pages/admin/AdminSuppliers";
 import AdminRegistrations from "./pages/admin/AdminRegistrations";
@@ -78,7 +78,8 @@ function AppRoutes() {
       <Route path="/invoices/upload" element={<ProtectedRoute><InvoiceUpload /></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
       <Route path="/delivery-challan" element={<ProtectedRoute><DeliveryChallan /></ProtectedRoute>} />
-      <Route path="/awb" element={<ProtectedRoute><AWBDownload /></ProtectedRoute>} />
+      <Route path="/shipments" element={<ProtectedRoute><Shipments /></ProtectedRoute>} />
+      <Route path="/awb" element={<Navigate to="/shipments" replace />} />
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/admin/suppliers" element={<AdminRoute><AdminSuppliers /></AdminRoute>} />
       <Route path="/admin/registrations" element={<AdminRoute><AdminRegistrations /></AdminRoute>} />
