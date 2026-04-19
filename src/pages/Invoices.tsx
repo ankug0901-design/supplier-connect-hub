@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Download, Search, Filter, Plus, FileText, Loader2 } from 'lucide-react';
+import { Eye, Download, Search, Filter, Plus, Paperclip, Loader2, CheckCircle2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,6 +61,24 @@ export default function Invoices() {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(amount);
+  };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const formatDate = (d: string) =>
+    d
+      ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : '-';
+
+  const getDueMeta = (dueDate?: string) => {
+    if (!dueDate) return { cls: 'text-muted-foreground', overdue: false, dueSoon: false };
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+    const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+    if (diffDays < 0) return { cls: 'text-destructive font-semibold', overdue: true, dueSoon: false };
+    if (diffDays <= 7) return { cls: 'text-warning font-medium', overdue: false, dueSoon: true };
+    return { cls: 'text-foreground', overdue: false, dueSoon: false };
   };
 
   if (!isAdmin && !supplier?.zoho_vendor_id) {
@@ -129,10 +147,16 @@ export default function Invoices() {
                       Date
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Due Date
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Amount
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Attachments
+                      Balance Due
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Attachment
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Status
@@ -143,76 +167,98 @@ export default function Invoices() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredInvoices.map((invoice: any, index: number) => (
-                    <tr
-                      key={invoice.id}
-                      className="transition-colors hover:bg-muted/50 animate-slide-up"
-                      style={{ animationDelay: `${index * 50}ms` }}
-                    >
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <span className="font-medium text-foreground">{invoice.invoiceNumber}</span>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                        <Link to={`/purchase-orders/${invoice.poId}`} className="hover:text-primary hover:underline">
-                          {invoice.poNumber}
-                        </Link>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                        {new Date(invoice.date).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
-                        {formatCurrency(Number(invoice.amount || 0))}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        {invoice.hasAttachment ? (
-                          <a
-                            href={invoice.viewUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
-                            title={invoice.attachmentName || 'View attachment in Zoho'}
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            <span className="max-w-[160px] truncate">
-                              {invoice.attachmentName || 'View attachment'}
+                  {filteredInvoices.map((invoice: any, index: number) => {
+                    const dueMeta = getDueMeta(invoice.dueDate);
+                    const balance = Number(invoice.balance ?? 0);
+                    return (
+                      <tr
+                        key={invoice.id}
+                        className="transition-colors hover:bg-muted/50 animate-slide-up"
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <span className="font-medium text-foreground">{invoice.invoiceNumber}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                          <Link to={`/purchase-orders/${invoice.poId}`} className="hover:text-primary hover:underline">
+                            {invoice.poNumber}
+                          </Link>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                          {formatDate(invoice.date)}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className={dueMeta.cls}>{formatDate(invoice.dueDate)}</span>
+                            {dueMeta.overdue && (
+                              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+                                Overdue
+                              </Badge>
+                            )}
+                            {dueMeta.dueSoon && (
+                              <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
+                                Due Soon
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
+                          {formatCurrency(Number(invoice.amount || 0))}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm">
+                          {balance > 0 ? (
+                            <span className="font-semibold text-destructive">{formatCurrency(balance)}</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-success">
+                              <CheckCircle2 className="h-4 w-4" />
+                              Settled
                             </span>
-                          </a>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                            <FileText className="h-4 w-4" />
-                            No file
-                          </span>
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <Badge variant="outline" className={cn('capitalize', statusStyles[invoice.status] || '')}>
-                          {invoice.status}
-                        </Badge>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {invoice.viewUrl && (
-                            <a href={invoice.viewUrl} target="_blank" rel="noopener noreferrer">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" title="View in Zoho">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </a>
                           )}
-                          {invoice.hasAttachment && (
-                            <a href={invoice.viewUrl} target="_blank" rel="noopener noreferrer">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Download attachment">
-                                <Download className="h-4 w-4" />
-                              </Button>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          {invoice.hasAttachment ? (
+                            <a
+                              href={invoice.viewUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-md bg-success/10 px-2.5 py-1 text-xs font-medium text-success transition-colors hover:bg-success/20"
+                              title={invoice.attachmentName || 'View attachment in Zoho'}
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                              <span className="max-w-[160px] truncate">
+                                {invoice.attachmentName || 'View attachment'}
+                              </span>
                             </a>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <Badge variant="outline" className={cn('capitalize', statusStyles[invoice.status] || '')}>
+                            {invoice.status}
+                          </Badge>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {invoice.viewUrl && (
+                              <a href={invoice.viewUrl} target="_blank" rel="noopener noreferrer">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" title="View in Zoho">
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </a>
+                            )}
+                            {invoice.hasAttachment && (
+                              <a href={invoice.viewUrl} target="_blank" rel="noopener noreferrer">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Download attachment">
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </a>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
