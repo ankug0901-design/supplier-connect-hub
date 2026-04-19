@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Upload, Search, Filter, Download } from 'lucide-react';
+import { Eye, Upload, Search, Filter, Download, Loader2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockPurchaseOrders } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchPurchaseOrders } from '@/services/api';
 import { cn } from '@/lib/utils';
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
   invoiced: 'bg-info/10 text-info border-info/20',
   partial: 'bg-accent/10 text-accent border-accent/20',
@@ -17,11 +18,36 @@ const statusStyles = {
 };
 
 export default function PurchaseOrders() {
+  const { supplier } = useAuth();
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const filteredOrders = mockPurchaseOrders.filter((order) => {
-    const matchesSearch = order.poNumber.toLowerCase().includes(searchQuery.toLowerCase());
+  useEffect(() => {
+    if (!supplier?.zoho_vendor_id) {
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchPurchaseOrders(supplier.zoho_vendor_id!);
+        if (!cancelled) setPurchaseOrders(data);
+      } catch (err) {
+        console.error('Failed to load purchase orders', err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supplier?.zoho_vendor_id]);
+
+  const filteredOrders = purchaseOrders.filter((order: any) => {
+    const matchesSearch = order.poNumber?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
