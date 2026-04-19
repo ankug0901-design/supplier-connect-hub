@@ -13,7 +13,17 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const defaultAuthContext: AuthContextType = {
+  isAuthenticated: false,
+  isAdmin: false,
+  isLoading: true,
+  user: null,
+  supplier: null,
+  login: async () => ({ error: 'Authentication is not ready yet.' }),
+  logout: async () => {},
+};
+
+const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -72,14 +82,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
     } catch (err) {
       console.warn('signOut error (ignored):', err);
     }
     setUser(null);
     setSupplier(null);
     setIsAdmin(false);
-    window.location.href = '/';
   };
 
   return (
@@ -98,7 +107,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
+  return useContext(AuthContext);
 }
