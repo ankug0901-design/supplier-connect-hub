@@ -73,4 +73,5 @@ export interface Supplier {
   company: string;
   gstNumber: string;
   address: string;
+  zoho_vendor_id?: string;
 }

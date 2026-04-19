@@ -21,8 +21,8 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
+      const { error } = await login(email, password);
+      if (!error) {
         toast({
           title: 'Welcome back!',
           description: 'You have successfully logged in.',
@@ -31,7 +31,7 @@ export default function Login() {
       } else {
         toast({
           title: 'Login failed',
-          description: 'Please check your credentials and try again.',
+          description: error,
           variant: 'destructive',
         });
       }
