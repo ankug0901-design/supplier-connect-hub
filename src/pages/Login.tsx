@@ -149,16 +149,23 @@ export default function Login() {
         uploadedPaths.push(path);
       }
 
-      // Insert supplier
-      const { error: supplierError } = await supabase.from('suppliers').insert({
-        user_id: userId,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        company: formData.company,
-        gst_number: formData.gstNumber,
-        address: '',
-      });
+      // Upsert supplier (the auth trigger may have already inserted a minimal row)
+      const { error: supplierError } = await supabase
+        .from('suppliers')
+        .upsert(
+          {
+            user_id: userId,
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            company: formData.company,
+            gst_number: formData.gstNumber,
+            address: '',
+            zoho_vendor_id: '',
+            role: 'supplier',
+          },
+          { onConflict: 'user_id' }
+        );
       if (supplierError) throw supplierError;
 
       // Insert registration
