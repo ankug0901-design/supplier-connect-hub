@@ -1,20 +1,58 @@
 import { useEffect, useState } from 'react';
-import { FileText, Receipt, CreditCard, Clock, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { FileText, Receipt, CreditCard, Clock, AlertCircle, Users, ClipboardList, Truck, Package } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentPOTable } from '@/components/dashboard/RecentPOTable';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { fetchPurchaseOrders, fetchInvoices, fetchPayments } from '@/services/api';
 
 export default function Dashboard() {
-  const { supplier } = useAuth();
+  const { supplier, isAdmin } = useAuth();
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [adminStats, setAdminStats] = useState({
+    suppliers: 0,
+    pendingRegs: 0,
+    challans: 0,
+    awbs: 0,
+  });
 
   useEffect(() => {
+    if (isAdmin) {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true);
+        try {
+          const [s, r, c, a] = await Promise.all([
+            supabase.from('suppliers').select('*', { count: 'exact', head: true }).eq('role', 'supplier'),
+            supabase.from('supplier_registrations').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+            supabase.from('delivery_challans').select('*', { count: 'exact', head: true }),
+            supabase.from('awb').select('*', { count: 'exact', head: true }),
+          ]);
+          if (cancelled) return;
+          setAdminStats({
+            suppliers: s.count ?? 0,
+            pendingRegs: r.count ?? 0,
+            challans: c.count ?? 0,
+            awbs: a.count ?? 0,
+          });
+        } catch (err) {
+          console.error('Failed to load admin stats', err);
+        } finally {
+          if (!cancelled) setIsLoading(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
     if (!supplier?.zoho_vendor_id) {
       setIsLoading(false);
       return;
@@ -41,7 +79,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id]);
+  }, [supplier?.zoho_vendor_id, isAdmin]);
 
   const pendingPOs = purchaseOrders.filter((po: any) => po.status === 'pending').length;
   const pendingInvoices = invoices.filter((inv: any) => inv.status === 'pending').length;
@@ -62,6 +100,78 @@ export default function Dashboard() {
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  // Admin view
+  if (isAdmin) {
+    if (isLoading) {
+      return (
+        <DashboardLayout title="Admin Dashboard" subtitle="Emboss Marketing — Admin Panel">
+          <div className="flex min-h-[60vh] items-center justify-center">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
+          </div>
+        </DashboardLayout>
+      );
+    }
+    return (
+      <DashboardLayout title="Admin Dashboard" subtitle="Emboss Marketing — Admin Panel">
+        <div className="space-y-6">
+          <div className="rounded-xl border bg-gradient-primary p-6 text-primary-foreground shadow-card">
+            <h2 className="text-2xl font-bold">Welcome, {supplier?.name || 'Ankur'}!</h2>
+            <p className="mt-1 text-primary-foreground/80">You are logged in as Emboss Marketing Admin.</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              title="Total Suppliers"
+              value={adminStats.suppliers}
+              subtitle="Active suppliers"
+              icon={<Users className="h-6 w-6" />}
+              variant="primary"
+            />
+            <StatCard
+              title="Pending Registrations"
+              value={adminStats.pendingRegs}
+              subtitle="Awaiting review"
+              icon={<ClipboardList className="h-6 w-6" />}
+              variant="warning"
+            />
+            <StatCard
+              title="Total Challans"
+              value={adminStats.challans}
+              subtitle="Generated"
+              icon={<Truck className="h-6 w-6" />}
+              variant="success"
+            />
+            <StatCard
+              title="Total AWBs"
+              value={adminStats.awbs}
+              subtitle="Created"
+              icon={<Package className="h-6 w-6" />}
+              variant="default"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Button asChild variant="default">
+              <Link to="/admin/suppliers">Manage Suppliers</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/admin/registrations">View Registrations</Link>
+            </Button>
+          </div>
+
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-primary" />
+              <p className="text-sm text-muted-foreground">
+                To view supplier-specific data (POs, invoices, payments), use the Admin panel to select a supplier.
+              </p>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!supplier?.zoho_vendor_id) {
     return (
