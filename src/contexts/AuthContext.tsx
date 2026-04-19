@@ -5,6 +5,7 @@ import { Supplier } from '@/types/supplier';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  isAdmin: boolean;
   isLoading: boolean;
   user: User | null;
   supplier: Supplier | null;
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [supplier, setSupplier] = useState<Supplier | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   async function fetchSupplierProfile(userId: string) {
@@ -36,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         address: data.address || '',
         zoho_vendor_id: data.zoho_vendor_id || '',
       });
+      setIsAdmin((data as any).role === 'admin');
     }
   }
 
@@ -53,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setTimeout(() => fetchSupplierProfile(session.user.id), 0);
         } else {
           setSupplier(null);
+          setIsAdmin(false);
         }
         setIsLoading(false);
       }
@@ -69,11 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await supabase.auth.signOut();
     setSupplier(null);
+    setIsAdmin(false);
   };
 
   return (
     <AuthContext.Provider value={{
       isAuthenticated: !!user,
+      isAdmin,
       isLoading,
       user,
       supplier,
