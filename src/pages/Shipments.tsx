@@ -87,11 +87,12 @@ export default function Shipments() {
   };
 
   const downloadTemplate = () => {
-    const ws = XLSX.utils.aoa_to_sheet([TEMPLATE_COLUMNS]);
-    ws['!cols'] = TEMPLATE_COLUMNS.map(() => ({ wch: 24 }));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Shipments');
-    XLSX.writeFile(wb, 'shipment-template.xlsx');
+    const link = document.createElement('a');
+    link.href = '/shipment-template.xlsx';
+    link.download = 'Shipment_creation_Template.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     toast({ title: 'Template downloaded', description: 'Fill in your shipments and upload the file.' });
   };
 
