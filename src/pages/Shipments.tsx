@@ -67,23 +67,32 @@ export default function Shipments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplier?.id]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const acceptFile = (file: File | undefined) => {
     if (!file) return;
-    if (!file.name.endsWith('.xlsx')) {
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
       toast({ title: 'Invalid file', description: 'Please upload an .xlsx file.', variant: 'destructive' });
       return;
     }
     setExcelFile(file);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    acceptFile(e.target.files?.[0]);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    acceptFile(e.dataTransfer.files?.[0]);
+  };
+
   const downloadTemplate = () => {
-    const link = document.createElement('a');
-    link.href = '/shipment-template.xlsx';
-    link.download = 'shipment-template.xlsx';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const ws = XLSX.utils.aoa_to_sheet([TEMPLATE_COLUMNS]);
+    ws['!cols'] = TEMPLATE_COLUMNS.map(() => ({ wch: 24 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Shipments');
+    XLSX.writeFile(wb, 'shipment-template.xlsx');
+    toast({ title: 'Template downloaded', description: 'Fill in your shipments and upload the file.' });
   };
 
   const handleCreate = async () => {
