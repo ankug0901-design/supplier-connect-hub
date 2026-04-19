@@ -71,9 +71,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('signOut error (ignored):', err);
+    }
+    setUser(null);
     setSupplier(null);
     setIsAdmin(false);
+    window.location.href = '/';
   };
 
   return (
