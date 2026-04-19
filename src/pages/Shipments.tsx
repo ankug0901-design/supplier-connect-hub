@@ -88,7 +88,7 @@ export default function Shipments() {
 
   const downloadTemplate = () => {
     const link = document.createElement('a');
-    link.href = '/shipment-template.xlsx';
+    link.href = `/shipment-template.xlsx?v=${Date.now()}`;
     link.download = 'Shipment_creation_Template.xlsx';
     document.body.appendChild(link);
     link.click();
