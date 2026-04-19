@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import embossLogo from '@/assets/emboss-logo.png';
 
 const supplierNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -83,16 +84,14 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar text-sidebar-foreground">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="flex h-full flex-col">
         {/* Logo */}
-        <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Package className="h-6 w-6 text-sidebar-primary-foreground" />
-          </div>
+        <div className="flex h-20 items-center gap-3 border-b border-sidebar-border px-6">
+          <img src={embossLogo} alt="Emboss Marketing" className="h-10 w-auto" />
           <div>
-            <h1 className="text-lg font-bold">Emboss</h1>
-            <p className="text-xs text-sidebar-foreground/70">Supplier Portal</p>
+            <h1 className="text-base font-bold leading-tight">Emboss</h1>
+            <p className="text-xs text-sidebar-foreground/60">Logistics Portal</p>
           </div>
         </div>
 

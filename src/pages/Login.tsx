@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, Mail, Lock, Eye, EyeOff, Upload, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
+import embossLogo from '@/assets/emboss-logo.png';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -199,12 +200,12 @@ export default function Login() {
       {/* Left Panel - Branding */}
       <div className="hidden w-1/2 bg-gradient-hero lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 backdrop-blur">
-            <Package className="h-7 w-7 text-white" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/95 p-2 shadow-lg backdrop-blur">
+            <img src={embossLogo} alt="Emboss Marketing" className="h-full w-auto" />
           </div>
           <div className="text-white">
             <h1 className="text-xl font-bold">Emboss Marketing</h1>
-            <p className="text-sm text-white/70">Supplier Portal</p>
+            <p className="text-sm text-white/80">Logistics Portal</p>
           </div>
         </div>
 
@@ -244,9 +245,7 @@ export default function Login() {
         <div className="w-full max-w-md space-y-6 animate-slide-up">
           <div className="text-center lg:text-left">
             <div className="mb-6 flex items-center justify-center gap-3 lg:hidden">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-                <Package className="h-7 w-7 text-primary-foreground" />
-              </div>
+              <img src={embossLogo} alt="Emboss Marketing" className="h-12 w-auto" />
               <span className="text-xl font-bold">Emboss Marketing</span>
             </div>
           </div>
