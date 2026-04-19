@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Upload, Search, Filter, Download } from 'lucide-react';
+import { Eye, Upload, Search, Filter, Download, Loader2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockPurchaseOrders } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchPurchaseOrders } from '@/services/api';
 import { cn } from '@/lib/utils';
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
   invoiced: 'bg-info/10 text-info border-info/20',
   partial: 'bg-accent/10 text-accent border-accent/20',
@@ -17,11 +18,36 @@ const statusStyles = {
 };
 
 export default function PurchaseOrders() {
+  const { supplier } = useAuth();
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const filteredOrders = mockPurchaseOrders.filter((order) => {
-    const matchesSearch = order.poNumber.toLowerCase().includes(searchQuery.toLowerCase());
+  useEffect(() => {
+    if (!supplier?.zoho_vendor_id) {
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchPurchaseOrders(supplier.zoho_vendor_id!);
+        if (!cancelled) setPurchaseOrders(data);
+      } catch (err) {
+        console.error('Failed to load purchase orders', err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supplier?.zoho_vendor_id]);
+
+  const filteredOrders = purchaseOrders.filter((order: any) => {
+    const matchesSearch = order.poNumber?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -70,97 +96,105 @@ export default function PurchaseOrders() {
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    PO Number
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Expected Delivery
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Amount
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Items
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredOrders.map((order, index) => (
-                  <tr
-                    key={order.id}
-                    className="transition-colors hover:bg-muted/50 animate-slide-up"
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="font-medium text-foreground">{order.poNumber}</span>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                      {new Date(order.date).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                      {new Date(order.expectedDelivery).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
-                      {formatCurrency(order.amount)}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                      {order.items.length} items
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <Badge variant="outline" className={cn('capitalize', statusStyles[order.status])}>
-                        {order.status}
-                      </Badge>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link to={`/purchase-orders/${order.id}`}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        {order.status === 'pending' && (
-                          <Link to={`/invoices/upload?po=${order.id}`}>
-                            <Button variant="accent" size="sm" className="gap-1">
-                              <Upload className="h-3 w-3" />
-                              Upload Invoice
+        {isLoading ? (
+          <div className="flex min-h-[40vh] items-center justify-center rounded-xl border border-border bg-card">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      PO Number
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Date
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Expected Delivery
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Amount
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Items
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredOrders.map((order: any, index: number) => (
+                    <tr
+                      key={order.id}
+                      className="transition-colors hover:bg-muted/50 animate-slide-up"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <span className="font-medium text-foreground">{order.poNumber}</span>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                        {new Date(order.date).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                        {order.expectedDelivery
+                          ? new Date(order.expectedDelivery).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                          : '—'}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
+                        {formatCurrency(Number(order.amount || 0))}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                        {order.items?.length ?? 0} items
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <Badge variant="outline" className={cn('capitalize', statusStyles[order.status] || '')}>
+                          {order.status}
+                        </Badge>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link to={`/purchase-orders/${order.id}`}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Eye className="h-4 w-4" />
                             </Button>
                           </Link>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {filteredOrders.length === 0 && (
-            <div className="py-12 text-center text-muted-foreground">
-              No purchase orders found matching your criteria.
+                          {order.status === 'pending' && (
+                            <Link to={`/invoices/upload?po=${order.id}`}>
+                              <Button variant="accent" size="sm" className="gap-1">
+                                <Upload className="h-3 w-3" />
+                                Upload Invoice
+                              </Button>
+                            </Link>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+            {filteredOrders.length === 0 && (
+              <div className="py-12 text-center text-muted-foreground">
+                No purchase orders found matching your criteria.
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
