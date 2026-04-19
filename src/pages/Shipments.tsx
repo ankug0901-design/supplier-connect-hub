@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Download, Truck, Upload, Loader2, FileSpreadsheet, Package, CheckCircle, AlertCircle,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ export default function Shipments() {
   const { toast } = useToast();
   const { supplier, isAdmin } = useAuth();
   const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [creating, setCreating] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const [awbs, setAWBs] = useState<any[]>([]);
@@ -65,23 +67,32 @@ export default function Shipments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplier?.id]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const acceptFile = (file: File | undefined) => {
     if (!file) return;
-    if (!file.name.endsWith('.xlsx')) {
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
       toast({ title: 'Invalid file', description: 'Please upload an .xlsx file.', variant: 'destructive' });
       return;
     }
     setExcelFile(file);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    acceptFile(e.target.files?.[0]);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    acceptFile(e.dataTransfer.files?.[0]);
+  };
+
   const downloadTemplate = () => {
-    const link = document.createElement('a');
-    link.href = '/shipment-template.xlsx';
-    link.download = 'shipment-template.xlsx';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const ws = XLSX.utils.aoa_to_sheet([TEMPLATE_COLUMNS]);
+    ws['!cols'] = TEMPLATE_COLUMNS.map(() => ({ wch: 24 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Shipments');
+    XLSX.writeFile(wb, 'shipment-template.xlsx');
+    toast({ title: 'Template downloaded', description: 'Fill in your shipments and upload the file.' });
   };
 
   const handleCreate = async () => {
@@ -185,7 +196,17 @@ export default function Shipments() {
                 <h3 className="font-medium text-foreground">Upload Filled Template</h3>
                 <p className="text-xs text-muted-foreground">Only .xlsx files are accepted</p>
               </div>
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 p-8 transition-colors hover:border-primary hover:bg-muted/50">
+              <label
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                className={cn(
+                  'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors',
+                  isDragging
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border bg-muted/30 hover:border-primary hover:bg-muted/50'
+                )}
+              >
                 <FileSpreadsheet className="mb-2 h-10 w-10 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">
                   {excelFile ? excelFile.name : 'Click to upload .xlsx'}
