@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPurchaseOrders, submitInvoice } from '@/services/api';
+import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
 
 type LineItem = { item_name: string; quantity: number; rate: number };
@@ -87,7 +88,7 @@ export default function InvoiceUpload() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { supplier } = useAuth();
+  const { supplier, isAdmin } = useAuth();
   const preselectedPO = searchParams.get('po');
 
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);

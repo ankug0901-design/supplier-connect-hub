@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPayments } from '@/services/api';
+import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
 const statusStyles: Record<string, string> = {
@@ -22,7 +23,7 @@ const statusIcons: Record<string, any> = {
 };
 
 export default function Payments() {
-  const { supplier } = useAuth();
+  const { supplier, isAdmin } = useAuth();
   const [payments, setPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,6 +74,14 @@ export default function Payments() {
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  if (!isAdmin && !supplier?.zoho_vendor_id) {
+    return (
+      <DashboardLayout title="Payments" subtitle="Track your payment status and history">
+        <AccountSetupBanner />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Payments" subtitle="Track your payment status and history">

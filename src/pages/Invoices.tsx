@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchInvoices } from '@/services/api';
+import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
 const statusStyles: Record<string, string> = {
@@ -18,7 +19,7 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function Invoices() {
-  const { supplier } = useAuth();
+  const { supplier, isAdmin } = useAuth();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +62,14 @@ export default function Invoices() {
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  if (!isAdmin && !supplier?.zoho_vendor_id) {
+    return (
+      <DashboardLayout title="Invoices" subtitle="Manage your submitted invoices">
+        <AccountSetupBanner />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Invoices" subtitle="Manage your submitted invoices">
