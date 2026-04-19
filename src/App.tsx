@@ -13,6 +13,9 @@ import InvoiceUpload from "./pages/InvoiceUpload";
 import Payments from "./pages/Payments";
 import DeliveryChallan from "./pages/DeliveryChallan";
 import AWBDownload from "./pages/AWBDownload";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminSuppliers from "./pages/admin/AdminSuppliers";
+import AdminRegistrations from "./pages/admin/AdminRegistrations";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
