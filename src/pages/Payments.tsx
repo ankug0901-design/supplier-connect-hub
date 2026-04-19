@@ -1,44 +1,70 @@
-import { useState } from 'react';
-import { Download, Search, Filter, CreditCard, Clock, CheckCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Download, Search, Filter, CreditCard, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockPayments } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchPayments } from '@/services/api';
 import { cn } from '@/lib/utils';
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
   processing: 'bg-info/10 text-info border-info/20',
   completed: 'bg-success/10 text-success border-success/20',
 };
 
-const statusIcons = {
+const statusIcons: Record<string, any> = {
   pending: Clock,
   processing: CreditCard,
   completed: CheckCircle,
 };
 
 export default function Payments() {
+  const { supplier } = useAuth();
+  const [payments, setPayments] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const filteredPayments = mockPayments.filter((payment) => {
+  useEffect(() => {
+    if (!supplier?.zoho_vendor_id) {
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchPayments(supplier.zoho_vendor_id!);
+        if (!cancelled) setPayments(data);
+      } catch (err) {
+        console.error('Failed to load payments', err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supplier?.zoho_vendor_id]);
+
+  const filteredPayments = payments.filter((payment: any) => {
     const matchesSearch =
-      payment.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      payment.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (payment.transactionId && payment.transactionId.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const totalReceived = mockPayments
-    .filter((p) => p.status === 'completed')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const totalReceived = payments
+    .filter((p: any) => p.status === 'completed')
+    .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
 
-  const totalPending = mockPayments
-    .filter((p) => p.status !== 'completed')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const totalPending = payments
+    .filter((p: any) => p.status !== 'completed')
+    .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
