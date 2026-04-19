@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Download, Truck, Upload, Loader2, FileSpreadsheet, Package, CheckCircle, AlertCircle,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ export default function Shipments() {
   const { toast } = useToast();
   const { supplier, isAdmin } = useAuth();
   const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [creating, setCreating] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const [awbs, setAWBs] = useState<any[]>([]);
