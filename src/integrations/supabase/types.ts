@@ -21,6 +21,8 @@ export type Database = {
           created_at: string
           id: string
           is_downloadable: boolean
+          label_url: string | null
+          lr_number: string | null
           po_id: string
           status: string
           supplier_id: string
@@ -32,6 +34,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_downloadable?: boolean
+          label_url?: string | null
+          lr_number?: string | null
           po_id: string
           status?: string
           supplier_id: string
@@ -43,6 +47,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_downloadable?: boolean
+          label_url?: string | null
+          lr_number?: string | null
           po_id?: string
           status?: string
           supplier_id?: string
@@ -102,9 +108,12 @@ export type Database = {
           challan_number: string
           created_at: string
           date: string
+          dc_number: string | null
           delivery_address: string | null
           driver_name: string | null
           id: string
+          logistics_scope: string | null
+          manifest_status: string | null
           po_id: string
           supplier_id: string
           vehicle_number: string | null
@@ -113,9 +122,12 @@ export type Database = {
           challan_number: string
           created_at?: string
           date?: string
+          dc_number?: string | null
           delivery_address?: string | null
           driver_name?: string | null
           id?: string
+          logistics_scope?: string | null
+          manifest_status?: string | null
           po_id: string
           supplier_id: string
           vehicle_number?: string | null
@@ -124,9 +136,12 @@ export type Database = {
           challan_number?: string
           created_at?: string
           date?: string
+          dc_number?: string | null
           delivery_address?: string | null
           driver_name?: string | null
           id?: string
+          logistics_scope?: string | null
+          manifest_status?: string | null
           po_id?: string
           supplier_id?: string
           vehicle_number?: string | null
@@ -340,6 +355,7 @@ export type Database = {
           phone: string | null
           updated_at: string
           user_id: string
+          zoho_vendor_id: string | null
         }
         Insert: {
           address?: string | null
@@ -352,6 +368,7 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           user_id: string
+          zoho_vendor_id?: string | null
         }
         Update: {
           address?: string | null
@@ -364,6 +381,7 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           user_id?: string
+          zoho_vendor_id?: string | null
         }
         Relationships: []
       }
