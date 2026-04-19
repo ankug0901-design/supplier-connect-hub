@@ -82,14 +82,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
     } catch (err) {
       console.warn('signOut error (ignored):', err);
     }
     setUser(null);
     setSupplier(null);
     setIsAdmin(false);
-    window.location.href = '/';
   };
 
   return (
