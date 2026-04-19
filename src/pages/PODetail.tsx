@@ -1,12 +1,14 @@
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, MapPin, Calendar } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, MapPin, Calendar, Loader2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockPurchaseOrders } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchPurchaseOrders } from '@/services/api';
 import { cn } from '@/lib/utils';
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
   invoiced: 'bg-info/10 text-info border-info/20',
   partial: 'bg-accent/10 text-accent border-accent/20',
@@ -15,7 +17,44 @@ const statusStyles = {
 
 export default function PODetail() {
   const { id } = useParams();
-  const order = mockPurchaseOrders.find((po) => po.id === id);
+  const { supplier } = useAuth();
+  const [order, setOrder] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!supplier?.zoho_vendor_id) {
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchPurchaseOrders(supplier.zoho_vendor_id!);
+        if (!cancelled) {
+          const found = data.find((po: any) => po.id === id) || null;
+          setOrder(found);
+        }
+      } catch (err) {
+        console.error('Failed to load purchase order', err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supplier?.zoho_vendor_id, id]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Purchase Order">
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!order) {
     return (
