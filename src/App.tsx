@@ -38,12 +38,39 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      </div>
+    );
+  }
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin, isLoading } = useAuth();
 
   return (
     <Routes>
-      <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route
+        path="/"
+        element={
+          isLoading ? (
+            <div className="flex h-screen items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : isAuthenticated ? (
+            <Navigate to={isAdmin ? "/admin" : "/dashboard"} replace />
+          ) : (
+            <Login />
+          )
+        }
+      />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
       <Route path="/purchase-orders/:id" element={<ProtectedRoute><PODetail /></ProtectedRoute>} />
@@ -52,6 +79,9 @@ function AppRoutes() {
       <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
       <Route path="/delivery-challan" element={<ProtectedRoute><DeliveryChallan /></ProtectedRoute>} />
       <Route path="/awb" element={<ProtectedRoute><AWBDownload /></ProtectedRoute>} />
+      <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+      <Route path="/admin/suppliers" element={<AdminRoute><AdminSuppliers /></AdminRoute>} />
+      <Route path="/admin/registrations" element={<AdminRoute><AdminRegistrations /></AdminRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
