@@ -1,0 +1,1 @@
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'supplier';

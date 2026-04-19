@@ -410,6 +410,7 @@ export type Database = {
           id: string
           name: string
           phone: string | null
+          role: string | null
           updated_at: string
           user_id: string
           zoho_vendor_id: string | null
@@ -423,6 +424,7 @@ export type Database = {
           id?: string
           name: string
           phone?: string | null
+          role?: string | null
           updated_at?: string
           user_id: string
           zoho_vendor_id?: string | null
@@ -436,6 +438,7 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+          role?: string | null
           updated_at?: string
           user_id?: string
           zoho_vendor_id?: string | null
@@ -447,7 +450,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
