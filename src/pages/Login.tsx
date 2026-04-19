@@ -19,28 +19,16 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
       const { error } = await login(email, password);
       if (!error) {
-        toast({
-          title: 'Welcome back!',
-          description: 'You have successfully logged in.',
-        });
+        toast({ title: 'Welcome back!', description: 'Successfully logged in.' });
         navigate('/dashboard');
       } else {
-        toast({
-          title: 'Login failed',
-          description: error,
-          variant: 'destructive',
-        });
+        toast({ title: 'Login failed', description: error, variant: 'destructive' });
       }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred.',
-        variant: 'destructive',
-      });
+    } catch {
+      toast({ title: 'Error', description: 'Something went wrong.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
