@@ -13,6 +13,7 @@ import {
   saveChallansToSupabase,
   fetchChallans,
 } from '@/services/api';
+import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +21,7 @@ type GeneratedChallan = { dc_number: string; deliver_to: string; total: string }
 
 export default function DeliveryChallan() {
   const { toast } = useToast();
-  const { supplier } = useAuth();
+  const { supplier, isAdmin } = useAuth();
   const [selectedPO, setSelectedPO] = useState('');
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -83,6 +84,14 @@ export default function DeliveryChallan() {
       description: 'Excel template has been downloaded.',
     });
   };
+
+  if (!isAdmin && !supplier?.zoho_vendor_id) {
+    return (
+      <DashboardLayout title="Delivery Challan" subtitle="Generate delivery challans for multiple shipments">
+        <AccountSetupBanner />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Delivery Challan" subtitle="Generate delivery challans for multiple shipments">

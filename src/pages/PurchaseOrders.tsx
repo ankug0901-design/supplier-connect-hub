@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPurchaseOrders } from '@/services/api';
+import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
 const statusStyles: Record<string, string> = {
@@ -18,7 +19,7 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function PurchaseOrders() {
-  const { supplier } = useAuth();
+  const { supplier, isAdmin } = useAuth();
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +60,14 @@ export default function PurchaseOrders() {
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  if (!isAdmin && !supplier?.zoho_vendor_id) {
+    return (
+      <DashboardLayout title="Purchase Orders" subtitle="View and manage all your purchase orders">
+        <AccountSetupBanner />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Purchase Orders" subtitle="View and manage all your purchase orders">

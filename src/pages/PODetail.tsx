@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPurchaseOrders } from '@/services/api';
+import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
 const statusStyles: Record<string, string> = {
@@ -17,7 +18,7 @@ const statusStyles: Record<string, string> = {
 
 export default function PODetail() {
   const { id } = useParams();
-  const { supplier } = useAuth();
+  const { supplier, isAdmin } = useAuth();
   const [order, setOrder] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -45,6 +46,14 @@ export default function PODetail() {
       cancelled = true;
     };
   }, [supplier?.zoho_vendor_id, id]);
+
+  if (!isAdmin && !supplier?.zoho_vendor_id) {
+    return (
+      <DashboardLayout title="Purchase Order">
+        <AccountSetupBanner />
+      </DashboardLayout>
+    );
+  }
 
   if (isLoading) {
     return (
