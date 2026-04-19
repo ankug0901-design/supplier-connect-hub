@@ -170,6 +170,14 @@ export default function InvoiceUpload() {
     }
   };
 
+  if (!isAdmin && !supplier?.zoho_vendor_id) {
+    return (
+      <DashboardLayout title="Upload Invoice" subtitle="Submit invoice against a purchase order">
+        <AccountSetupBanner />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout title="Upload Invoice" subtitle="Submit invoice against a purchase order">
       <div className="mx-auto max-w-3xl">
