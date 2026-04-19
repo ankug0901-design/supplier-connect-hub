@@ -13,7 +13,17 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const defaultAuthContext: AuthContextType = {
+  isAuthenticated: false,
+  isAdmin: false,
+  isLoading: true,
+  user: null,
+  supplier: null,
+  login: async () => ({ error: 'Authentication is not ready yet.' }),
+  logout: async () => {},
+};
+
+const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
