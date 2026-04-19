@@ -95,6 +95,48 @@ export async function saveChallansToSupabase(
   if (error) throw error;
 }
 
+export async function manifestShipment(payload: {
+  challan_number: string;
+  consignee_name: string;
+  consignee_address: string;
+  consignee_city: string;
+  consignee_state: string;
+  consignee_phone: string;
+  destination_pin: string;
+  weight_g: number;
+  num_pieces: number;
+  invoice_value: number;
+}) {
+  const res = await fetch(`${N8N_BASE}/delhivery-b2b-master`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      operation_mode: 'single_order',
+      check_manifestation: true,
+      check_labels: true,
+      check_pickup: true,
+      origin_pin: '122001',
+      destination_pin: payload.destination_pin,
+      consignee_name: payload.consignee_name,
+      consignee_address: payload.consignee_address,
+      consignee_city: payload.consignee_city,
+      consignee_state: payload.consignee_state,
+      consignee_phone: payload.consignee_phone,
+      weight_g: payload.weight_g,
+      num_pieces: payload.num_pieces,
+      invoice_num: payload.challan_number,
+      order_id: payload.challan_number,
+      description: 'Marketing Materials',
+      payment_mode: 'prepaid',
+      invoice_value: payload.invoice_value,
+      need_pickup: 'Y',
+    }),
+  });
+  const data = await res.json();
+  if (!data.success && !data.lrn) throw new Error(data.error || 'Manifest failed');
+  return data;
+}
+
 export async function fetchChallans(supplierId: string) {
   const { data, error } = await supabase
     .from('delivery_challans')
