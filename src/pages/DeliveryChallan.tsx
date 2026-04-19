@@ -85,6 +85,14 @@ export default function DeliveryChallan() {
     });
   };
 
+  if (!isAdmin && !supplier?.zoho_vendor_id) {
+    return (
+      <DashboardLayout title="Delivery Challan" subtitle="Generate delivery challans for multiple shipments">
+        <AccountSetupBanner />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout title="Delivery Challan" subtitle="Generate delivery challans for multiple shipments">
       <div className="grid gap-6 lg:grid-cols-2">
