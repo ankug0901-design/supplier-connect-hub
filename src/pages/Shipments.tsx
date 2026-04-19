@@ -167,7 +167,7 @@ export default function Shipments() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* Template + columns */}
+            {/* Template */}
             <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -180,13 +180,6 @@ export default function Shipments() {
                   <Download className="h-4 w-4" />
                   Download
                 </Button>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {TEMPLATE_COLUMNS.map((c) => (
-                  <code key={c} className="rounded bg-card px-1.5 py-0.5 text-[11px] font-mono text-foreground border border-border">
-                    {c}
-                  </code>
-                ))}
               </div>
             </div>
 
