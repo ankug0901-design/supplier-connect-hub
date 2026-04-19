@@ -1,44 +1,70 @@
-import { useState } from 'react';
-import { Download, Search, Filter, CreditCard, Clock, CheckCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Download, Search, Filter, CreditCard, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockPayments } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchPayments } from '@/services/api';
 import { cn } from '@/lib/utils';
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
   processing: 'bg-info/10 text-info border-info/20',
   completed: 'bg-success/10 text-success border-success/20',
 };
 
-const statusIcons = {
+const statusIcons: Record<string, any> = {
   pending: Clock,
   processing: CreditCard,
   completed: CheckCircle,
 };
 
 export default function Payments() {
+  const { supplier } = useAuth();
+  const [payments, setPayments] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const filteredPayments = mockPayments.filter((payment) => {
+  useEffect(() => {
+    if (!supplier?.zoho_vendor_id) {
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchPayments(supplier.zoho_vendor_id!);
+        if (!cancelled) setPayments(data);
+      } catch (err) {
+        console.error('Failed to load payments', err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supplier?.zoho_vendor_id]);
+
+  const filteredPayments = payments.filter((payment: any) => {
     const matchesSearch =
-      payment.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      payment.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (payment.transactionId && payment.transactionId.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const totalReceived = mockPayments
-    .filter((p) => p.status === 'completed')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const totalReceived = payments
+    .filter((p: any) => p.status === 'completed')
+    .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
 
-  const totalPending = mockPayments
-    .filter((p) => p.status !== 'completed')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const totalPending = payments
+    .filter((p: any) => p.status !== 'completed')
+    .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -82,7 +108,7 @@ export default function Payments() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Transactions</p>
-                <p className="text-2xl font-bold">{mockPayments.length}</p>
+                <p className="text-2xl font-bold">{payments.length}</p>
               </div>
             </div>
           </div>
@@ -120,82 +146,88 @@ export default function Payments() {
         </div>
 
         {/* Payments Table */}
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Invoice
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Amount
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Transaction ID
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredPayments.map((payment, index) => {
-                  const StatusIcon = statusIcons[payment.status];
-                  return (
-                    <tr
-                      key={payment.id}
-                      className="transition-colors hover:bg-muted/50 animate-slide-up"
-                      style={{ animationDelay: `${index * 50}ms` }}
-                    >
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <span className="font-medium text-foreground">{payment.invoiceNumber}</span>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                        {new Date(payment.date).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
-                        {formatCurrency(payment.amount)}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                        {payment.transactionId || '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <Badge variant="outline" className={cn('capitalize gap-1', statusStyles[payment.status])}>
-                          <StatusIcon className="h-3 w-3" />
-                          {payment.status}
-                        </Badge>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-right">
-                        {payment.status === 'completed' && (
-                          <Button variant="ghost" size="sm" className="gap-1">
-                            <Download className="h-3 w-3" />
-                            Receipt
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {isLoading ? (
+          <div className="flex min-h-[40vh] items-center justify-center rounded-xl border border-border bg-card">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
-          {filteredPayments.length === 0 && (
-            <div className="py-12 text-center text-muted-foreground">
-              No payments found matching your criteria.
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Invoice
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Date
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Amount
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Transaction ID
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredPayments.map((payment: any, index: number) => {
+                    const StatusIcon = statusIcons[payment.status] || Clock;
+                    return (
+                      <tr
+                        key={payment.id}
+                        className="transition-colors hover:bg-muted/50 animate-slide-up"
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <span className="font-medium text-foreground">{payment.invoiceNumber}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                          {new Date(payment.date).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
+                          {formatCurrency(Number(payment.amount || 0))}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                          {payment.transactionId || '-'}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <Badge variant="outline" className={cn('capitalize gap-1', statusStyles[payment.status] || '')}>
+                            <StatusIcon className="h-3 w-3" />
+                            {payment.status}
+                          </Badge>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-right">
+                          {payment.status === 'completed' && (
+                            <Button variant="ghost" size="sm" className="gap-1">
+                              <Download className="h-3 w-3" />
+                              Receipt
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+            {filteredPayments.length === 0 && (
+              <div className="py-12 text-center text-muted-foreground">
+                No payments found matching your criteria.
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
