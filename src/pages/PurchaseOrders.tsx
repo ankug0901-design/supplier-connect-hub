@@ -195,6 +195,20 @@ export default function PurchaseOrders() {
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDownloadPO(order.id)}
+                            disabled={downloadingId === order.id}
+                            title="Download PO"
+                          >
+                            {downloadingId === order.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
                           <Link to={`/purchase-orders/${order.id}`}>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
                               <Eye className="h-4 w-4" />
