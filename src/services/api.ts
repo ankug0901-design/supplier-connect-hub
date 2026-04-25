@@ -18,6 +18,34 @@ export async function fetchPurchaseOrders(zohoVendorId: string) {
   return data.purchaseOrders || [];
 }
 
+export async function downloadPurchaseOrder(zohoVendorId: string, poId: string) {
+  const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      access_code: ACCESS_CODE,
+      operation: 'download_po',
+      vendor_id: zohoVendorId,
+      po_id: poId,
+    }),
+  });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const data = await res.json();
+  if (!data.success || !data.pdf_base64) {
+    throw new Error(data.error || 'Failed to download PO');
+  }
+  const bytes = Uint8Array.from(atob(data.pdf_base64), (c) => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = data.filename || `PO_${poId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export async function fetchInvoices(zohoVendorId: string) {
   const data = await zohoProxy('get_bills', zohoVendorId);
   return data.invoices || [];

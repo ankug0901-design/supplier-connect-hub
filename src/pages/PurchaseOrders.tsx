@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, Upload, Search, Filter, Download, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders } from '@/services/api';
+import { fetchPurchaseOrders, downloadPurchaseOrder } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +25,23 @@ export default function PurchaseOrders() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownloadPO = async (poId: string) => {
+    if (!supplier?.zoho_vendor_id) {
+      toast.error('Vendor ID not found on your profile.');
+      return;
+    }
+    setDownloadingId(poId);
+    try {
+      await downloadPurchaseOrder(supplier.zoho_vendor_id, poId);
+    } catch (err: any) {
+      console.error('Download PO failed', err);
+      toast.error(err?.message || 'Failed to download purchase order.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!supplier?.zoho_vendor_id) {
@@ -177,6 +195,20 @@ export default function PurchaseOrders() {
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDownloadPO(order.id)}
+                            disabled={downloadingId === order.id}
+                            title="Download PO"
+                          >
+                            {downloadingId === order.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
                           <Link to={`/purchase-orders/${order.id}`}>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
                               <Eye className="h-4 w-4" />
