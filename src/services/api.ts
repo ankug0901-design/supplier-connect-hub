@@ -32,19 +32,28 @@ export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, 
   });
   if (!res.ok) throw new Error(`Download failed (${res.status})`);
   const data = await res.json();
-  const { success, pdf_base64, filename, error } = data;
-  if (!success || !pdf_base64) {
-    throw new Error(error || 'Could not fetch PDF');
+  if (!data.success || !data.pdf_base64) {
+    throw new Error(data.error || 'Could not fetch PDF');
   }
-  const bytes = Uint8Array.from(atob(pdf_base64), (c) => c.charCodeAt(0));
-  const blob = new Blob([bytes], { type: 'application/pdf' });
+
+  const byteCharacters = Uint8Array.from(atob(data.pdf_base64), c => c.charCodeAt(0));
+
+  const blob = new Blob([byteCharacters], { type: 'application/pdf' });
+
   const url = URL.createObjectURL(blob);
+
   const a = document.createElement('a');
+
   a.href = url;
-  a.download = filename || `PO_${poNumber || poId}.pdf`;
+
+  a.download = data.filename || `PO_${poNumber || poId}.pdf`;
+
   document.body.appendChild(a);
+
   a.click();
+
   document.body.removeChild(a);
+
   URL.revokeObjectURL(url);
 }
 
