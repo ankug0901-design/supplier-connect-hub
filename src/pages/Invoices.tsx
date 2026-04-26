@@ -389,11 +389,25 @@ export default function Invoices() {
               </div>
             )}
             {attachment && (
-              <iframe
-                src={attachment.url}
-                title={attachment.filename}
-                className="h-full w-full border-0"
-              />
+              <object
+                data={attachment.url}
+                type="application/pdf"
+                width="100%"
+                height="100%"
+                style={{ minHeight: '500px' }}
+              >
+                <embed src={attachment.url} type="application/pdf" width="100%" height="100%" />
+                <p className="p-8 text-center text-sm text-muted-foreground">
+                  PDF preview not available in this browser.{' '}
+                  <a
+                    href={attachment.url}
+                    download={attachment.filename}
+                    className="font-medium text-success hover:underline"
+                  >
+                    Click here to download
+                  </a>
+                </p>
+              </object>
             )}
           </div>
 
