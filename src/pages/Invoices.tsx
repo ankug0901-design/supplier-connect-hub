@@ -313,6 +313,12 @@ export default function Invoices() {
                   <p className="text-xs text-muted-foreground">Days Info</p>
                   <p className="font-medium">{selectedInvoice.daysInfo || '—'}</p>
                 </div>
+                {selectedInvoice.paymentDate && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Payment Date</p>
+                    <p className="font-medium">{formatDate(selectedInvoice.paymentDate)}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
