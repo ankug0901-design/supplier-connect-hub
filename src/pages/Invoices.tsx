@@ -162,7 +162,6 @@ export default function Invoices() {
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Amount</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Balance Due</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Attachment</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">POD Copy</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
                     <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
                   </tr>
