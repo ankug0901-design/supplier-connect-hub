@@ -43,7 +43,6 @@ export default function Invoices() {
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   const closeAttachment = () => {
-    if (attachment?.url) URL.revokeObjectURL(attachment.url);
     setAttachment(null);
     setAttachmentInvoice(null);
     setAttachmentError(null);
@@ -70,19 +69,10 @@ export default function Invoices() {
         description: message,
         variant: 'destructive',
       });
+      setAttachmentInvoice(null);
     } finally {
       setDownloadingId(null);
     }
-  };
-
-  const handleDownloadAttachment = () => {
-    if (!attachment) return;
-    const a = document.createElement('a');
-    a.href = attachment.url;
-    a.download = attachment.filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
   };
 
   useEffect(() => {
