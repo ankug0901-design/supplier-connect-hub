@@ -57,7 +57,11 @@ export function PdfViewer({ base64Data, filename, title = 'Document', onClose }:
     (async () => {
       try {
         const pdfjsLib = await loadPdfJs();
-        const binary = atob(base64Data);
+        // Ensure worker is configured before any getDocument call
+        pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+        // CRITICAL: strip all whitespace before atob — base64 from API may have newlines
+        const cleanBase64 = base64Data.replace(/\s/g, '');
+        const binary = atob(cleanBase64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
@@ -67,6 +71,7 @@ export function PdfViewer({ base64Data, filename, title = 'Document', onClose }:
         setLoading(false);
       } catch (e: any) {
         if (cancelled) return;
+        console.error('PDF load error:', e);
         setError(e?.message || 'Failed to render PDF');
         setLoading(false);
       }
@@ -100,7 +105,8 @@ export function PdfViewer({ base64Data, filename, title = 'Document', onClose }:
   }, [pdfDoc, currentPage]);
 
   const handleDownload = () => {
-    const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const cleanBase64 = base64Data.replace(/\s/g, '');
+    const bytes = Uint8Array.from(atob(cleanBase64), (c) => c.charCodeAt(0));
     const blob = new Blob([bytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -109,7 +115,7 @@ export function PdfViewer({ base64Data, filename, title = 'Document', onClose }:
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
   return (
