@@ -14,8 +14,13 @@ import { cn } from '@/lib/utils';
 
 const statusStyles: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
-  invoiced: 'bg-info/10 text-info border-info/20',
   partial: 'bg-accent/10 text-accent border-accent/20',
+  rejected: 'bg-destructive text-destructive-foreground border-destructive',
+  cancelled: 'bg-muted text-muted-foreground border-muted',
+  on_hold: 'bg-warning text-warning-foreground border-warning',
+  invoiced: 'bg-success text-success-foreground border-success',
+  draft: 'bg-secondary text-secondary-foreground border-secondary',
+  closed: 'bg-foreground text-background border-foreground',
   completed: 'bg-success/10 text-success border-success/20',
 };
 
