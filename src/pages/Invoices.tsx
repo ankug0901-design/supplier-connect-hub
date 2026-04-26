@@ -218,27 +218,21 @@ export default function Invoices() {
                           {invoice.hasAttachment ? (
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1.5 px-2 text-success hover:bg-success/10 hover:text-success"
+                              size="icon"
+                              className="h-8 w-8 text-success hover:bg-success/10 hover:text-success"
                               title={invoice.attachmentName || 'View attachment'}
-                              onClick={() => {
-                                if (invoice.viewUrl) window.open(invoice.viewUrl, '_blank');
-                              }}
+                              disabled={downloadingId === invoice.id}
+                              onClick={() => handleViewAttachment(invoice)}
                             >
-                              <Eye className="h-3.5 w-3.5" />
-                              <span className="max-w-[120px] truncate text-xs">
-                                {invoice.attachmentName || 'View'}
-                              </span>
+                              {downloadingId === invoice.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
                             </Button>
                           ) : (
                             <span className="text-sm text-muted-foreground">—</span>
                           )}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled>
-                            <Upload className="h-3.5 w-3.5" />
-                            Upload
-                          </Button>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
                           <Badge variant="outline" className={cn('capitalize', cfg.className)}>
