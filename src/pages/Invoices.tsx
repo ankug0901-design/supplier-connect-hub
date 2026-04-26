@@ -30,11 +30,29 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 export default function Invoices() {
   const { supplier, isAdmin } = useAuth();
+  const { toast } = useToast();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleViewAttachment = async (invoice: any) => {
+    if (!supplier?.zoho_vendor_id) return;
+    setDownloadingId(invoice.id);
+    try {
+      await downloadBillAttachment(supplier.zoho_vendor_id, invoice.id, invoice.invoiceNumber);
+    } catch (err: any) {
+      toast({
+        title: 'Could not open attachment',
+        description: err?.message || 'Failed to fetch attachment',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!supplier?.zoho_vendor_id) {
