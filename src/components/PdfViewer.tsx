@@ -105,7 +105,8 @@ export function PdfViewer({ base64Data, filename, title = 'Document', onClose }:
   }, [pdfDoc, currentPage]);
 
   const handleDownload = () => {
-    const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const cleanBase64 = base64Data.replace(/\s/g, '');
+    const bytes = Uint8Array.from(atob(cleanBase64), (c) => c.charCodeAt(0));
     const blob = new Blob([bytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -114,7 +115,7 @@ export function PdfViewer({ base64Data, filename, title = 'Document', onClose }:
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
   return (
