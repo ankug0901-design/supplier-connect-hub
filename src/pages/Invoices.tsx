@@ -37,21 +37,51 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<BillAttachment | null>(null);
+  const [attachmentInvoice, setAttachmentInvoice] = useState<any | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+
+  const closeAttachment = () => {
+    if (attachment?.url) URL.revokeObjectURL(attachment.url);
+    setAttachment(null);
+    setAttachmentInvoice(null);
+    setAttachmentError(null);
+  };
 
   const handleViewAttachment = async (invoice: any) => {
     if (!supplier?.zoho_vendor_id) return;
     setDownloadingId(invoice.id);
+    setAttachmentInvoice(invoice);
+    setAttachmentError(null);
+    setAttachment(null);
     try {
-      await downloadBillAttachment(supplier.zoho_vendor_id, invoice.id, invoice.invoiceNumber);
+      const result = await downloadBillAttachment(
+        supplier.zoho_vendor_id,
+        invoice.id,
+        invoice.invoiceNumber
+      );
+      setAttachment(result);
     } catch (err: any) {
+      const message = err?.message || 'Failed to fetch attachment';
+      setAttachmentError(message);
       toast({
         title: 'Could not open attachment',
-        description: err?.message || 'Failed to fetch attachment',
+        description: message,
         variant: 'destructive',
       });
     } finally {
       setDownloadingId(null);
     }
+  };
+
+  const handleDownloadAttachment = () => {
+    if (!attachment) return;
+    const a = document.createElement('a');
+    a.href = attachment.url;
+    a.download = attachment.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   useEffect(() => {
