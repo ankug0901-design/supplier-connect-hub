@@ -1,21 +1,30 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Download, Search, Filter, Plus, Paperclip, Loader2, CheckCircle2 } from 'lucide-react';
+import { Eye, Download, Search, Filter, Plus, Paperclip, Loader2, Upload } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchInvoices } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
-const statusStyles: Record<string, string> = {
-  pending: 'bg-warning/10 text-warning border-warning/20',
-  approved: 'bg-info/10 text-info border-info/20',
-  rejected: 'bg-destructive/10 text-destructive border-destructive/20',
-  paid: 'bg-success/10 text-success border-success/20',
+const statusConfig: Record<string, { label: string; className: string }> = {
+  paid: { label: 'Paid', className: 'bg-success/10 text-success border-success/20' },
+  overdue: { label: 'Overdue', className: 'bg-destructive/10 text-destructive border-destructive/20' },
+  due_soon: { label: 'Due Soon', className: 'bg-warning/10 text-warning border-warning/20' },
+  pending: { label: 'Pending', className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
+  partially_paid: { label: 'Partial', className: 'bg-info/10 text-info border-info/20' },
+  void: { label: 'Void', className: 'bg-muted text-muted-foreground border-border' },
 };
 
 export default function Invoices() {
@@ -24,6 +33,7 @@ export default function Invoices() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
 
   useEffect(() => {
     if (!supplier?.zoho_vendor_id) {
@@ -55,31 +65,17 @@ export default function Invoices() {
     return matchesSearch && matchesStatus;
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(amount);
-  };
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const formatDate = (d: string) =>
+  const formatDate = (d?: string) =>
     d
       ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
       : '-';
-
-  const getDueMeta = (dueDate?: string) => {
-    if (!dueDate) return { cls: 'text-muted-foreground', overdue: false, dueSoon: false };
-    const due = new Date(dueDate);
-    due.setHours(0, 0, 0, 0);
-    const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-    if (diffDays < 0) return { cls: 'text-destructive font-semibold', overdue: true, dueSoon: false };
-    if (diffDays <= 7) return { cls: 'text-warning font-medium', overdue: false, dueSoon: true };
-    return { cls: 'text-foreground', overdue: false, dueSoon: false };
-  };
 
   if (!isAdmin && !supplier?.zoho_vendor_id) {
     return (
@@ -111,10 +107,12 @@ export default function Invoices() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
                 <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+                <SelectItem value="due_soon">Due Soon</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="partially_paid">Partial</SelectItem>
+                <SelectItem value="void">Void</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -137,39 +135,25 @@ export default function Invoices() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Invoice Number
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      PO Number
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Due Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Amount
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Balance Due
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Attachment
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Actions
-                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Invoice #</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">PO Number</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Due Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Payment Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Amount</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Balance Due</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Attachment</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">POD Copy</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+                    <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filteredInvoices.map((invoice: any, index: number) => {
-                    const dueMeta = getDueMeta(invoice.dueDate);
                     const balance = Number(invoice.balance ?? 0);
+                    const status = invoice.status || 'pending';
+                    const cfg = statusConfig[status] || { label: status, className: 'bg-muted text-muted-foreground border-border' };
+                    const isOverdue = status === 'overdue';
                     return (
                       <tr
                         key={invoice.id}
@@ -188,72 +172,72 @@ export default function Invoices() {
                           {formatDate(invoice.date)}
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className={dueMeta.cls}>{formatDate(invoice.dueDate)}</span>
-                            {dueMeta.overdue && (
-                              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
-                                Overdue
-                              </Badge>
-                            )}
-                            {dueMeta.dueSoon && (
-                              <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
-                                Due Soon
-                              </Badge>
+                          <div className="flex flex-col">
+                            <span className={cn(isOverdue && 'text-destructive font-semibold', !isOverdue && 'text-foreground')}>
+                              {formatDate(invoice.dueDate)}
+                            </span>
+                            {invoice.daysInfo && (
+                              <span className="text-xs text-muted-foreground mt-0.5">{invoice.daysInfo}</span>
                             )}
                           </div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                          {invoice.paymentDate ? formatDate(invoice.paymentDate) : '—'}
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
                           {formatCurrency(Number(invoice.amount || 0))}
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-sm">
-                          {balance > 0 ? (
+                          {status === 'paid' ? (
+                            <span className="text-foreground">₹0</span>
+                          ) : isOverdue ? (
                             <span className="font-semibold text-destructive">{formatCurrency(balance)}</span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-success">
-                              <CheckCircle2 className="h-4 w-4" />
-                              Settled
-                            </span>
+                            <span className="text-foreground">{formatCurrency(balance)}</span>
                           )}
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
                           {invoice.hasAttachment ? (
-                            <a
-                              href={invoice.viewUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-md bg-success/10 px-2.5 py-1 text-xs font-medium text-success transition-colors hover:bg-success/20"
-                              title={invoice.attachmentName || 'View attachment in Zoho'}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1.5 px-2 text-success hover:bg-success/10 hover:text-success"
+                              title={invoice.attachmentName || 'View attachment'}
+                              onClick={() => {
+                                if (invoice.viewUrl) window.open(invoice.viewUrl, '_blank');
+                              }}
                             >
-                              <Paperclip className="h-3.5 w-3.5" />
-                              <span className="max-w-[160px] truncate">
-                                {invoice.attachmentName || 'View attachment'}
+                              <Eye className="h-3.5 w-3.5" />
+                              <span className="max-w-[120px] truncate text-xs">
+                                {invoice.attachmentName || 'View'}
                               </span>
-                            </a>
+                            </Button>
                           ) : (
                             <span className="text-sm text-muted-foreground">—</span>
                           )}
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <Badge variant="outline" className={cn('capitalize', statusStyles[invoice.status] || '')}>
-                            {invoice.status}
+                          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled>
+                            <Upload className="h-3.5 w-3.5" />
+                            Upload
+                          </Button>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <Badge variant="outline" className={cn('capitalize', cfg.className)}>
+                            {cfg.label}
                           </Badge>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {invoice.viewUrl && (
-                              <a href={invoice.viewUrl} target="_blank" rel="noopener noreferrer">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" title="View in Zoho">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </a>
-                            )}
-                            {invoice.hasAttachment && (
-                              <a href={invoice.viewUrl} target="_blank" rel="noopener noreferrer">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Download attachment">
-                                  <Download className="h-4 w-4" />
-                                </Button>
-                              </a>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="View invoice details"
+                              onClick={() => setSelectedInvoice(invoice)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -270,6 +254,58 @@ export default function Invoices() {
           </div>
         )}
       </div>
+
+      {/* Invoice Details Modal */}
+      <Dialog open={!!selectedInvoice} onOpenChange={(open) => !open && setSelectedInvoice(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Invoice Details</DialogTitle>
+            <DialogDescription>
+              {selectedInvoice?.invoiceNumber}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedInvoice && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Invoice Number</p>
+                  <p className="font-medium">{selectedInvoice.invoiceNumber}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">PO Number</p>
+                  <p className="font-medium">{selectedInvoice.poNumber}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Date</p>
+                  <p className="font-medium">{formatDate(selectedInvoice.date)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Due Date</p>
+                  <p className="font-medium">{formatDate(selectedInvoice.dueDate)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Amount</p>
+                  <p className="font-medium">{formatCurrency(Number(selectedInvoice.amount || 0))}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Balance</p>
+                  <p className="font-medium">{formatCurrency(Number(selectedInvoice.balance || 0))}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <Badge variant="outline" className={cn('capitalize mt-1', statusConfig[selectedInvoice.status]?.className)}>
+                    {statusConfig[selectedInvoice.status]?.label || selectedInvoice.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Days Info</p>
+                  <p className="font-medium">{selectedInvoice.daysInfo || '—'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
