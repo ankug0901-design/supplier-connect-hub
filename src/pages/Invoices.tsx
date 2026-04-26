@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Download, Search, Filter, Plus, Paperclip, Loader2, Upload } from 'lucide-react';
+import { Eye, Search, Filter, Plus, Loader2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +14,9 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchInvoices } from '@/services/api';
+import { fetchInvoices, downloadBillAttachment } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 const statusConfig: Record<string, { label: string; className: string }> = {
