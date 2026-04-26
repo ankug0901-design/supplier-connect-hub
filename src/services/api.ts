@@ -62,11 +62,17 @@ export async function fetchInvoices(zohoVendorId: string) {
   return data.invoices || [];
 }
 
+export interface BillAttachment {
+  url: string;
+  filename: string;
+  mimeType: string;
+}
+
 export async function downloadBillAttachment(
   zohoVendorId: string,
   billId: string,
   billNumber?: string
-) {
+): Promise<BillAttachment> {
   const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -84,10 +90,14 @@ export async function downloadBillAttachment(
     throw new Error(data.error || 'Could not fetch attachment');
   }
   const byteCharacters = Uint8Array.from(atob(data.file_base64), c => c.charCodeAt(0));
-  const blob = new Blob([byteCharacters], { type: data.mimeType || 'application/pdf' });
+  const mimeType = data.mimeType || 'application/pdf';
+  const blob = new Blob([byteCharacters], { type: mimeType });
   const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return {
+    url,
+    filename: data.filename || `${billNumber || billId}.pdf`,
+    mimeType,
+  };
 }
 
 export async function fetchPayments(zohoVendorId: string) {

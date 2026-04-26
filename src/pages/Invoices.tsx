@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Search, Filter, Plus, Loader2 } from 'lucide-react';
+import { Eye, Search, Filter, Plus, Loader2, Download, X } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchInvoices, downloadBillAttachment } from '@/services/api';
+import { fetchInvoices, downloadBillAttachment, type BillAttachment } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -37,21 +37,51 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<BillAttachment | null>(null);
+  const [attachmentInvoice, setAttachmentInvoice] = useState<any | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+
+  const closeAttachment = () => {
+    if (attachment?.url) URL.revokeObjectURL(attachment.url);
+    setAttachment(null);
+    setAttachmentInvoice(null);
+    setAttachmentError(null);
+  };
 
   const handleViewAttachment = async (invoice: any) => {
     if (!supplier?.zoho_vendor_id) return;
     setDownloadingId(invoice.id);
+    setAttachmentInvoice(invoice);
+    setAttachmentError(null);
+    setAttachment(null);
     try {
-      await downloadBillAttachment(supplier.zoho_vendor_id, invoice.id, invoice.invoiceNumber);
+      const result = await downloadBillAttachment(
+        supplier.zoho_vendor_id,
+        invoice.id,
+        invoice.invoiceNumber
+      );
+      setAttachment(result);
     } catch (err: any) {
+      const message = err?.message || 'Failed to fetch attachment';
+      setAttachmentError(message);
       toast({
         title: 'Could not open attachment',
-        description: err?.message || 'Failed to fetch attachment',
+        description: message,
         variant: 'destructive',
       });
     } finally {
       setDownloadingId(null);
     }
+  };
+
+  const handleDownloadAttachment = () => {
+    if (!attachment) return;
+    const a = document.createElement('a');
+    a.href = attachment.url;
+    a.download = attachment.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   useEffect(() => {
@@ -322,6 +352,64 @@ export default function Invoices() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Attachment PDF Viewer Modal */}
+      <Dialog
+        open={!!attachmentInvoice}
+        onOpenChange={(open) => {
+          if (!open) closeAttachment();
+        }}
+      >
+        <DialogContent
+          className="flex max-w-none flex-col gap-0 p-0 sm:rounded-lg"
+          style={{ width: '80vw', height: '85vh' }}
+        >
+          <DialogHeader className="flex-row items-center justify-between space-y-0 border-b border-border px-6 py-4">
+            <div className="flex min-w-0 items-baseline gap-3">
+              <DialogTitle className="text-lg">Supplier Invoice</DialogTitle>
+              <DialogDescription className="truncate text-sm text-muted-foreground">
+                {attachment?.filename || attachmentInvoice?.invoiceNumber || ''}
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+
+          <div className="relative flex-1 overflow-hidden bg-muted/30">
+            {downloadingId === attachmentInvoice?.id && !attachment && !attachmentError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Loading attachment…</p>
+              </div>
+            )}
+            {attachmentError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
+                <p className="text-sm font-medium text-destructive">Could not load attachment</p>
+                <p className="text-sm text-muted-foreground">{attachmentError}</p>
+              </div>
+            )}
+            {attachment && (
+              <iframe
+                src={attachment.url}
+                title={attachment.filename}
+                className="h-full w-full border-0"
+              />
+            )}
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border px-6 py-3">
+            <Button variant="outline" onClick={closeAttachment}>
+              Close
+            </Button>
+            <Button
+              onClick={handleDownloadAttachment}
+              disabled={!attachment}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Download
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </DashboardLayout>
