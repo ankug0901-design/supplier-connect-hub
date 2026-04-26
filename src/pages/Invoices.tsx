@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Download, Search, Filter, Plus, Paperclip, Loader2, Upload } from 'lucide-react';
+import { Eye, Search, Filter, Plus, Loader2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +14,9 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchInvoices } from '@/services/api';
+import { fetchInvoices, downloadBillAttachment } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -29,11 +30,29 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 export default function Invoices() {
   const { supplier, isAdmin } = useAuth();
+  const { toast } = useToast();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleViewAttachment = async (invoice: any) => {
+    if (!supplier?.zoho_vendor_id) return;
+    setDownloadingId(invoice.id);
+    try {
+      await downloadBillAttachment(supplier.zoho_vendor_id, invoice.id, invoice.invoiceNumber);
+    } catch (err: any) {
+      toast({
+        title: 'Could not open attachment',
+        description: err?.message || 'Failed to fetch attachment',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!supplier?.zoho_vendor_id) {
@@ -143,7 +162,6 @@ export default function Invoices() {
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Amount</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Balance Due</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Attachment</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">POD Copy</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
                     <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
                   </tr>
@@ -200,27 +218,21 @@ export default function Invoices() {
                           {invoice.hasAttachment ? (
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1.5 px-2 text-success hover:bg-success/10 hover:text-success"
+                              size="icon"
+                              className="h-8 w-8 text-success hover:bg-success/10 hover:text-success"
                               title={invoice.attachmentName || 'View attachment'}
-                              onClick={() => {
-                                if (invoice.viewUrl) window.open(invoice.viewUrl, '_blank');
-                              }}
+                              disabled={downloadingId === invoice.id}
+                              onClick={() => handleViewAttachment(invoice)}
                             >
-                              <Eye className="h-3.5 w-3.5" />
-                              <span className="max-w-[120px] truncate text-xs">
-                                {invoice.attachmentName || 'View'}
-                              </span>
+                              {downloadingId === invoice.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
                             </Button>
                           ) : (
                             <span className="text-sm text-muted-foreground">—</span>
                           )}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled>
-                            <Upload className="h-3.5 w-3.5" />
-                            Upload
-                          </Button>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
                           <Badge variant="outline" className={cn('capitalize', cfg.className)}>
@@ -301,6 +313,12 @@ export default function Invoices() {
                   <p className="text-xs text-muted-foreground">Days Info</p>
                   <p className="font-medium">{selectedInvoice.daysInfo || '—'}</p>
                 </div>
+                {selectedInvoice.paymentDate && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Payment Date</p>
+                    <p className="font-medium">{formatDate(selectedInvoice.paymentDate)}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

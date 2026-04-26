@@ -62,6 +62,34 @@ export async function fetchInvoices(zohoVendorId: string) {
   return data.invoices || [];
 }
 
+export async function downloadBillAttachment(
+  zohoVendorId: string,
+  billId: string,
+  billNumber?: string
+) {
+  const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      access_code: ACCESS_CODE,
+      operation: 'download_bill_attachment',
+      vendor_id: zohoVendorId,
+      bill_id: billId,
+      bill_number: billNumber,
+    }),
+  });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const data = await res.json();
+  if (!data.success || !data.file_base64) {
+    throw new Error(data.error || 'Could not fetch attachment');
+  }
+  const byteCharacters = Uint8Array.from(atob(data.file_base64), c => c.charCodeAt(0));
+  const blob = new Blob([byteCharacters], { type: data.mimeType || 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
 export async function fetchPayments(zohoVendorId: string) {
   const data = await zohoProxy('get_payments', zohoVendorId);
   return data.payments || [];
