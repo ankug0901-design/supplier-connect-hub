@@ -63,7 +63,7 @@ export async function fetchInvoices(zohoVendorId: string) {
 }
 
 export interface BillAttachment {
-  url: string;
+  base64: string;
   filename: string;
   mimeType: string;
 }
@@ -89,14 +89,10 @@ export async function downloadBillAttachment(
   if (!data.success || !data.file_base64) {
     throw new Error(data.error || 'Could not fetch attachment');
   }
-  const byteCharacters = Uint8Array.from(atob(data.file_base64), c => c.charCodeAt(0));
-  const mimeType = data.mimeType || 'application/pdf';
-  const blob = new Blob([byteCharacters], { type: mimeType });
-  const url = URL.createObjectURL(blob);
   return {
-    url,
+    base64: data.file_base64,
     filename: data.filename || `${billNumber || billId}.pdf`,
-    mimeType,
+    mimeType: data.mimeType || 'application/pdf',
   };
 }
 
