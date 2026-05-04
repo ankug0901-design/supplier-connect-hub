@@ -16,6 +16,8 @@ import Shipments from "./pages/Shipments";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminSuppliers from "./pages/admin/AdminSuppliers";
 import AdminRegistrations from "./pages/admin/AdminRegistrations";
+import AdminRfq from "./pages/admin/AdminRfq";
+import RfqRequests from "./pages/RfqRequests";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,6 +74,7 @@ function AppRoutes() {
         }
       />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/rfq-requests" element={<ProtectedRoute><RfqRequests /></ProtectedRoute>} />
       <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
       <Route path="/purchase-orders/:id" element={<ProtectedRoute><PODetail /></ProtectedRoute>} />
       <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
@@ -83,6 +86,7 @@ function AppRoutes() {
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/admin/suppliers" element={<AdminRoute><AdminSuppliers /></AdminRoute>} />
       <Route path="/admin/registrations" element={<AdminRoute><AdminRegistrations /></AdminRoute>} />
+      <Route path="/admin/rfq" element={<AdminRoute><AdminRfq /></AdminRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
