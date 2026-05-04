@@ -343,6 +343,131 @@ export type Database = {
           },
         ]
       }
+      rfq_portal_requests: {
+        Row: {
+          artwork_drive_url: string | null
+          artwork_status: string | null
+          client_budget: string | null
+          client_email: string | null
+          client_name: string
+          colours: string | null
+          created_at: string
+          decided_at: string | null
+          dimensions: string | null
+          emboss_decision: string | null
+          emboss_notes: string | null
+          extra_specs: string | null
+          finish: string | null
+          id: string
+          item_specs: string | null
+          lead_time_days: number | null
+          material: string | null
+          payment_terms: string | null
+          print_process: string | null
+          product_category: string | null
+          product_name: string
+          quantity: string | null
+          quote_submitted_at: string | null
+          quoted_gst_percent: number | null
+          quoted_unit_price: number | null
+          required_by_date: string | null
+          response_deadline: string | null
+          rfq_id: string
+          setup_charges: number | null
+          special_instructions: string | null
+          status: string
+          supplier_email: string
+          supplier_id: string | null
+          supplier_notes: string | null
+          updated_at: string
+          validity_days: number | null
+        }
+        Insert: {
+          artwork_drive_url?: string | null
+          artwork_status?: string | null
+          client_budget?: string | null
+          client_email?: string | null
+          client_name: string
+          colours?: string | null
+          created_at?: string
+          decided_at?: string | null
+          dimensions?: string | null
+          emboss_decision?: string | null
+          emboss_notes?: string | null
+          extra_specs?: string | null
+          finish?: string | null
+          id?: string
+          item_specs?: string | null
+          lead_time_days?: number | null
+          material?: string | null
+          payment_terms?: string | null
+          print_process?: string | null
+          product_category?: string | null
+          product_name: string
+          quantity?: string | null
+          quote_submitted_at?: string | null
+          quoted_gst_percent?: number | null
+          quoted_unit_price?: number | null
+          required_by_date?: string | null
+          response_deadline?: string | null
+          rfq_id: string
+          setup_charges?: number | null
+          special_instructions?: string | null
+          status?: string
+          supplier_email: string
+          supplier_id?: string | null
+          supplier_notes?: string | null
+          updated_at?: string
+          validity_days?: number | null
+        }
+        Update: {
+          artwork_drive_url?: string | null
+          artwork_status?: string | null
+          client_budget?: string | null
+          client_email?: string | null
+          client_name?: string
+          colours?: string | null
+          created_at?: string
+          decided_at?: string | null
+          dimensions?: string | null
+          emboss_decision?: string | null
+          emboss_notes?: string | null
+          extra_specs?: string | null
+          finish?: string | null
+          id?: string
+          item_specs?: string | null
+          lead_time_days?: number | null
+          material?: string | null
+          payment_terms?: string | null
+          print_process?: string | null
+          product_category?: string | null
+          product_name?: string
+          quantity?: string | null
+          quote_submitted_at?: string | null
+          quoted_gst_percent?: number | null
+          quoted_unit_price?: number | null
+          required_by_date?: string | null
+          response_deadline?: string | null
+          rfq_id?: string
+          setup_charges?: number | null
+          special_instructions?: string | null
+          status?: string
+          supplier_email?: string
+          supplier_id?: string | null
+          supplier_notes?: string | null
+          updated_at?: string
+          validity_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rfq_portal_requests_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_registrations: {
         Row: {
           account_number: string | null
