@@ -32,10 +32,12 @@ function daysSince(d: string) {
 
 export default function AdminRfq() {
   const [rows, setRows] = useState<Rfq[]>([]);
+  const [supplierNames, setSupplierNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'awaiting' | 'compare' | 'decided'>('all');
   const [rejectTarget, setRejectTarget] = useState<Rfq | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = async () => {
     const { data } = await supabase
@@ -43,6 +45,16 @@ export default function AdminRfq() {
       .select('*')
       .order('created_at', { ascending: false });
     setRows(data || []);
+    const emails = Array.from(new Set((data || []).map((r: any) => r.supplier_email).filter(Boolean)));
+    if (emails.length) {
+      const { data: sups } = await supabase
+        .from('suppliers')
+        .select('email,name,company')
+        .in('email', emails);
+      const map: Record<string, string> = {};
+      (sups || []).forEach((s: any) => { map[s.email] = s.name || s.company || s.email; });
+      setSupplierNames(map);
+    }
     setLoading(false);
   };
 
@@ -68,22 +80,30 @@ export default function AdminRfq() {
     return groups.filter(({ items }) => {
       const submitted = items.filter((r) => ['quote_submitted', 'accepted'].includes(r.status));
       const decided = items.some((r) => r.emboss_decision || ['accepted', 'rejected'].includes(r.status));
-      if (filter === 'awaiting') return submitted.length === 0;
-      if (filter === 'compare') return submitted.length >= 2 && !items.some((r) => r.status === 'accepted');
+      if (filter === 'awaiting') return submitted.length === 0 && !decided;
+      if (filter === 'compare') return submitted.length >= 2 && !decided;
       if (filter === 'decided') return decided;
       return true;
     });
   }, [groups, filter]);
 
+  const patchLocal = (id: string, patch: Partial<Rfq>) => {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  };
+
   const accept = async (r: Rfq) => {
+    setBusyId(r.id);
+    const prev = rows;
+    // optimistic
+    patchLocal(r.id, { status: 'accepted', emboss_decision: 'accepted', decided_at: new Date().toISOString() });
     try {
-      await fetch(N8N_QUOTE_ACCEPTED, {
+      const res = await fetch(N8N_QUOTE_ACCEPTED, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rfq_id: r.rfq_id,
           supplier_email: r.supplier_email,
-          supplier_name: r.supplier_email,
+          supplier_name: supplierNames[r.supplier_email] || r.supplier_email,
           product_name: r.product_name,
           quantity: r.quantity,
           quoted_unit_price: r.quoted_unit_price,
@@ -93,29 +113,47 @@ export default function AdminRfq() {
           emboss_notes: '',
         }),
       });
+      if (!res.ok) throw new Error('Webhook failed');
       toast.success('Quote accepted! Supplier notified by email.');
-      load();
+      await load();
     } catch (e: any) {
-      toast.error(e.message || 'Failed');
+      setRows(prev);
+      toast.error(e.message || 'Failed to accept');
+    } finally {
+      setBusyId(null);
     }
   };
 
   const reject = async () => {
     if (!rejectTarget) return;
-    const { error } = await supabase
-      .from('rfq_portal_requests')
-      .update({
-        emboss_decision: 'rejected',
-        status: 'rejected',
-        emboss_notes: rejectReason || null,
-        decided_at: new Date().toISOString(),
-      })
-      .eq('id', rejectTarget.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success('Supplier marked as rejected');
+    const target = rejectTarget;
+    setBusyId(target.id);
+    const prev = rows;
+    patchLocal(target.id, {
+      status: 'rejected', emboss_decision: 'rejected',
+      emboss_notes: rejectReason || null, decided_at: new Date().toISOString(),
+    });
     setRejectTarget(null);
-    setRejectReason('');
-    load();
+    try {
+      const { error } = await supabase
+        .from('rfq_portal_requests')
+        .update({
+          emboss_decision: 'rejected',
+          status: 'rejected',
+          emboss_notes: rejectReason || null,
+          decided_at: new Date().toISOString(),
+        })
+        .eq('id', target.id);
+      if (error) throw error;
+      toast.success('Quote rejected.');
+      setRejectReason('');
+      await load();
+    } catch (e: any) {
+      setRows(prev);
+      toast.error(e.message || 'Failed to reject');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -141,8 +179,9 @@ export default function AdminRfq() {
 
           {filtered.map(({ rfq_id, items }) => {
             const first = items[0];
-            const submitted = items.filter((r) => ['quote_submitted', 'accepted'].includes(r.status));
+            const submitted = items.filter((r) => ['quote_submitted', 'accepted', 'rejected'].includes(r.status));
             const pending = items.filter((r) => r.status === 'pending');
+            const groupHasAccepted = items.some((r) => r.status === 'accepted');
             return (
               <Card key={rfq_id}>
                 <CardContent className="space-y-4 p-5">
@@ -156,7 +195,9 @@ export default function AdminRfq() {
                         Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)}
                       </p>
                     </div>
-                    <Badge variant="outline">{submitted.length} of {items.length} suppliers responded</Badge>
+                    <Badge variant="outline">
+                      {submitted.length} of {items.length} suppliers responded
+                    </Badge>
                   </div>
 
                   {submitted.length >= 1 && (
@@ -183,9 +224,15 @@ export default function AdminRfq() {
                             const perUnit = up + (up * gst / 100);
                             const isAccepted = r.status === 'accepted';
                             const isRejected = r.status === 'rejected';
+                            const isBusy = busyId === r.id;
+                            const disabled = isBusy || groupHasAccepted || !!busyId;
+                            const sName = supplierNames[r.supplier_email];
                             return (
-                              <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''}`}>
-                                <td className="p-2">{r.supplier_email}</td>
+                              <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''}`}>
+                                <td className="p-2">
+                                  <div className="font-medium">{sName || r.supplier_email}</div>
+                                  {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
+                                </td>
                                 <td className="p-2">₹{up.toFixed(2)}</td>
                                 <td className="p-2">{gst}%</td>
                                 <td className="p-2 font-medium">₹{perUnit.toFixed(2)}</td>
@@ -196,18 +243,24 @@ export default function AdminRfq() {
                                 <td className="p-2 text-xs">{fmtDateTime(r.quote_submitted_at)}</td>
                                 <td className="p-2">
                                   <div className="flex justify-end gap-2">
+                                    {isAccepted && (
+                                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">✅ Accepted</Badge>
+                                    )}
+                                    {isRejected && (
+                                      <Badge variant="secondary">❌ Rejected</Badge>
+                                    )}
                                     {!isAccepted && !isRejected && (
                                       <>
-                                        <Button size="sm" onClick={() => accept(r)}>
-                                          <CheckCircle2 className="mr-1 h-4 w-4" /> Accept
+                                        <Button size="sm" disabled={disabled} onClick={() => accept(r)}>
+                                          {isBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1 h-4 w-4" />}
+                                          Accept
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => setRejectTarget(r)}>
-                                          <XCircle className="mr-1 h-4 w-4" /> Reject
+                                        <Button size="sm" variant="outline" disabled={disabled} onClick={() => setRejectTarget(r)}>
+                                          {isBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />}
+                                          Reject
                                         </Button>
                                       </>
                                     )}
-                                    {isAccepted && <Badge className="bg-green-100 text-green-800">Accepted</Badge>}
-                                    {isRejected && <Badge variant="secondary">Rejected</Badge>}
                                   </div>
                                 </td>
                               </tr>
@@ -224,7 +277,7 @@ export default function AdminRfq() {
                       <ul className="space-y-1">
                         {pending.map((r) => (
                           <li key={r.id} className="flex justify-between">
-                            <span>{r.supplier_email}</span>
+                            <span>{supplierNames[r.supplier_email] || r.supplier_email}</span>
                             <span className="text-muted-foreground">{daysSince(r.created_at)}d elapsed</span>
                           </li>
                         ))}
