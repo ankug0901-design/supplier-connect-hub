@@ -215,6 +215,16 @@ function RfqDetailSheet({
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [reviseMode, setReviseMode] = useState(false);
+  const [totalSuppliers, setTotalSuppliers] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!rfq?.rfq_id) { setTotalSuppliers(null); return; }
+    supabase
+      .from('rfq_portal_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('rfq_id', rfq.rfq_id)
+      .then(({ count }) => setTotalSuppliers(count ?? null));
+  }, [rfq?.rfq_id]);
 
   const closed = isDeadlinePassed(rfq?.response_deadline);
 
