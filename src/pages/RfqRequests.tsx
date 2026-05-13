@@ -43,18 +43,29 @@ function formatDate(d?: string | null) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function daysUntil(d?: string | null) {
+// Returns the Date corresponding to 17:00 IST on the given YYYY-MM-DD (or ISO) deadline.
+function deadlineCutoff(d?: string | null): Date | null {
   if (!d) return null;
-  const ms = new Date(d).getTime() - Date.now();
+  const datePart = d.length >= 10 ? d.slice(0, 10) : d;
+  return new Date(`${datePart}T17:00:00+05:30`);
+}
+
+function formatDeadline(d?: string | null) {
+  if (!d) return '—';
+  return `${formatDate(d)} at 5:00 PM IST`;
+}
+
+function daysUntil(d?: string | null) {
+  const t = deadlineCutoff(d);
+  if (!t) return null;
+  const ms = t.getTime() - Date.now();
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
 function isDeadlinePassed(d?: string | null) {
-  if (!d) return false;
-  // treat 5 PM IST on the deadline date as cutoff
-  const deadline = new Date(d);
-  deadline.setHours(17, 0, 0, 0);
-  return Date.now() > deadline.getTime();
+  const t = deadlineCutoff(d);
+  if (!t) return false;
+  return Date.now() > t.getTime();
 }
 
 function RankBadge({ rank }: { rank?: number | null }) {
@@ -160,9 +171,9 @@ export default function RfqRequests() {
                   <div className={`flex items-center gap-1.5 text-sm ${urgent ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                     {urgent && <AlertTriangle className="h-4 w-4" />}
                     <span>
-                      Response Deadline: {formatDate(r.response_deadline)}
+                      Closes: {formatDeadline(r.response_deadline)}
                       {days !== null && days >= 0 && ` (${days}d left)`}
-                      {days !== null && days < 0 && ` (overdue)`}
+                      {days !== null && days < 0 && ` (closed)`}
                     </span>
                   </div>
                   <div className="mt-auto pt-2">
@@ -204,6 +215,16 @@ function RfqDetailSheet({
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [reviseMode, setReviseMode] = useState(false);
+  const [totalSuppliers, setTotalSuppliers] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!rfq?.rfq_id) { setTotalSuppliers(null); return; }
+    supabase
+      .from('rfq_portal_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('rfq_id', rfq.rfq_id)
+      .then(({ count }) => setTotalSuppliers(count ?? null));
+  }, [rfq?.rfq_id]);
 
   const closed = isDeadlinePassed(rfq?.response_deadline);
 
@@ -347,7 +368,7 @@ function RfqDetailSheet({
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Quote Deadline</p>
                   <p className={`text-sm font-medium ${overdue ? 'text-destructive' : ''}`}>
-                    {formatDate(rfq.response_deadline)}
+                    {formatDeadline(rfq.response_deadline)}
                   </p>
                 </div>
                 <Spec label="RFQ Received" value={formatDate(rfq.created_at)} />
@@ -385,7 +406,7 @@ function RfqDetailSheet({
                 </h4>
                 {isRevision && (
                   <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-                    Quotes can be revised until {formatDate(rfq.response_deadline)} at 5:00 PM IST
+                    Closes: {formatDeadline(rfq.response_deadline)} — quote can be revised until then
                   </div>
                 )}
                 <div className="space-y-4 rounded-lg border p-4">
@@ -458,6 +479,11 @@ function RfqDetailSheet({
                     <span className="ml-2 text-xs font-normal">(Revised {rfq.revision_count}x)</span>
                   )}
                 </div>
+                {rfq.price_rank && totalSuppliers && (
+                  <div className="rounded-md border bg-muted/50 p-3 text-sm">
+                    Your current rank: <span className="font-bold">#{rfq.price_rank}</span> of {totalSuppliers} suppliers
+                  </div>
+                )}
                 <SubmittedQuote rfq={rfq} />
                 {closed ? (
                   <div className="rounded-lg border border-red-300 bg-red-50 p-4 font-semibold text-red-800">
@@ -466,7 +492,7 @@ function RfqDetailSheet({
                 ) : (
                   <>
                     <p className="text-xs text-muted-foreground">
-                      Quotes can be revised until {formatDate(rfq.response_deadline)} at 5:00 PM IST
+                      Closes: {formatDeadline(rfq.response_deadline)} — quote can be revised until then
                     </p>
                     <Button onClick={() => setReviseMode(true)} variant="outline" className="w-full">
                       Revise Your Quote

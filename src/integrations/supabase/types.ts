@@ -350,6 +350,7 @@ export type Database = {
           client_budget: string | null
           client_email: string | null
           client_name: string
+          closing_time: string | null
           colours: string | null
           created_at: string
           decided_at: string | null
@@ -395,6 +396,7 @@ export type Database = {
           client_budget?: string | null
           client_email?: string | null
           client_name: string
+          closing_time?: string | null
           colours?: string | null
           created_at?: string
           decided_at?: string | null
@@ -440,6 +442,7 @@ export type Database = {
           client_budget?: string | null
           client_email?: string | null
           client_name?: string
+          closing_time?: string | null
           colours?: string | null
           created_at?: string
           decided_at?: string | null
