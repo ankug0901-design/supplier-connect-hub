@@ -479,6 +479,11 @@ function RfqDetailSheet({
                     <span className="ml-2 text-xs font-normal">(Revised {rfq.revision_count}x)</span>
                   )}
                 </div>
+                {rfq.price_rank && totalSuppliers && (
+                  <div className="rounded-md border bg-muted/50 p-3 text-sm">
+                    Your current rank: <span className="font-bold">#{rfq.price_rank}</span> of {totalSuppliers} suppliers
+                  </div>
+                )}
                 <SubmittedQuote rfq={rfq} />
                 {closed ? (
                   <div className="rounded-lg border border-red-300 bg-red-50 p-4 font-semibold text-red-800">
