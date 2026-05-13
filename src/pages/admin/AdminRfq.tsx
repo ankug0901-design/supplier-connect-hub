@@ -30,6 +30,43 @@ function daysSince(d: string) {
   return Math.floor((Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function closingCountdown(deadline?: string | null): { label: string; tone: 'red' | 'orange' | 'gray' | 'expired' } | null {
+  if (!deadline) return null;
+  const target = new Date(deadline);
+  target.setHours(17, 0, 0, 0);
+  const ms = target.getTime() - Date.now();
+  if (ms <= 0) return { label: 'Closed', tone: 'expired' };
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const days = h / 24;
+  const tone = days < 1 ? 'red' : days < 2 ? 'orange' : 'gray';
+  const label = h >= 24
+    ? `Closes in ${Math.floor(h / 24)}d ${h % 24}h`
+    : `Closes in ${h}h ${m}m`;
+  return { label, tone };
+}
+
+function RankCell({ rank }: { rank?: number | null }) {
+  if (!rank) return <span className="text-muted-foreground">—</span>;
+  if (rank === 1) return (
+    <span className="inline-flex items-center gap-1 font-semibold text-yellow-700">
+      <Crown className="h-4 w-4 fill-yellow-400 text-yellow-500" /> #1
+    </span>
+  );
+  if (rank === 2) return (
+    <span className="inline-flex items-center gap-1 font-semibold text-slate-600">
+      <Medal className="h-4 w-4 text-slate-400" /> #2
+    </span>
+  );
+  if (rank === 3) return (
+    <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
+      <Award className="h-4 w-4 text-amber-600" /> #3
+    </span>
+  );
+  return <span className="font-medium">#{rank}</span>;
+}
+
 export default function AdminRfq() {
   const [rows, setRows] = useState<Rfq[]>([]);
   const [supplierNames, setSupplierNames] = useState<Record<string, string>>({});
