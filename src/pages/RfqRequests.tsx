@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, FileQuestion, Loader2, ExternalLink } from 'lucide-react';
+import { AlertTriangle, FileQuestion, Loader2, ExternalLink, Trophy } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +49,29 @@ function daysUntil(d?: string | null) {
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
+function isDeadlinePassed(d?: string | null) {
+  if (!d) return false;
+  // treat 5 PM IST on the deadline date as cutoff
+  const deadline = new Date(d);
+  deadline.setHours(17, 0, 0, 0);
+  return Date.now() > deadline.getTime();
+}
+
+function RankBadge({ rank }: { rank?: number | null }) {
+  if (!rank) return null;
+  if (rank === 1) {
+    return (
+      <Badge className="border-green-300 bg-green-100 text-green-800 hover:bg-green-100">
+        <Trophy className="mr-1 h-3 w-3" /> Rank #1
+      </Badge>
+    );
+  }
+  if (rank === 2) {
+    return <Badge className="border-orange-300 bg-orange-100 text-orange-800 hover:bg-orange-100">Rank #2</Badge>;
+  }
+  return <Badge variant="secondary">Rank #{rank}</Badge>;
+}
+
 export default function RfqRequests() {
   const { supplier } = useAuth();
   const navigate = useNavigate();
@@ -82,6 +105,15 @@ export default function RfqRequests() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplier?.email]);
 
+  // Keep the selected row in sync with refreshed list
+  useEffect(() => {
+    if (selected) {
+      const fresh = rfqs.find((r) => r.id === selected.id);
+      if (fresh) setSelected(fresh);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rfqs]);
+
   return (
     <DashboardLayout title="RFQ Requests" subtitle="Quote requests from Emboss Marketing">
       {loading ? (
@@ -113,6 +145,9 @@ export default function RfqRequests() {
                     </Badge>
                     <span className="font-mono text-xs text-muted-foreground">{r.rfq_id}</span>
                   </div>
+                  {r.price_rank && (
+                    <div><RankBadge rank={r.price_rank} /></div>
+                  )}
                   <div>
                     <h3 className="text-base font-bold leading-tight">{r.product_name}</h3>
                     {r.product_category && (
@@ -136,7 +171,7 @@ export default function RfqRequests() {
                       disabled={locked}
                       onClick={() => setSelected(r)}
                     >
-                      View & Quote
+                      View {r.status === 'quote_submitted' ? '& Revise' : '& Quote'}
                     </Button>
                   </div>
                 </CardContent>
@@ -148,6 +183,7 @@ export default function RfqRequests() {
 
       <RfqDetailSheet
         rfq={selected}
+        supplierName={supplier?.name}
         onClose={() => setSelected(null)}
         onSubmitted={() => { setSelected(null); load(); }}
         onNavigatePOs={() => navigate('/purchase-orders')}
@@ -157,8 +193,8 @@ export default function RfqRequests() {
 }
 
 function RfqDetailSheet({
-  rfq, onClose, onSubmitted, onNavigatePOs,
-}: { rfq: RfqRow | null; onClose: () => void; onSubmitted: () => void; onNavigatePOs: () => void }) {
+  rfq, supplierName, onClose, onSubmitted, onNavigatePOs,
+}: { rfq: RfqRow | null; supplierName?: string; onClose: () => void; onSubmitted: () => void; onNavigatePOs: () => void }) {
   const [unitPrice, setUnitPrice] = useState('');
   const [gstPercent, setGstPercent] = useState('18');
   const [leadTime, setLeadTime] = useState('');
@@ -167,11 +203,25 @@ function RfqDetailSheet({
   const [setupCharges, setSetupCharges] = useState('0');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [reviseMode, setReviseMode] = useState(false);
+
+  const closed = isDeadlinePassed(rfq?.response_deadline);
 
   useEffect(() => {
-    setUnitPrice(''); setGstPercent('18'); setLeadTime('');
-    setPaymentTerms('30 days net'); setValidity('30');
-    setSetupCharges('0'); setNotes('');
+    setReviseMode(false);
+    if (rfq?.status === 'pending') {
+      setUnitPrice(''); setGstPercent('18'); setLeadTime('');
+      setPaymentTerms('30 days net'); setValidity('30');
+      setSetupCharges('0'); setNotes('');
+    } else {
+      setUnitPrice(rfq?.quoted_unit_price?.toString() || '');
+      setGstPercent(rfq?.quoted_gst_percent?.toString() || '18');
+      setLeadTime(rfq?.lead_time_days?.toString() || '');
+      setPaymentTerms(rfq?.payment_terms || '30 days net');
+      setValidity(rfq?.validity_days?.toString() || '30');
+      setSetupCharges(rfq?.setup_charges?.toString() || '0');
+      setNotes(rfq?.supplier_notes || '');
+    }
   }, [rfq?.id]);
 
   if (!rfq) return null;
@@ -185,6 +235,7 @@ function RfqDetailSheet({
 
   const deadlineDays = daysUntil(rfq.response_deadline);
   const overdue = deadlineDays !== null && deadlineDays < 0;
+  const isRevision = rfq.status === 'quote_submitted';
 
   const submit = async () => {
     if (!unitPrice || !leadTime) {
@@ -193,7 +244,7 @@ function RfqDetailSheet({
     }
     setSubmitting(true);
     try {
-      const update = {
+      const update: any = {
         quoted_unit_price: up,
         quoted_gst_percent: gstPct,
         lead_time_days: Number(leadTime),
@@ -201,9 +252,14 @@ function RfqDetailSheet({
         validity_days: Number(validity) || 30,
         setup_charges: Number(setupCharges) || 0,
         supplier_notes: notes,
+        total_price: perUnit,
         status: 'quote_submitted',
         quote_submitted_at: new Date().toISOString(),
       };
+      if (isRevision) {
+        update.revision_count = (Number(rfq.revision_count) || 0) + 1;
+        update.last_revised_at = new Date().toISOString();
+      }
       const { error } = await supabase
         .from('rfq_portal_requests')
         .update(update)
@@ -216,6 +272,10 @@ function RfqDetailSheet({
         body: JSON.stringify({
           rfq_id: rfq.rfq_id,
           supplier_email: rfq.supplier_email,
+          supplier_name: supplierName || rfq.supplier_email,
+          submitted_by_name: rfq.submitted_by_name,
+          submitted_by_email: rfq.submitted_by_email,
+          is_revision: isRevision,
           quoted_unit_price: up,
           quoted_gst_percent: gstPct,
           lead_time_days: Number(leadTime),
@@ -226,7 +286,7 @@ function RfqDetailSheet({
         }),
       }).catch(() => {});
 
-      toast.success('Quote submitted! Emboss Marketing will review and get back to you.');
+      toast.success(isRevision ? 'Quote revised successfully!' : 'Quote submitted! Emboss Marketing will review and get back to you.');
       onSubmitted();
     } catch (e: any) {
       toast.error(e.message || 'Failed to submit quote');
@@ -242,13 +302,16 @@ function RfqDetailSheet({
     </div>
   );
 
+  const showForm = rfq.status === 'pending' || (reviseMode && isRevision && !closed);
+
   return (
     <Sheet open={!!rfq} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-5xl">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-3">
+          <SheetTitle className="flex flex-wrap items-center gap-3">
             <span>{rfq.product_name}</span>
             <span className="font-mono text-sm text-muted-foreground">{rfq.rfq_id}</span>
+            <RankBadge rank={rfq.price_rank} />
           </SheetTitle>
           <SheetDescription>{rfq.client_name}</SheetDescription>
         </SheetHeader>
@@ -315,9 +378,16 @@ function RfqDetailSheet({
 
           {/* RIGHT */}
           <div className="space-y-4">
-            {rfq.status === 'pending' && (
+            {showForm && (
               <>
-                <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Submit Your Quote</h4>
+                <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  {isRevision ? 'Revise Your Quote' : 'Submit Your Quote'}
+                </h4>
+                {isRevision && (
+                  <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+                    Quotes can be revised until {formatDate(rfq.response_deadline)} at 5:00 PM IST
+                  </div>
+                )}
                 <div className="space-y-4 rounded-lg border p-4">
                   <div>
                     <Label>Unit Price (₹, ex-GST) *</Label>
@@ -365,20 +435,44 @@ function RfqDetailSheet({
                     </div>
                   </div>
 
-                  <Button className="w-full" onClick={submit} disabled={submitting}>
-                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Submit Quote to Emboss Marketing
-                  </Button>
+                  <div className="flex gap-2">
+                    {isRevision && (
+                      <Button variant="outline" onClick={() => setReviseMode(false)} disabled={submitting}>
+                        Cancel
+                      </Button>
+                    )}
+                    <Button className="flex-1" onClick={submit} disabled={submitting}>
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {isRevision ? 'Submit Revised Quote' : 'Submit Quote to Emboss Marketing'}
+                    </Button>
+                  </div>
                 </div>
               </>
             )}
 
-            {rfq.status === 'quote_submitted' && (
+            {!showForm && rfq.status === 'quote_submitted' && (
               <div className="space-y-3">
                 <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 font-semibold text-blue-800">
                   Quote Submitted
+                  {rfq.revision_count > 0 && (
+                    <span className="ml-2 text-xs font-normal">(Revised {rfq.revision_count}x)</span>
+                  )}
                 </div>
                 <SubmittedQuote rfq={rfq} />
+                {closed ? (
+                  <div className="rounded-lg border border-red-300 bg-red-50 p-4 font-semibold text-red-800">
+                    RFQ Closed — No further revisions accepted
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Quotes can be revised until {formatDate(rfq.response_deadline)} at 5:00 PM IST
+                    </p>
+                    <Button onClick={() => setReviseMode(true)} variant="outline" className="w-full">
+                      Revise Your Quote
+                    </Button>
+                  </>
+                )}
                 <p className="text-sm text-muted-foreground">Awaiting Emboss Marketing decision...</p>
               </div>
             )}
@@ -441,6 +535,9 @@ function SubmittedQuote({ rfq }: { rfq: RfqRow }) {
       <Row k="Validity" v={rfq.validity_days ? `${rfq.validity_days} days` : null} />
       <Row k="Setup Charges" v={rfq.setup_charges != null ? `₹${rfq.setup_charges}` : null} />
       <Row k="Submitted At" v={rfq.quote_submitted_at ? new Date(rfq.quote_submitted_at).toLocaleString('en-IN') : null} />
+      {rfq.last_revised_at && (
+        <Row k="Last Revised" v={new Date(rfq.last_revised_at).toLocaleString('en-IN')} />
+      )}
       {rfq.supplier_notes && (
         <div className="mt-2 border-t pt-2 text-sm">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Your Notes</p>
