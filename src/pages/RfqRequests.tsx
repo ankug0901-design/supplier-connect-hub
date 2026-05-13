@@ -43,18 +43,29 @@ function formatDate(d?: string | null) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function daysUntil(d?: string | null) {
+// Returns the Date corresponding to 17:00 IST on the given YYYY-MM-DD (or ISO) deadline.
+function deadlineCutoff(d?: string | null): Date | null {
   if (!d) return null;
-  const ms = new Date(d).getTime() - Date.now();
+  const datePart = d.length >= 10 ? d.slice(0, 10) : d;
+  return new Date(`${datePart}T17:00:00+05:30`);
+}
+
+function formatDeadline(d?: string | null) {
+  if (!d) return '—';
+  return `${formatDate(d)} at 5:00 PM IST`;
+}
+
+function daysUntil(d?: string | null) {
+  const t = deadlineCutoff(d);
+  if (!t) return null;
+  const ms = t.getTime() - Date.now();
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
 function isDeadlinePassed(d?: string | null) {
-  if (!d) return false;
-  // treat 5 PM IST on the deadline date as cutoff
-  const deadline = new Date(d);
-  deadline.setHours(17, 0, 0, 0);
-  return Date.now() > deadline.getTime();
+  const t = deadlineCutoff(d);
+  if (!t) return false;
+  return Date.now() > t.getTime();
 }
 
 function RankBadge({ rank }: { rank?: number | null }) {
