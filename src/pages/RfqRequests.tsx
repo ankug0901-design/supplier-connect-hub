@@ -396,7 +396,7 @@ function RfqDetailSheet({
                 </h4>
                 {isRevision && (
                   <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-                    Quotes can be revised until {formatDate(rfq.response_deadline)} at 5:00 PM IST
+                    Closes: {formatDeadline(rfq.response_deadline)} — quote can be revised until then
                   </div>
                 )}
                 <div className="space-y-4 rounded-lg border p-4">
@@ -477,7 +477,7 @@ function RfqDetailSheet({
                 ) : (
                   <>
                     <p className="text-xs text-muted-foreground">
-                      Quotes can be revised until {formatDate(rfq.response_deadline)} at 5:00 PM IST
+                      Closes: {formatDeadline(rfq.response_deadline)} — quote can be revised until then
                     </p>
                     <Button onClick={() => setReviseMode(true)} variant="outline" className="w-full">
                       Revise Your Quote
