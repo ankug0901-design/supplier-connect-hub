@@ -253,7 +253,7 @@ export default function AdminRfq() {
                         <h3 className="text-lg font-bold">{first.product_name}</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Deadline: {fmtDate(first.response_deadline)}
+                        Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Closes: {fmtDeadline(first.response_deadline)}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
