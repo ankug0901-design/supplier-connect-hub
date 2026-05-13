@@ -358,7 +358,7 @@ function RfqDetailSheet({
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Quote Deadline</p>
                   <p className={`text-sm font-medium ${overdue ? 'text-destructive' : ''}`}>
-                    {formatDate(rfq.response_deadline)}
+                    {formatDeadline(rfq.response_deadline)}
                   </p>
                 </div>
                 <Spec label="RFQ Received" value={formatDate(rfq.created_at)} />
