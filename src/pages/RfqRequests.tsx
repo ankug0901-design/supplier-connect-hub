@@ -171,9 +171,9 @@ export default function RfqRequests() {
                   <div className={`flex items-center gap-1.5 text-sm ${urgent ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                     {urgent && <AlertTriangle className="h-4 w-4" />}
                     <span>
-                      Response Deadline: {formatDate(r.response_deadline)}
+                      Closes: {formatDeadline(r.response_deadline)}
                       {days !== null && days >= 0 && ` (${days}d left)`}
-                      {days !== null && days < 0 && ` (overdue)`}
+                      {days !== null && days < 0 && ` (closed)`}
                     </span>
                   </div>
                   <div className="mt-auto pt-2">
