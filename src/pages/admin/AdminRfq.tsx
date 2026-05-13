@@ -30,10 +30,20 @@ function daysSince(d: string) {
   return Math.floor((Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function deadlineCutoff(d?: string | null): Date | null {
+  if (!d) return null;
+  const datePart = d.length >= 10 ? d.slice(0, 10) : d;
+  return new Date(`${datePart}T17:00:00+05:30`);
+}
+
+function fmtDeadline(d?: string | null) {
+  if (!d) return '—';
+  return `${fmtDate(d)} at 5:00 PM IST`;
+}
+
 function closingCountdown(deadline?: string | null): { label: string; tone: 'red' | 'orange' | 'gray' | 'expired' } | null {
-  if (!deadline) return null;
-  const target = new Date(deadline);
-  target.setHours(17, 0, 0, 0);
+  const target = deadlineCutoff(deadline);
+  if (!target) return null;
   const ms = target.getTime() - Date.now();
   if (ms <= 0) return { label: 'Closed', tone: 'expired' };
   const totalMin = Math.floor(ms / 60000);
