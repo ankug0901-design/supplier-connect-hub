@@ -157,7 +157,8 @@ export default function AdminRfq() {
           quoted_gst_percent: r.quoted_gst_percent,
           lead_time_days: r.lead_time_days,
           payment_terms: r.payment_terms,
-          emboss_notes: '',
+          emboss_notes: r.emboss_notes || '',
+          price_rank: r.price_rank,
         }),
       });
       if (!res.ok) throw new Error('Webhook failed');
