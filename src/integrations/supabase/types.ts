@@ -360,9 +360,11 @@ export type Database = {
           finish: string | null
           id: string
           item_specs: string | null
+          last_revised_at: string | null
           lead_time_days: number | null
           material: string | null
           payment_terms: string | null
+          price_rank: number | null
           print_process: string | null
           product_category: string | null
           product_name: string
@@ -372,13 +374,18 @@ export type Database = {
           quoted_unit_price: number | null
           required_by_date: string | null
           response_deadline: string | null
+          revision_count: number | null
+          rfq_closed_at: string | null
           rfq_id: string
           setup_charges: number | null
           special_instructions: string | null
           status: string
+          submitted_by_email: string | null
+          submitted_by_name: string | null
           supplier_email: string
           supplier_id: string | null
           supplier_notes: string | null
+          total_price: number | null
           updated_at: string
           validity_days: number | null
         }
@@ -398,9 +405,11 @@ export type Database = {
           finish?: string | null
           id?: string
           item_specs?: string | null
+          last_revised_at?: string | null
           lead_time_days?: number | null
           material?: string | null
           payment_terms?: string | null
+          price_rank?: number | null
           print_process?: string | null
           product_category?: string | null
           product_name: string
@@ -410,13 +419,18 @@ export type Database = {
           quoted_unit_price?: number | null
           required_by_date?: string | null
           response_deadline?: string | null
+          revision_count?: number | null
+          rfq_closed_at?: string | null
           rfq_id: string
           setup_charges?: number | null
           special_instructions?: string | null
           status?: string
+          submitted_by_email?: string | null
+          submitted_by_name?: string | null
           supplier_email: string
           supplier_id?: string | null
           supplier_notes?: string | null
+          total_price?: number | null
           updated_at?: string
           validity_days?: number | null
         }
@@ -436,9 +450,11 @@ export type Database = {
           finish?: string | null
           id?: string
           item_specs?: string | null
+          last_revised_at?: string | null
           lead_time_days?: number | null
           material?: string | null
           payment_terms?: string | null
+          price_rank?: number | null
           print_process?: string | null
           product_category?: string | null
           product_name?: string
@@ -448,13 +464,18 @@ export type Database = {
           quoted_unit_price?: number | null
           required_by_date?: string | null
           response_deadline?: string | null
+          revision_count?: number | null
+          rfq_closed_at?: string | null
           rfq_id?: string
           setup_charges?: number | null
           special_instructions?: string | null
           status?: string
+          submitted_by_email?: string | null
+          submitted_by_name?: string | null
           supplier_email?: string
           supplier_id?: string | null
           supplier_notes?: string | null
+          total_price?: number | null
           updated_at?: string
           validity_days?: number | null
         }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,43 @@ function fmtDateTime(d?: string | null) {
 
 function daysSince(d: string) {
   return Math.floor((Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function closingCountdown(deadline?: string | null): { label: string; tone: 'red' | 'orange' | 'gray' | 'expired' } | null {
+  if (!deadline) return null;
+  const target = new Date(deadline);
+  target.setHours(17, 0, 0, 0);
+  const ms = target.getTime() - Date.now();
+  if (ms <= 0) return { label: 'Closed', tone: 'expired' };
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const days = h / 24;
+  const tone = days < 1 ? 'red' : days < 2 ? 'orange' : 'gray';
+  const label = h >= 24
+    ? `Closes in ${Math.floor(h / 24)}d ${h % 24}h`
+    : `Closes in ${h}h ${m}m`;
+  return { label, tone };
+}
+
+function RankCell({ rank }: { rank?: number | null }) {
+  if (!rank) return <span className="text-muted-foreground">—</span>;
+  if (rank === 1) return (
+    <span className="inline-flex items-center gap-1 font-semibold text-yellow-700">
+      <Crown className="h-4 w-4 fill-yellow-400 text-yellow-500" /> #1
+    </span>
+  );
+  if (rank === 2) return (
+    <span className="inline-flex items-center gap-1 font-semibold text-slate-600">
+      <Medal className="h-4 w-4 text-slate-400" /> #2
+    </span>
+  );
+  if (rank === 3) return (
+    <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
+      <Award className="h-4 w-4 text-amber-600" /> #3
+    </span>
+  );
+  return <span className="font-medium">#{rank}</span>;
 }
 
 export default function AdminRfq() {
@@ -179,9 +216,23 @@ export default function AdminRfq() {
 
           {filtered.map(({ rfq_id, items }) => {
             const first = items[0];
-            const submitted = items.filter((r) => ['quote_submitted', 'accepted', 'rejected'].includes(r.status));
+            const submittedRaw = items.filter((r) => ['quote_submitted', 'accepted', 'rejected'].includes(r.status));
+            const submitted = [...submittedRaw].sort((a, b) => {
+              const ar = a.price_rank ?? 999;
+              const br = b.price_rank ?? 999;
+              if (ar !== br) return ar - br;
+              const ap = Number(a.quoted_unit_price) || Infinity;
+              const bp = Number(b.quoted_unit_price) || Infinity;
+              return ap - bp;
+            });
             const pending = items.filter((r) => r.status === 'pending');
             const groupHasAccepted = items.some((r) => r.status === 'accepted');
+            const countdown = closingCountdown(first.response_deadline);
+            const countdownClass =
+              countdown?.tone === 'red' ? 'border-red-300 bg-red-50 text-red-700' :
+              countdown?.tone === 'orange' ? 'border-orange-300 bg-orange-50 text-orange-700' :
+              countdown?.tone === 'expired' ? 'border-red-400 bg-red-100 text-red-800' :
+              'border-muted bg-muted text-muted-foreground';
             return (
               <Card key={rfq_id}>
                 <CardContent className="space-y-4 p-5">
@@ -192,12 +243,19 @@ export default function AdminRfq() {
                         <h3 className="text-lg font-bold">{first.product_name}</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)}
+                        Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Deadline: {fmtDate(first.response_deadline)}
                       </p>
                     </div>
-                    <Badge variant="outline">
-                      {submitted.length} of {items.length} suppliers responded
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {countdown && (
+                        <Badge variant="outline" className={`border ${countdownClass}`}>
+                          <Clock className="mr-1 h-3 w-3" /> {countdown.label}
+                        </Badge>
+                      )}
+                      <Badge variant="outline">
+                        {submitted.length} of {items.length} suppliers responded
+                      </Badge>
+                    </div>
                   </div>
 
                   {submitted.length >= 1 && (
@@ -205,10 +263,11 @@ export default function AdminRfq() {
                       <table className="w-full text-sm">
                         <thead className="bg-muted">
                           <tr className="text-left">
+                            <th className="p-2">Rank</th>
                             <th className="p-2">Supplier</th>
                             <th className="p-2">Unit Price</th>
                             <th className="p-2">GST</th>
-                            <th className="p-2">Total/unit</th>
+                            <th className="p-2">Total/unit (incl. GST)</th>
                             <th className="p-2">Lead Time</th>
                             <th className="p-2">Payment</th>
                             <th className="p-2">Validity</th>
@@ -221,21 +280,29 @@ export default function AdminRfq() {
                           {submitted.map((r) => {
                             const up = Number(r.quoted_unit_price) || 0;
                             const gst = Number(r.quoted_gst_percent) || 0;
-                            const perUnit = up + (up * gst / 100);
+                            const perUnit = Number(r.total_price) || (up + (up * gst / 100));
                             const isAccepted = r.status === 'accepted';
                             const isRejected = r.status === 'rejected';
                             const isBusy = busyId === r.id;
                             const disabled = isBusy || groupHasAccepted || !!busyId;
                             const sName = supplierNames[r.supplier_email];
+                            const isTopRank = r.price_rank === 1;
+                            const revisionCount = Number(r.revision_count) || 0;
                             return (
                               <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''}`}>
+                                <td className="p-2"><RankCell rank={r.price_rank} /></td>
                                 <td className="p-2">
                                   <div className="font-medium">{sName || r.supplier_email}</div>
                                   {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
+                                  {revisionCount > 0 && (
+                                    <Badge variant="secondary" className="mt-1 text-xs">Revised {revisionCount}x</Badge>
+                                  )}
                                 </td>
                                 <td className="p-2">₹{up.toFixed(2)}</td>
                                 <td className="p-2">{gst}%</td>
-                                <td className="p-2 font-medium">₹{perUnit.toFixed(2)}</td>
+                                <td className={`p-2 font-semibold ${isTopRank ? 'bg-green-100 text-green-800' : ''}`}>
+                                  ₹{perUnit.toFixed(2)}
+                                </td>
                                 <td className="p-2">{r.lead_time_days ?? '—'}d</td>
                                 <td className="p-2">{r.payment_terms || '—'}</td>
                                 <td className="p-2">{r.validity_days ?? '—'}d</td>
