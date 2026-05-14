@@ -220,6 +220,88 @@ export default function AdminRfq() {
     }
   };
 
+  const patchLocalForRfq = (rfqId: string, patch: Partial<Rfq>) => {
+    setRows((prev) => prev.map((r) => (r.rfq_id === rfqId ? { ...r, ...patch } : r)));
+  };
+
+  const forceClose = async () => {
+    if (!forceCloseTarget) return;
+    if (!forceCloseReason.trim()) {
+      toast.error('Reason is required');
+      return;
+    }
+    setBusyId(forceCloseTarget);
+    const prev = rows;
+    const now = new Date().toISOString();
+    patchLocalForRfq(forceCloseTarget, { rfq_closed_at: now });
+    setForceCloseTarget(null);
+    try {
+      const res = await fetch(N8N_RFQ_MANAGE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rfq_id: forceCloseTarget,
+          action: 'force_close',
+          reason: forceCloseReason.trim(),
+          actioned_by: 'Ankur Gupta',
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success('RFQ closed. Suppliers notified.');
+      setForceCloseReason('');
+      await load();
+    } catch (e: any) {
+      setRows(prev);
+      toast.error(`Force close failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const reopen = async () => {
+    if (!reopenTarget) return;
+    if (!reopenDate) {
+      toast.error('New closing date is required');
+      return;
+    }
+    if (reopenDate.getTime() <= Date.now()) {
+      toast.error('New closing date must be in the future');
+      return;
+    }
+    if (!reopenReason.trim()) {
+      toast.error('Reason is required');
+      return;
+    }
+    setBusyId(reopenTarget);
+    const prev = rows;
+    const newDeadline = format(reopenDate, 'yyyy-MM-dd');
+    patchLocalForRfq(reopenTarget, { rfq_closed_at: null, response_deadline: newDeadline });
+    setReopenTarget(null);
+    try {
+      const res = await fetch(N8N_RFQ_MANAGE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rfq_id: reopenTarget,
+          action: 'reopen',
+          new_deadline: newDeadline,
+          reason: reopenReason.trim(),
+          actioned_by: 'Ankur Gupta',
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success('RFQ reopened. Suppliers notified.');
+      setReopenReason('');
+      setReopenDate(undefined);
+      await load();
+    } catch (e: any) {
+      setRows(prev);
+      toast.error(`Reopen failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <DashboardLayout title="RFQ Management" subtitle="All quote requests across suppliers">
       {loading ? (
