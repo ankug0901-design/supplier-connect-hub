@@ -99,7 +99,7 @@ export default function AdminRfq() {
         .select('email,name,company')
         .in('email', emails);
       const map: Record<string, string> = {};
-      (sups || []).forEach((s: any) => { map[s.email] = s.name || s.company || s.email; });
+      (sups || []).forEach((s: any) => { map[s.email] = s.company || s.name || s.email; });
       setSupplierNames(map);
     }
     setLoading(false);
