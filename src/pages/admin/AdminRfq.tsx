@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -13,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const N8N_QUOTE_ACCEPTED = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-quote-accepted';
+const N8N_RFQ_MANAGE = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-manage';
 
 type Rfq = any;
 
@@ -84,6 +90,11 @@ export default function AdminRfq() {
   const [rejectTarget, setRejectTarget] = useState<Rfq | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [forceCloseTarget, setForceCloseTarget] = useState<string | null>(null);
+  const [forceCloseReason, setForceCloseReason] = useState('');
+  const [reopenTarget, setReopenTarget] = useState<string | null>(null);
+  const [reopenReason, setReopenReason] = useState('');
+  const [reopenDate, setReopenDate] = useState<Date | undefined>(undefined);
 
   const load = async () => {
     const { data } = await supabase
@@ -209,6 +220,88 @@ export default function AdminRfq() {
     }
   };
 
+  const patchLocalForRfq = (rfqId: string, patch: Partial<Rfq>) => {
+    setRows((prev) => prev.map((r) => (r.rfq_id === rfqId ? { ...r, ...patch } : r)));
+  };
+
+  const forceClose = async () => {
+    if (!forceCloseTarget) return;
+    if (!forceCloseReason.trim()) {
+      toast.error('Reason is required');
+      return;
+    }
+    setBusyId(forceCloseTarget);
+    const prev = rows;
+    const now = new Date().toISOString();
+    patchLocalForRfq(forceCloseTarget, { rfq_closed_at: now });
+    setForceCloseTarget(null);
+    try {
+      const res = await fetch(N8N_RFQ_MANAGE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rfq_id: forceCloseTarget,
+          action: 'force_close',
+          reason: forceCloseReason.trim(),
+          actioned_by: 'Ankur Gupta',
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success('RFQ closed. Suppliers notified.');
+      setForceCloseReason('');
+      await load();
+    } catch (e: any) {
+      setRows(prev);
+      toast.error(`Force close failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const reopen = async () => {
+    if (!reopenTarget) return;
+    if (!reopenDate) {
+      toast.error('New closing date is required');
+      return;
+    }
+    if (reopenDate.getTime() <= Date.now()) {
+      toast.error('New closing date must be in the future');
+      return;
+    }
+    if (!reopenReason.trim()) {
+      toast.error('Reason is required');
+      return;
+    }
+    setBusyId(reopenTarget);
+    const prev = rows;
+    const newDeadline = format(reopenDate, 'yyyy-MM-dd');
+    patchLocalForRfq(reopenTarget, { rfq_closed_at: null, response_deadline: newDeadline });
+    setReopenTarget(null);
+    try {
+      const res = await fetch(N8N_RFQ_MANAGE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rfq_id: reopenTarget,
+          action: 'reopen',
+          new_deadline: newDeadline,
+          reason: reopenReason.trim(),
+          actioned_by: 'Ankur Gupta',
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success('RFQ reopened. Suppliers notified.');
+      setReopenReason('');
+      setReopenDate(undefined);
+      await load();
+    } catch (e: any) {
+      setRows(prev);
+      toast.error(`Reopen failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <DashboardLayout title="RFQ Management" subtitle="All quote requests across suppliers">
       {loading ? (
@@ -232,6 +325,8 @@ export default function AdminRfq() {
 
           {filtered.map(({ rfq_id, items }) => {
             const first = items[0];
+            const decided = items.some((r) => r.emboss_decision || ['accepted', 'rejected'].includes(r.status));
+            const isClosed = !!first.rfq_closed_at;
             const submittedRaw = items.filter((r) => ['quote_submitted', 'accepted', 'rejected'].includes(r.status));
             // Compute fallback ranks by total_price ascending for rows missing price_rank
             const totalOf = (r: any) => {
@@ -282,6 +377,16 @@ export default function AdminRfq() {
                       <Badge variant="outline">
                         {submitted.length} of {items.length} suppliers responded
                       </Badge>
+                      {!decided && !isClosed && (
+                        <Button size="sm" variant="destructive" disabled={!!busyId} onClick={() => setForceCloseTarget(rfq_id)}>
+                          Force Close
+                        </Button>
+                      )}
+                      {isClosed && (
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={!!busyId} onClick={() => setReopenTarget(rfq_id)}>
+                          Reopen
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -402,6 +507,76 @@ export default function AdminRfq() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectTarget(null)}>Cancel</Button>
             <Button variant="destructive" onClick={reject}>Confirm Reject</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!forceCloseTarget} onOpenChange={(o) => !o && setForceCloseTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Force Close RFQ</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-4">This will close the RFQ and notify all suppliers.</p>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Reason</label>
+            <Input
+              value={forceCloseReason}
+              onChange={(e) => setForceCloseReason(e.target.value)}
+              placeholder="Reason for closing"
+            />
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setForceCloseTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={forceClose}>Confirm Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!reopenTarget} onOpenChange={(o) => !o && setReopenTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reopen RFQ</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">New Closing Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !reopenDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {reopenDate ? format(reopenDate, 'PPP') : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={reopenDate}
+                    onSelect={setReopenDate}
+                    disabled={(date) => date <= new Date()}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason</label>
+              <Input
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                placeholder="Reason for reopening"
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setReopenTarget(null)}>Cancel</Button>
+            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={reopen}>Reopen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
