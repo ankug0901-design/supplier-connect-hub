@@ -510,6 +510,76 @@ export default function AdminRfq() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!forceCloseTarget} onOpenChange={(o) => !o && setForceCloseTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Force Close RFQ</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-4">This will close the RFQ and notify all suppliers.</p>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Reason</label>
+            <Input
+              value={forceCloseReason}
+              onChange={(e) => setForceCloseReason(e.target.value)}
+              placeholder="Reason for closing"
+            />
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setForceCloseTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={forceClose}>Confirm Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!reopenTarget} onOpenChange={(o) => !o && setReopenTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reopen RFQ</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">New Closing Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !reopenDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {reopenDate ? format(reopenDate, 'PPP') : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={reopenDate}
+                    onSelect={setReopenDate}
+                    disabled={(date) => date <= new Date()}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason</label>
+              <Input
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                placeholder="Reason for reopening"
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setReopenTarget(null)}>Cancel</Button>
+            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={reopen}>Reopen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
