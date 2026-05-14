@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -13,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const N8N_QUOTE_ACCEPTED = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-quote-accepted';
+const N8N_RFQ_MANAGE = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-manage';
 
 type Rfq = any;
 
