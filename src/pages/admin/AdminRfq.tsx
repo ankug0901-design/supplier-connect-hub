@@ -322,11 +322,12 @@ export default function AdminRfq() {
                             const isBusy = busyId === r.id;
                             const disabled = isBusy || groupHasAccepted || !!busyId;
                             const sName = supplierNames[r.supplier_email];
-                            const isTopRank = r.price_rank === 1;
+                            const rowRank = effectiveRank(r);
+                            const isTopRank = rowRank === 1;
                             const revisionCount = Number(r.revision_count) || 0;
                             return (
                               <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''}`}>
-                                <td className="p-2"><RankCell rank={r.price_rank} /></td>
+                                <td className="p-2"><RankCell rank={rowRank} /></td>
                                 <td className="p-2">
                                   <div className="font-medium">{sName || r.supplier_email}</div>
                                   {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
@@ -354,7 +355,7 @@ export default function AdminRfq() {
                                     )}
                                     {!isAccepted && !isRejected && (
                                       <>
-                                        <Button size="sm" disabled={disabled} onClick={() => accept(r)}>
+                                        <Button size="sm" disabled={disabled} onClick={() => accept({ ...r, __effectiveRank: rowRank })}>
                                           {isBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1 h-4 w-4" />}
                                           Accept
                                         </Button>
