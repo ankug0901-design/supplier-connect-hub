@@ -79,7 +79,6 @@ function RankCell({ rank }: { rank?: number | null }) {
 
 export default function AdminRfq() {
   const [rows, setRows] = useState<Rfq[]>([]);
-  const [supplierNames, setSupplierNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'awaiting' | 'compare' | 'decided'>('all');
   const [rejectTarget, setRejectTarget] = useState<Rfq | null>(null);
@@ -91,17 +90,22 @@ export default function AdminRfq() {
       .from('rfq_portal_requests')
       .select('*')
       .order('created_at', { ascending: false });
-    setRows(data || []);
-    const emails = Array.from(new Set((data || []).map((r: any) => r.supplier_email).filter(Boolean)));
-    if (emails.length) {
-      const { data: sups } = await supabase
-        .from('suppliers')
-        .select('email,name,company')
-        .in('email', emails);
-      const map: Record<string, string> = {};
-      (sups || []).forEach((s: any) => { map[s.email] = s.company || s.name || s.email; });
-      setSupplierNames(map);
-    }
+
+    const { data: sups } = await supabase
+      .from('suppliers')
+      .select('email,company')
+      .limit(5000);
+
+    const companyByEmail: Record<string, string> = {};
+    (sups || []).forEach((s: any) => {
+      const emailKey = String(s.email || '').trim().toLowerCase();
+      if (emailKey && s.company) companyByEmail[emailKey] = s.company;
+    });
+
+    setRows((data || []).map((r: any) => ({
+      ...r,
+      supplier_company: companyByEmail[String(r.supplier_email || '').trim().toLowerCase()] || null,
+    })));
     setLoading(false);
   };
 
@@ -143,7 +147,7 @@ export default function AdminRfq() {
     const prev = rows;
     // optimistic
     patchLocal(r.id, { status: 'accepted', emboss_decision: 'accepted', decided_at: new Date().toISOString() });
-    const supplierName = supplierNames[r.supplier_email] || r.supplier_email;
+    const supplierName = r.supplier_company || r.supplier_email;
     try {
       const res = await fetch(N8N_QUOTE_ACCEPTED, {
         method: 'POST',
