@@ -159,7 +159,7 @@ export default function AdminRfq() {
           lead_time_days: Number(r.lead_time_days) || 0,
           payment_terms: r.payment_terms || '',
           emboss_notes: r.emboss_notes || '',
-          price_rank: r.price_rank ?? 1,
+          price_rank: r.__effectiveRank ?? r.price_rank ?? 1,
         }),
       });
       if (!res.ok) {
@@ -242,13 +242,24 @@ export default function AdminRfq() {
           {filtered.map(({ rfq_id, items }) => {
             const first = items[0];
             const submittedRaw = items.filter((r) => ['quote_submitted', 'accepted', 'rejected'].includes(r.status));
+            // Compute fallback ranks by total_price ascending for rows missing price_rank
+            const totalOf = (r: any) => {
+              const up = Number(r.quoted_unit_price) || 0;
+              const gst = Number(r.quoted_gst_percent) || 0;
+              return Number(r.total_price) || (up + (up * gst / 100));
+            };
+            const computedOrder = [...submittedRaw].sort((a, b) => totalOf(a) - totalOf(b));
+            const computedRankMap = new Map<string, number>();
+            computedOrder.forEach((r, i) => computedRankMap.set(r.id, i + 1));
+            const effectiveRank = (r: any): number | null => {
+              if (r.price_rank != null) return r.price_rank;
+              return computedRankMap.get(r.id) ?? null;
+            };
             const submitted = [...submittedRaw].sort((a, b) => {
-              const ar = a.price_rank ?? 999;
-              const br = b.price_rank ?? 999;
+              const ar = effectiveRank(a) ?? 999;
+              const br = effectiveRank(b) ?? 999;
               if (ar !== br) return ar - br;
-              const ap = Number(a.quoted_unit_price) || Infinity;
-              const bp = Number(b.quoted_unit_price) || Infinity;
-              return ap - bp;
+              return totalOf(a) - totalOf(b);
             });
             const pending = items.filter((r) => r.status === 'pending');
             const groupHasAccepted = items.some((r) => r.status === 'accepted');
@@ -311,11 +322,12 @@ export default function AdminRfq() {
                             const isBusy = busyId === r.id;
                             const disabled = isBusy || groupHasAccepted || !!busyId;
                             const sName = supplierNames[r.supplier_email];
-                            const isTopRank = r.price_rank === 1;
+                            const rowRank = effectiveRank(r);
+                            const isTopRank = rowRank === 1;
                             const revisionCount = Number(r.revision_count) || 0;
                             return (
                               <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''}`}>
-                                <td className="p-2"><RankCell rank={r.price_rank} /></td>
+                                <td className="p-2"><RankCell rank={rowRank} /></td>
                                 <td className="p-2">
                                   <div className="font-medium">{sName || r.supplier_email}</div>
                                   {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
@@ -343,7 +355,7 @@ export default function AdminRfq() {
                                     )}
                                     {!isAccepted && !isRejected && (
                                       <>
-                                        <Button size="sm" disabled={disabled} onClick={() => accept(r)}>
+                                        <Button size="sm" disabled={disabled} onClick={() => accept({ ...r, __effectiveRank: rowRank })}>
                                           {isBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1 h-4 w-4" />}
                                           Accept
                                         </Button>
