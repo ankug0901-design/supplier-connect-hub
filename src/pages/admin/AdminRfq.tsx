@@ -143,6 +143,7 @@ export default function AdminRfq() {
     const prev = rows;
     // optimistic
     patchLocal(r.id, { status: 'accepted', emboss_decision: 'accepted', decided_at: new Date().toISOString() });
+    const supplierName = supplierNames[r.supplier_email] || r.supplier_email;
     try {
       const res = await fetch(N8N_QUOTE_ACCEPTED, {
         method: 'POST',
@@ -150,23 +151,36 @@ export default function AdminRfq() {
         body: JSON.stringify({
           rfq_id: r.rfq_id,
           supplier_email: r.supplier_email,
-          supplier_name: supplierNames[r.supplier_email] || r.supplier_email,
+          supplier_name: supplierName,
           product_name: r.product_name,
           quantity: r.quantity,
-          quoted_unit_price: r.quoted_unit_price,
-          quoted_gst_percent: r.quoted_gst_percent,
-          lead_time_days: r.lead_time_days,
-          payment_terms: r.payment_terms,
+          quoted_unit_price: Number(r.quoted_unit_price) || 0,
+          quoted_gst_percent: Number(r.quoted_gst_percent) || 0,
+          lead_time_days: Number(r.lead_time_days) || 0,
+          payment_terms: r.payment_terms || '',
           emboss_notes: r.emboss_notes || '',
-          price_rank: r.price_rank,
+          price_rank: r.price_rank ?? 1,
         }),
       });
-      if (!res.ok) throw new Error('Webhook failed');
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try {
+          const ct = res.headers.get('content-type') || '';
+          if (ct.includes('application/json')) {
+            const j = await res.json();
+            detail = j.error || j.message || JSON.stringify(j);
+          } else {
+            const t = await res.text();
+            if (t) detail = t;
+          }
+        } catch {}
+        throw new Error(detail);
+      }
       toast.success('Quote accepted! Supplier notified by email.');
       await load();
     } catch (e: any) {
       setRows(prev);
-      toast.error(e.message || 'Failed to accept');
+      toast.error(`Accept failed: ${e.message || 'Unknown error'}`);
     } finally {
       setBusyId(null);
     }
