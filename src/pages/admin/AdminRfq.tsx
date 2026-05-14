@@ -159,7 +159,7 @@ export default function AdminRfq() {
           lead_time_days: Number(r.lead_time_days) || 0,
           payment_terms: r.payment_terms || '',
           emboss_notes: r.emboss_notes || '',
-          price_rank: r.price_rank ?? 1,
+          price_rank: r.__effectiveRank ?? r.price_rank ?? 1,
         }),
       });
       if (!res.ok) {
