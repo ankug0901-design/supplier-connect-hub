@@ -243,6 +243,8 @@ export default function AdminRfq() {
 
           {filtered.map(({ rfq_id, items }) => {
             const first = items[0];
+            const decided = items.some((r) => r.emboss_decision || ['accepted', 'rejected'].includes(r.status));
+            const isClosed = !!first.rfq_closed_at;
             const submittedRaw = items.filter((r) => ['quote_submitted', 'accepted', 'rejected'].includes(r.status));
             // Compute fallback ranks by total_price ascending for rows missing price_rank
             const totalOf = (r: any) => {
@@ -293,6 +295,16 @@ export default function AdminRfq() {
                       <Badge variant="outline">
                         {submitted.length} of {items.length} suppliers responded
                       </Badge>
+                      {!decided && !isClosed && (
+                        <Button size="sm" variant="destructive" disabled={!!busyId} onClick={() => setForceCloseTarget(rfq_id)}>
+                          Force Close
+                        </Button>
+                      )}
+                      {isClosed && (
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={!!busyId} onClick={() => setReopenTarget(rfq_id)}>
+                          Reopen
+                        </Button>
+                      )}
                     </div>
                   </div>
 
