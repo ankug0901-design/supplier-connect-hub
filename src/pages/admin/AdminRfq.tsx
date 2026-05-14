@@ -166,20 +166,7 @@ export default function AdminRfq() {
           price_rank: r.__effectiveRank ?? r.price_rank ?? 1,
         }),
       });
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`;
-        try {
-          const ct = res.headers.get('content-type') || '';
-          if (ct.includes('application/json')) {
-            const j = await res.json();
-            detail = j.error || j.message || JSON.stringify(j);
-          } else {
-            const t = await res.text();
-            if (t) detail = t;
-          }
-        } catch {}
-        throw new Error(detail);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       toast.success('Quote accepted! Supplier notified by email.');
       await load();
     } catch (e: any) {
@@ -325,7 +312,7 @@ export default function AdminRfq() {
                             const isRejected = r.status === 'rejected';
                             const isBusy = busyId === r.id;
                             const disabled = isBusy || groupHasAccepted || !!busyId;
-                            const sName = supplierNames[r.supplier_email];
+                            const sName = r.supplier_company;
                             const rowRank = effectiveRank(r);
                             const isTopRank = rowRank === 1;
                             const revisionCount = Number(r.revision_count) || 0;
@@ -385,7 +372,7 @@ export default function AdminRfq() {
                       <ul className="space-y-1">
                         {pending.map((r) => (
                           <li key={r.id} className="flex justify-between">
-                            <span>{supplierNames[r.supplier_email] || r.supplier_email}</span>
+                            <span>{r.supplier_company || r.supplier_email}</span>
                             <span className="text-muted-foreground">{daysSince(r.created_at)}d elapsed</span>
                           </li>
                         ))}
