@@ -90,6 +90,11 @@ export default function AdminRfq() {
   const [rejectTarget, setRejectTarget] = useState<Rfq | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [forceCloseTarget, setForceCloseTarget] = useState<string | null>(null);
+  const [forceCloseReason, setForceCloseReason] = useState('');
+  const [reopenTarget, setReopenTarget] = useState<string | null>(null);
+  const [reopenReason, setReopenReason] = useState('');
+  const [reopenDate, setReopenDate] = useState<Date | undefined>(undefined);
 
   const load = async () => {
     const { data } = await supabase
