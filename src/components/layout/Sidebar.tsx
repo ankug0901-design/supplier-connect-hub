@@ -52,12 +52,19 @@ export function Sidebar() {
   useEffect(() => {
     if (isAdmin) {
       const load = async () => {
-        const [{ count: regs }, { count: rfqs }] = await Promise.all([
+        const today = new Date().toISOString().slice(0, 10);
+        const [{ count: regs }, { data: rfqRows }] = await Promise.all([
           supabase.from('supplier_registrations').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-          supabase.from('rfq_portal_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+          supabase
+            .from('rfq_portal_requests')
+            .select('rfq_id,status,response_deadline,rfq_closed_at')
+            .eq('status', 'pending')
+            .is('rfq_closed_at', null)
+            .or(`response_deadline.gte.${today},response_deadline.is.null`),
         ]);
         setPendingRegs(regs ?? 0);
-        setPendingRfqsAll(rfqs ?? 0);
+        const distinct = new Set((rfqRows || []).map((r: any) => r.rfq_id));
+        setPendingRfqsAll(distinct.size);
       };
       load();
       const channel = supabase
