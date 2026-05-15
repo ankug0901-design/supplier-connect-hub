@@ -382,7 +382,7 @@ export default function AdminRfq() {
                           Force Close
                         </Button>
                       )}
-                      {isClosed && (
+                      {(isClosed || decided || (countdown && countdown.label === 'Closed')) && (
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={!!busyId} onClick={() => setReopenTarget(rfq_id)}>
                           Reopen
                         </Button>
