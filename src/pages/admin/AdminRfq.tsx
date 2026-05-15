@@ -95,6 +95,8 @@ export default function AdminRfq() {
   const [reopenTarget, setReopenTarget] = useState<string | null>(null);
   const [reopenReason, setReopenReason] = useState('');
   const [reopenDate, setReopenDate] = useState<Date | undefined>(undefined);
+  const [justifyTarget, setJustifyTarget] = useState<{ row: Rfq; rank: number; l1: Rfq | null } | null>(null);
+  const [justifyText, setJustifyText] = useState('');
 
   const load = async () => {
     const { data } = await supabase
@@ -143,7 +145,7 @@ export default function AdminRfq() {
       const submitted = items.filter((r) => ['quote_submitted', 'accepted'].includes(r.status));
       const decided = items.some((r) => r.emboss_decision || ['accepted', 'rejected'].includes(r.status));
       if (filter === 'awaiting') return submitted.length === 0 && !decided;
-      if (filter === 'compare') return submitted.length >= 2 && !decided;
+      if (filter === 'compare') return submitted.length >= 1 && !decided;
       if (filter === 'decided') return decided;
       return true;
     });
@@ -153,11 +155,15 @@ export default function AdminRfq() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   };
 
-  const accept = async (r: Rfq) => {
+  const accept = async (r: Rfq, justification?: string) => {
     setBusyId(r.id);
     const prev = rows;
+    const decidedAt = new Date().toISOString();
+    const mergedNotes = justification
+      ? `${r.emboss_notes ? r.emboss_notes + '\n\n' : ''}[Non-L1 Award Justification] ${justification}`
+      : r.emboss_notes || '';
     // optimistic
-    patchLocal(r.id, { status: 'accepted', emboss_decision: 'accepted', decided_at: new Date().toISOString() });
+    patchLocal(r.id, { status: 'accepted', emboss_decision: 'accepted', decided_at: decidedAt, emboss_notes: mergedNotes });
     const supplierName = r.supplier_company || r.supplier_email;
     try {
       const res = await fetch(N8N_QUOTE_ACCEPTED, {
@@ -173,11 +179,21 @@ export default function AdminRfq() {
           quoted_gst_percent: Number(r.quoted_gst_percent) || 0,
           lead_time_days: Number(r.lead_time_days) || 0,
           payment_terms: r.payment_terms || '',
-          emboss_notes: r.emboss_notes || '',
+          emboss_notes: mergedNotes,
           price_rank: r.__effectiveRank ?? r.price_rank ?? 1,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Persist decision + justification to DB
+      await supabase
+        .from('rfq_portal_requests')
+        .update({
+          status: 'accepted',
+          emboss_decision: 'accepted',
+          decided_at: decidedAt,
+          emboss_notes: mergedNotes,
+        })
+        .eq('id', r.id);
       toast.success('Quote accepted! Supplier notified by email.');
       await load();
     } catch (e: any) {
@@ -186,6 +202,29 @@ export default function AdminRfq() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const requestAccept = (r: Rfq, rank: number | null, l1: Rfq | null) => {
+    const effRank = rank ?? r.price_rank ?? null;
+    if (effRank && effRank > 1) {
+      setJustifyText('');
+      setJustifyTarget({ row: { ...r, __effectiveRank: effRank }, rank: effRank, l1 });
+      return;
+    }
+    accept({ ...r, __effectiveRank: effRank ?? 1 });
+  };
+
+  const confirmJustifiedAccept = async () => {
+    if (!justifyTarget) return;
+    if (justifyText.trim().length < 20) {
+      toast.error('Justification must be at least 20 characters');
+      return;
+    }
+    const j = justifyText.trim();
+    const tgt = justifyTarget;
+    setJustifyTarget(null);
+    setJustifyText('');
+    await accept(tgt.row, j);
   };
 
   const reject = async () => {
@@ -350,6 +389,8 @@ export default function AdminRfq() {
             
             const groupHasAccepted = items.some((r) => r.status === 'accepted');
             const countdown = closingCountdown(first.response_deadline);
+            const rfqIsClosed = isClosed || countdown?.tone === 'expired';
+            const l1Row = submitted[0] || null;
             const countdownClass =
               countdown?.tone === 'red' ? 'border-red-300 bg-red-50 text-red-700' :
               countdown?.tone === 'orange' ? 'border-orange-300 bg-orange-50 text-orange-700' :
@@ -424,7 +465,7 @@ export default function AdminRfq() {
                             const isTopRank = rowRank === 1;
                             const revisionCount = Number(r.revision_count) || 0;
                             return (
-                              <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending ? 'bg-yellow-50/40' : ''}`}>
+                              <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending && !rfqIsClosed ? 'bg-yellow-50/40' : ''} ${isPending && rfqIsClosed ? 'bg-muted/40 text-muted-foreground' : ''}`}>
                                 <td className="p-2">
                                   {isPending ? <span className="text-muted-foreground">—</span> : <RankCell rank={rowRank} />}
                                 </td>
@@ -434,12 +475,21 @@ export default function AdminRfq() {
                                   {revisionCount > 0 && (
                                     <Badge variant="secondary" className="mt-1 text-xs">Revised {revisionCount}x</Badge>
                                   )}
+                                  {isPending && rfqIsClosed && (
+                                    <Badge variant="secondary" className="mt-1 text-xs">Did not respond</Badge>
+                                  )}
                                 </td>
                                 {isPending ? (
-                                  <td className="p-2 text-muted-foreground" colSpan={7}>
-                                    <Badge variant="outline" className="border-yellow-300 bg-yellow-50 text-yellow-800">
-                                      Awaiting · {daysSince(r.created_at)}d elapsed
-                                    </Badge>
+                                  <td className="p-2" colSpan={7}>
+                                    {rfqIsClosed ? (
+                                      <Badge variant="outline" className="border-muted-foreground/30 bg-muted text-muted-foreground">
+                                        Closed — No Quote
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="border-yellow-300 bg-yellow-50 text-yellow-800">
+                                        Awaiting · {daysSince(r.created_at)}d elapsed
+                                      </Badge>
+                                    )}
                                   </td>
                                 ) : (
                                   <>
@@ -466,7 +516,7 @@ export default function AdminRfq() {
                                     )}
                                     {!isPending && !isAccepted && !isRejected && (
                                       <>
-                                        <Button size="sm" disabled={disabled} onClick={() => accept({ ...r, __effectiveRank: rowRank })}>
+                                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={disabled} onClick={() => requestAccept(r, rowRank, l1Row)}>
                                           {isBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1 h-4 w-4" />}
                                           Accept
                                         </Button>
@@ -578,6 +628,52 @@ export default function AdminRfq() {
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setReopenTarget(null)}>Cancel</Button>
             <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={reopen}>Reopen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!justifyTarget} onOpenChange={(o) => { if (!o) { setJustifyTarget(null); setJustifyText(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Justification Required — Non-L1 Award</DialogTitle>
+          </DialogHeader>
+          {justifyTarget && (() => {
+            const t = justifyTarget;
+            const r = t.row;
+            const up = Number(r.quoted_unit_price) || 0;
+            const supName = r.supplier_company || r.supplier_email;
+            const l1 = t.l1;
+            const l1Up = l1 ? (Number(l1.quoted_unit_price) || 0) : 0;
+            const l1Name = l1 ? (l1.supplier_company || l1.supplier_email) : '—';
+            return (
+              <div className="space-y-4">
+                <div className="rounded-md border border-orange-300 bg-orange-50 p-3 text-sm text-orange-900">
+                  You are awarding this RFQ to <strong>{supName}</strong> at <strong>₹{up.toFixed(2)}/unit</strong> who is ranked <strong>#{t.rank}</strong>, not the lowest bidder
+                  {l1 ? (<> (L1: <strong>₹{l1Up.toFixed(2)}/unit</strong> from <strong>{l1Name}</strong>)</>) : ''}.
+                  This decision requires a documented reason.
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Reason for awarding to non-L1 supplier (min 20 chars)</label>
+                  <Textarea
+                    value={justifyText}
+                    onChange={(e) => setJustifyText(e.target.value)}
+                    placeholder="e.g. L1 lead time exceeds client deadline; chosen supplier offers faster delivery and proven quality on similar jobs."
+                    rows={4}
+                  />
+                  <p className="text-xs text-muted-foreground">{justifyText.trim().length}/20</p>
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setJustifyTarget(null); setJustifyText(''); }}>Cancel</Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={justifyText.trim().length < 20}
+              onClick={confirmJustifiedAccept}
+            >
+              Confirm Award with Justification
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
