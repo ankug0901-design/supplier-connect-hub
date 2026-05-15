@@ -73,7 +73,7 @@ function AppRoutes() {
           )
         }
       />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
       <Route path="/rfq-requests" element={<ProtectedRoute><RfqRequests /></ProtectedRoute>} />
       <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
       <Route path="/purchase-orders/:id" element={<ProtectedRoute><PODetail /></ProtectedRoute>} />
