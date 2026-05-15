@@ -95,6 +95,8 @@ export default function AdminRfq() {
   const [reopenTarget, setReopenTarget] = useState<string | null>(null);
   const [reopenReason, setReopenReason] = useState('');
   const [reopenDate, setReopenDate] = useState<Date | undefined>(undefined);
+  const [justifyTarget, setJustifyTarget] = useState<{ row: Rfq; rank: number; l1: Rfq | null } | null>(null);
+  const [justifyText, setJustifyText] = useState('');
 
   const load = async () => {
     const { data } = await supabase
