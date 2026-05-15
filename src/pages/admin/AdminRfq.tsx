@@ -465,7 +465,7 @@ export default function AdminRfq() {
                             const isTopRank = rowRank === 1;
                             const revisionCount = Number(r.revision_count) || 0;
                             return (
-                              <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending ? 'bg-yellow-50/40' : ''}`}>
+                              <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending && !rfqIsClosed ? 'bg-yellow-50/40' : ''} ${isPending && rfqIsClosed ? 'bg-muted/40 text-muted-foreground' : ''}`}>
                                 <td className="p-2">
                                   {isPending ? <span className="text-muted-foreground">—</span> : <RankCell rank={rowRank} />}
                                 </td>
@@ -475,12 +475,21 @@ export default function AdminRfq() {
                                   {revisionCount > 0 && (
                                     <Badge variant="secondary" className="mt-1 text-xs">Revised {revisionCount}x</Badge>
                                   )}
+                                  {isPending && rfqIsClosed && (
+                                    <Badge variant="secondary" className="mt-1 text-xs">Did not respond</Badge>
+                                  )}
                                 </td>
                                 {isPending ? (
-                                  <td className="p-2 text-muted-foreground" colSpan={7}>
-                                    <Badge variant="outline" className="border-yellow-300 bg-yellow-50 text-yellow-800">
-                                      Awaiting · {daysSince(r.created_at)}d elapsed
-                                    </Badge>
+                                  <td className="p-2" colSpan={7}>
+                                    {rfqIsClosed ? (
+                                      <Badge variant="outline" className="border-muted-foreground/30 bg-muted text-muted-foreground">
+                                        Closed — No Quote
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="border-yellow-300 bg-yellow-50 text-yellow-800">
+                                        Awaiting · {daysSince(r.created_at)}d elapsed
+                                      </Badge>
+                                    )}
                                   </td>
                                 ) : (
                                   <>
@@ -507,7 +516,7 @@ export default function AdminRfq() {
                                     )}
                                     {!isPending && !isAccepted && !isRejected && (
                                       <>
-                                        <Button size="sm" disabled={disabled} onClick={() => accept({ ...r, __effectiveRank: rowRank })}>
+                                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={disabled} onClick={() => requestAccept(r, rowRank, l1Row)}>
                                           {isBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1 h-4 w-4" />}
                                           Accept
                                         </Button>
