@@ -143,7 +143,7 @@ export default function AdminRfq() {
       const submitted = items.filter((r) => ['quote_submitted', 'accepted'].includes(r.status));
       const decided = items.some((r) => r.emboss_decision || ['accepted', 'rejected'].includes(r.status));
       if (filter === 'awaiting') return submitted.length === 0 && !decided;
-      if (filter === 'compare') return submitted.length >= 2 && !decided;
+      if (filter === 'compare') return submitted.length >= 1 && !decided;
       if (filter === 'decided') return decided;
       return true;
     });
