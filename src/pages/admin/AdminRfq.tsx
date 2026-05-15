@@ -390,7 +390,7 @@ export default function AdminRfq() {
                     </div>
                   </div>
 
-                  {submitted.length >= 1 && (
+                  {items.length >= 1 && (
                     <div className="overflow-x-auto rounded-md border">
                       <table className="w-full text-sm">
                         <thead className="bg-muted">
@@ -409,7 +409,9 @@ export default function AdminRfq() {
                           </tr>
                         </thead>
                         <tbody>
-                          {submitted.map((r) => {
+                          {/* Submitted rows first (ranked), then awaiting */}
+                          {[...submitted, ...items.filter((r) => r.status === 'pending')].map((r) => {
+                            const isPending = r.status === 'pending';
                             const up = Number(r.quoted_unit_price) || 0;
                             const gst = Number(r.quoted_gst_percent) || 0;
                             const perUnit = Number(r.total_price) || (up + (up * gst / 100));
@@ -418,12 +420,14 @@ export default function AdminRfq() {
                             const isBusy = busyId === r.id;
                             const disabled = isBusy || groupHasAccepted || !!busyId;
                             const sName = r.supplier_company;
-                            const rowRank = effectiveRank(r);
+                            const rowRank = isPending ? null : effectiveRank(r);
                             const isTopRank = rowRank === 1;
                             const revisionCount = Number(r.revision_count) || 0;
                             return (
-                              <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''}`}>
-                                <td className="p-2"><RankCell rank={rowRank} /></td>
+                              <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending ? 'bg-yellow-50/40' : ''}`}>
+                                <td className="p-2">
+                                  {isPending ? <span className="text-muted-foreground">—</span> : <RankCell rank={rowRank} />}
+                                </td>
                                 <td className="p-2">
                                   <div className="font-medium">{sName || r.supplier_email}</div>
                                   {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
@@ -431,25 +435,36 @@ export default function AdminRfq() {
                                     <Badge variant="secondary" className="mt-1 text-xs">Revised {revisionCount}x</Badge>
                                   )}
                                 </td>
-                                <td className="p-2">₹{up.toFixed(2)}</td>
-                                <td className="p-2">{gst}%</td>
-                                <td className={`p-2 font-semibold ${isTopRank ? 'bg-green-100 text-green-800' : ''}`}>
-                                  ₹{perUnit.toFixed(2)}
-                                </td>
-                                <td className="p-2">{r.lead_time_days ?? '—'}d</td>
-                                <td className="p-2">{r.payment_terms || '—'}</td>
-                                <td className="p-2">{r.validity_days ?? '—'}d</td>
-                                <td className="p-2">₹{r.setup_charges ?? 0}</td>
-                                <td className="p-2 text-xs">{fmtDateTime(r.quote_submitted_at)}</td>
+                                {isPending ? (
+                                  <td className="p-2 text-muted-foreground" colSpan={7}>
+                                    <Badge variant="outline" className="border-yellow-300 bg-yellow-50 text-yellow-800">
+                                      Awaiting · {daysSince(r.created_at)}d elapsed
+                                    </Badge>
+                                  </td>
+                                ) : (
+                                  <>
+                                    <td className="p-2">₹{up.toFixed(2)}</td>
+                                    <td className="p-2">{gst}%</td>
+                                    <td className={`p-2 font-semibold ${isTopRank ? 'bg-green-100 text-green-800' : ''}`}>
+                                      ₹{perUnit.toFixed(2)}
+                                    </td>
+                                    <td className="p-2">{r.lead_time_days ?? '—'}d</td>
+                                    <td className="p-2">{r.payment_terms || '—'}</td>
+                                    <td className="p-2">{r.validity_days ?? '—'}d</td>
+                                    <td className="p-2">₹{r.setup_charges ?? 0}</td>
+                                  </>
+                                )}
+                                <td className="p-2 text-xs">{isPending ? '—' : fmtDateTime(r.quote_submitted_at)}</td>
                                 <td className="p-2">
                                   <div className="flex justify-end gap-2">
+                                    {isPending && <span className="text-xs text-muted-foreground">—</span>}
                                     {isAccepted && (
                                       <Badge className="bg-green-100 text-green-800 hover:bg-green-100">✅ Accepted</Badge>
                                     )}
                                     {isRejected && (
                                       <Badge variant="secondary">❌ Rejected</Badge>
                                     )}
-                                    {!isAccepted && !isRejected && (
+                                    {!isPending && !isAccepted && !isRejected && (
                                       <>
                                         <Button size="sm" disabled={disabled} onClick={() => accept({ ...r, __effectiveRank: rowRank })}>
                                           {isBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1 h-4 w-4" />}
@@ -468,20 +483,6 @@ export default function AdminRfq() {
                           })}
                         </tbody>
                       </table>
-                    </div>
-                  )}
-
-                  {pending.length > 0 && (
-                    <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                      <p className="mb-2 font-medium">Awaiting quotes from:</p>
-                      <ul className="space-y-1">
-                        {pending.map((r) => (
-                          <li key={r.id} className="flex justify-between">
-                            <span>{r.supplier_company || r.supplier_email}</span>
-                            <span className="text-muted-foreground">{daysSince(r.created_at)}d elapsed</span>
-                          </li>
-                        ))}
-                      </ul>
                     </div>
                   )}
                 </CardContent>
