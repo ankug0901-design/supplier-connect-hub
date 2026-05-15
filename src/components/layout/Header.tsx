@@ -19,17 +19,21 @@ type NotifEvent = {
   type: string;
   tone: string;
   ts: string;
+  updated_at: string;
 };
 
+const LAST_SEEN_KEY = 'notifications.last_seen_at';
+
 function deriveEvent(r: any): NotifEvent {
+  const updated_at = r.updated_at;
   if (r.rfq_closed_at && r.status !== 'accepted' && r.status !== 'rejected') {
-    return { id: r.id, rfq_id: r.rfq_id, type: 'RFQ closed', tone: 'text-red-600', ts: r.rfq_closed_at };
+    return { id: r.id, rfq_id: r.rfq_id, type: 'RFQ closed', tone: 'text-red-600', ts: r.rfq_closed_at, updated_at };
   }
   if (r.status === 'accepted') {
-    return { id: r.id, rfq_id: r.rfq_id, type: 'Quote accepted', tone: 'text-green-600', ts: r.decided_at || r.updated_at };
+    return { id: r.id, rfq_id: r.rfq_id, type: 'Quote accepted', tone: 'text-green-600', ts: r.decided_at || r.updated_at, updated_at };
   }
   if (r.status === 'rejected') {
-    return { id: r.id, rfq_id: r.rfq_id, type: 'Quote rejected', tone: 'text-muted-foreground', ts: r.decided_at || r.updated_at };
+    return { id: r.id, rfq_id: r.rfq_id, type: 'Quote rejected', tone: 'text-muted-foreground', ts: r.decided_at || r.updated_at, updated_at };
   }
   if (r.status === 'quote_submitted') {
     const isRev = (r.revision_count || 0) > 0;
@@ -38,9 +42,10 @@ function deriveEvent(r: any): NotifEvent {
       type: isRev ? `Quote revised by ${r.supplier_email}` : `New quote from ${r.supplier_email}`,
       tone: 'text-blue-600',
       ts: r.last_revised_at || r.quote_submitted_at || r.updated_at,
+      updated_at,
     };
   }
-  return { id: r.id, rfq_id: r.rfq_id, type: 'RFQ updated', tone: 'text-muted-foreground', ts: r.updated_at };
+  return { id: r.id, rfq_id: r.rfq_id, type: 'RFQ updated', tone: 'text-muted-foreground', ts: r.updated_at, updated_at };
 }
 
 function timeAgo(ts: string) {
@@ -58,6 +63,11 @@ export function Header({ title, subtitle }: HeaderProps) {
   const { isAdmin } = useAuth();
   const [events, setEvents] = useState<NotifEvent[]>([]);
   const [open, setOpen] = useState(false);
+  const [lastSeen, setLastSeen] = useState<string>(() => {
+    return localStorage.getItem(LAST_SEEN_KEY) || new Date(0).toISOString();
+  });
+  // Snapshot taken when the dropdown was last opened — controls bold/normal styling
+  const [prevSeen, setPrevSeen] = useState<string>(lastSeen);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -66,7 +76,7 @@ export function Header({ title, subtitle }: HeaderProps) {
         .from('rfq_portal_requests')
         .select('id,rfq_id,status,updated_at,quote_submitted_at,last_revised_at,rfq_closed_at,decided_at,revision_count,supplier_email')
         .order('updated_at', { ascending: false })
-        .limit(10);
+        .limit(20);
       setEvents((data || []).map(deriveEvent));
     };
     load();
@@ -76,6 +86,19 @@ export function Header({ title, subtitle }: HeaderProps) {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [isAdmin]);
+
+  const unreadCount = events.filter((e) => new Date(e.updated_at).getTime() > new Date(lastSeen).getTime()).length;
+
+  const handleOpenChange = (o: boolean) => {
+    setOpen(o);
+    if (o) {
+      // Capture old last_seen for bold/normal display, then mark all as seen
+      setPrevSeen(lastSeen);
+      const now = new Date().toISOString();
+      localStorage.setItem(LAST_SEEN_KEY, now);
+      setLastSeen(now);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -93,13 +116,13 @@ export function Header({ title, subtitle }: HeaderProps) {
             className="w-64 pl-9"
           />
         </div>
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={handleOpenChange}>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
-              {events.length > 0 && (
+              {unreadCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
-                  {events.length}
+                  {unreadCount}
                 </span>
               )}
             </Button>
@@ -114,17 +137,20 @@ export function Header({ title, subtitle }: HeaderProps) {
                 <p className="px-4 py-8 text-center text-sm text-muted-foreground">No new notifications</p>
               ) : (
                 <ul className="divide-y">
-                  {events.map((e) => (
-                    <li key={e.id} className="px-4 py-3 hover:bg-muted/50">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-medium ${e.tone}`}>{e.type}</p>
-                          <p className="truncate font-mono text-xs text-muted-foreground">{e.rfq_id}</p>
+                  {events.map((e) => {
+                    const isNew = new Date(e.updated_at).getTime() > new Date(prevSeen).getTime();
+                    return (
+                      <li key={e.id} className={`px-4 py-3 hover:bg-muted/50 ${isNew ? 'bg-muted/20' : ''}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm ${isNew ? 'font-bold' : 'font-normal'} ${e.tone}`}>{e.type}</p>
+                            <p className="truncate font-mono text-xs text-muted-foreground">{e.rfq_id}</p>
+                          </div>
+                          <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(e.ts)}</span>
                         </div>
-                        <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(e.ts)}</span>
-                      </div>
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
