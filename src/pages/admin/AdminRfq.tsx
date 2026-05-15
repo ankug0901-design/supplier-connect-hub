@@ -258,6 +258,8 @@ export default function AdminRfq() {
       setBusyId(null);
     }
   };
+
+  const reopen = async () => {
     if (!reopenTarget) return;
     if (!reopenDate) {
       toast.error('New closing date is required');
@@ -271,31 +273,30 @@ export default function AdminRfq() {
       toast.error('Reason is required');
       return;
     }
-    setBusyId(reopenTarget);
-    const prev = rows;
+    const targetId = reopenTarget;
+    const reason = reopenReason.trim();
     const newDeadline = format(reopenDate, 'yyyy-MM-dd');
-    patchLocalForRfq(reopenTarget, { rfq_closed_at: null, response_deadline: newDeadline });
+    setBusyId(targetId);
+    patchLocalForRfq(targetId, { rfq_closed_at: null, response_deadline: newDeadline });
     setReopenTarget(null);
+    setReopenReason('');
+    setReopenDate(undefined);
+    toast.success('RFQ reopened successfully');
     try {
       const res = await fetch(N8N_RFQ_MANAGE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rfq_id: reopenTarget,
+          rfq_id: targetId,
           action: 'reopen',
           new_deadline: newDeadline,
-          reason: reopenReason.trim(),
+          reason,
           actioned_by: 'Ankur Gupta',
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      toast.success('RFQ reopened. Suppliers notified.');
-      setReopenReason('');
-      setReopenDate(undefined);
-      await load();
     } catch (e: any) {
-      setRows(prev);
-      toast.error(`Reopen failed: ${e.message || 'Unknown error'}`);
+      toast.error(`Reopen webhook failed: ${e.message || 'Unknown error'}`);
     } finally {
       setBusyId(null);
     }
