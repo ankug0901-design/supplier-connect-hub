@@ -230,35 +230,34 @@ export default function AdminRfq() {
       toast.error('Reason is required');
       return;
     }
-    setBusyId(forceCloseTarget);
-    const prev = rows;
+    const targetId = forceCloseTarget;
+    const reason = forceCloseReason.trim();
+    setBusyId(targetId);
     const now = new Date().toISOString();
-    patchLocalForRfq(forceCloseTarget, { rfq_closed_at: now });
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    // Optimistic — update both rfq_closed_at and response_deadline so countdown shows "Closed"
+    patchLocalForRfq(targetId, { rfq_closed_at: now, response_deadline: yesterday });
     setForceCloseTarget(null);
+    setForceCloseReason('');
+    toast.success('RFQ closed successfully');
     try {
       const res = await fetch(N8N_RFQ_MANAGE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rfq_id: forceCloseTarget,
+          rfq_id: targetId,
           action: 'force_close',
-          reason: forceCloseReason.trim(),
+          reason,
           actioned_by: 'Ankur Gupta',
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      toast.success('RFQ closed. Suppliers notified.');
-      setForceCloseReason('');
-      await load();
     } catch (e: any) {
-      setRows(prev);
-      toast.error(`Force close failed: ${e.message || 'Unknown error'}`);
+      toast.error(`Force close webhook failed: ${e.message || 'Unknown error'}`);
     } finally {
       setBusyId(null);
     }
   };
-
-  const reopen = async () => {
     if (!reopenTarget) return;
     if (!reopenDate) {
       toast.error('New closing date is required');
