@@ -389,6 +389,8 @@ export default function AdminRfq() {
             
             const groupHasAccepted = items.some((r) => r.status === 'accepted');
             const countdown = closingCountdown(first.response_deadline);
+            const rfqIsClosed = isClosed || countdown?.tone === 'expired';
+            const l1Row = submitted[0] || null;
             const countdownClass =
               countdown?.tone === 'red' ? 'border-red-300 bg-red-50 text-red-700' :
               countdown?.tone === 'orange' ? 'border-orange-300 bg-orange-50 text-orange-700' :
