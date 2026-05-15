@@ -54,6 +54,11 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function DashboardRedirect() {
+  const { isAdmin } = useAuth();
+  return isAdmin ? <Navigate to="/admin" replace /> : <Dashboard />;
+}
+
 function AppRoutes() {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
 
