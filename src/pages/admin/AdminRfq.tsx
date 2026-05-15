@@ -631,6 +631,52 @@ export default function AdminRfq() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!justifyTarget} onOpenChange={(o) => { if (!o) { setJustifyTarget(null); setJustifyText(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Justification Required — Non-L1 Award</DialogTitle>
+          </DialogHeader>
+          {justifyTarget && (() => {
+            const t = justifyTarget;
+            const r = t.row;
+            const up = Number(r.quoted_unit_price) || 0;
+            const supName = r.supplier_company || r.supplier_email;
+            const l1 = t.l1;
+            const l1Up = l1 ? (Number(l1.quoted_unit_price) || 0) : 0;
+            const l1Name = l1 ? (l1.supplier_company || l1.supplier_email) : '—';
+            return (
+              <div className="space-y-4">
+                <div className="rounded-md border border-orange-300 bg-orange-50 p-3 text-sm text-orange-900">
+                  You are awarding this RFQ to <strong>{supName}</strong> at <strong>₹{up.toFixed(2)}/unit</strong> who is ranked <strong>#{t.rank}</strong>, not the lowest bidder
+                  {l1 ? (<> (L1: <strong>₹{l1Up.toFixed(2)}/unit</strong> from <strong>{l1Name}</strong>)</>) : ''}.
+                  This decision requires a documented reason.
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Reason for awarding to non-L1 supplier (min 20 chars)</label>
+                  <Textarea
+                    value={justifyText}
+                    onChange={(e) => setJustifyText(e.target.value)}
+                    placeholder="e.g. L1 lead time exceeds client deadline; chosen supplier offers faster delivery and proven quality on similar jobs."
+                    rows={4}
+                  />
+                  <p className="text-xs text-muted-foreground">{justifyText.trim().length}/20</p>
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setJustifyTarget(null); setJustifyText(''); }}>Cancel</Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={justifyText.trim().length < 20}
+              onClick={confirmJustifiedAccept}
+            >
+              Confirm Award with Justification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
