@@ -347,7 +347,7 @@ export default function AdminRfq() {
               if (ar !== br) return ar - br;
               return totalOf(a) - totalOf(b);
             });
-            const pending = items.filter((r) => r.status === 'pending');
+            
             const groupHasAccepted = items.some((r) => r.status === 'accepted');
             const countdown = closingCountdown(first.response_deadline);
             const countdownClass =
