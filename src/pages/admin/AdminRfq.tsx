@@ -155,11 +155,15 @@ export default function AdminRfq() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   };
 
-  const accept = async (r: Rfq) => {
+  const accept = async (r: Rfq, justification?: string) => {
     setBusyId(r.id);
     const prev = rows;
+    const decidedAt = new Date().toISOString();
+    const mergedNotes = justification
+      ? `${r.emboss_notes ? r.emboss_notes + '\n\n' : ''}[Non-L1 Award Justification] ${justification}`
+      : r.emboss_notes || '';
     // optimistic
-    patchLocal(r.id, { status: 'accepted', emboss_decision: 'accepted', decided_at: new Date().toISOString() });
+    patchLocal(r.id, { status: 'accepted', emboss_decision: 'accepted', decided_at: decidedAt, emboss_notes: mergedNotes });
     const supplierName = r.supplier_company || r.supplier_email;
     try {
       const res = await fetch(N8N_QUOTE_ACCEPTED, {
@@ -175,11 +179,21 @@ export default function AdminRfq() {
           quoted_gst_percent: Number(r.quoted_gst_percent) || 0,
           lead_time_days: Number(r.lead_time_days) || 0,
           payment_terms: r.payment_terms || '',
-          emboss_notes: r.emboss_notes || '',
+          emboss_notes: mergedNotes,
           price_rank: r.__effectiveRank ?? r.price_rank ?? 1,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Persist decision + justification to DB
+      await supabase
+        .from('rfq_portal_requests')
+        .update({
+          status: 'accepted',
+          emboss_decision: 'accepted',
+          decided_at: decidedAt,
+          emboss_notes: mergedNotes,
+        })
+        .eq('id', r.id);
       toast.success('Quote accepted! Supplier notified by email.');
       await load();
     } catch (e: any) {
@@ -188,6 +202,29 @@ export default function AdminRfq() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const requestAccept = (r: Rfq, rank: number | null, l1: Rfq | null) => {
+    const effRank = rank ?? r.price_rank ?? null;
+    if (effRank && effRank > 1) {
+      setJustifyText('');
+      setJustifyTarget({ row: { ...r, __effectiveRank: effRank }, rank: effRank, l1 });
+      return;
+    }
+    accept({ ...r, __effectiveRank: effRank ?? 1 });
+  };
+
+  const confirmJustifiedAccept = async () => {
+    if (!justifyTarget) return;
+    if (justifyText.trim().length < 20) {
+      toast.error('Justification must be at least 20 characters');
+      return;
+    }
+    const j = justifyText.trim();
+    const tgt = justifyTarget;
+    setJustifyTarget(null);
+    setJustifyText('');
+    await accept(tgt.row, j);
   };
 
   const reject = async () => {
