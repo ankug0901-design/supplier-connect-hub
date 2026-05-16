@@ -33,15 +33,19 @@ export function SupplierAssistant() {
 
   const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/supplier-assistant`;
 
-  const { messages, sendMessage, status, error } = useChat({
-    transport: new DefaultChatTransport({
-      api: fnUrl,
-      headers: () => ({
-        Authorization: `Bearer ${token ?? ''}`,
-        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: fnUrl,
+        headers: {
+          Authorization: `Bearer ${token ?? ''}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
       }),
-    }),
-  });
+    [fnUrl, token],
+  );
+
+  const { messages, sendMessage, status, error } = useChat({ transport });
 
   const isLoading = status === 'submitted' || status === 'streaming';
 
