@@ -7,6 +7,7 @@ import { RecentPOTable } from '@/components/dashboard/RecentPOTable';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { Button } from '@/components/ui/button';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
+import { SupplierAssistant } from '@/components/SupplierAssistant';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchPurchaseOrders, fetchInvoices, fetchPayments } from '@/services/api';
