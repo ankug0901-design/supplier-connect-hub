@@ -63,13 +63,14 @@ export function SupplierAssistant() {
   return (
     <>
       {!open && (
-        <Button
+        <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg p-0"
           aria-label="Open AI assistant"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-primary-foreground shadow-xl ring-4 ring-primary/20 transition hover:scale-105 hover:shadow-2xl"
         >
-          <MessageCircle className="h-6 w-6" />
-        </Button>
+          <Sparkles className="h-5 w-5" />
+          <span className="text-sm font-semibold">Ask AI</span>
+        </button>
       )}
 
       {open && (
