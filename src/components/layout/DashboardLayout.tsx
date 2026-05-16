@@ -1,6 +1,8 @@
 import { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { SupplierAssistant } from '@/components/SupplierAssistant';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -9,6 +11,7 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
+  const { isAdmin, isAuthenticated } = useAuth();
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
@@ -18,6 +21,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           {children}
         </main>
       </div>
+      {isAuthenticated && !isAdmin && <SupplierAssistant />}
     </div>
   );
 }
+
