@@ -108,6 +108,12 @@ async function generateJson<T>(params: {
   return params.schema.parse(extractJSON(text));
 }
 
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean).slice(0, 3);
+  if (typeof value === "string") return value.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean).slice(0, 3);
+  return [];
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
