@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Users, FileQuestion, Loader2, TrendingUp, Clock, CheckCircle2, ArrowRight, Eye,
   Package, ReceiptText, Wallet, Truck, UserPlus, AlertCircle, IndianRupee, Activity,
+  Sparkles,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -404,6 +405,7 @@ export default function AdminDashboard() {
               <QuickAction to="/admin/suppliers" icon={<Users className="h-5 w-5" />} title="Manage Suppliers" desc="View & edit details" />
               <QuickAction to="/admin/registrations" icon={<UserPlus className="h-5 w-5" />} title="Review Registrations" desc={`${kpis.pendingRegistrations} pending`} highlight={kpis.pendingRegistrations > 0} />
               <QuickAction to="/admin/rfq" icon={<FileQuestion className="h-5 w-5" />} title="RFQ Workspace" desc={`${kpis.pendingAction} need action`} highlight={kpis.pendingAction > 0} />
+              <QuickAction to="/admin/ai-insights" icon={<Sparkles className="h-5 w-5" />} title="AI Insights" desc="Validate, score & forecast" />
             </div>
           </div>
         </div>
