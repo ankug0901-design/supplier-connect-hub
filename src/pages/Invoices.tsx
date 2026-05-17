@@ -14,7 +14,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchInvoices, downloadBillAttachment, type BillAttachment } from '@/services/api';
+import { fetchInvoices, fetchInvoicesFromDb, downloadBillAttachment, type BillAttachment } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { PdfViewer } from '@/components/PdfViewer';
 import { useToast } from '@/hooks/use-toast';
