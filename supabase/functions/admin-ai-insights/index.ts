@@ -18,6 +18,18 @@ const InvoiceValidationItemSchema = z.object({
   summary: z.string().describe("One-line explanation"),
 });
 
+const RawInvoiceValidationItemSchema = z.object({
+  invoice_id: z.string(),
+  invoice_number: z.string().optional(),
+  supplier: z.string().optional(),
+  risk: z.enum(["low", "medium", "high"]).optional(),
+  recommendation: z.enum(["approve", "review", "reject"]).optional(),
+  issues: z.array(z.string()).optional(),
+  summary: z.string().optional(),
+  status: z.string().optional(),
+  remarks: z.string().optional(),
+}).passthrough();
+
 const VendorScoreItemSchema = z.object({
   supplier_id: z.string(),
   company: z.string(),
@@ -27,6 +39,16 @@ const VendorScoreItemSchema = z.object({
   weaknesses: z.array(z.string()).max(3),
   recommendation: z.string(),
 });
+
+const RawVendorScoreItemSchema = z.object({
+  supplier_id: z.string(),
+  company: z.string().optional(),
+  score: z.coerce.number().optional(),
+  grade: z.enum(["A", "B", "C", "D"]).optional(),
+  strengths: z.array(z.string()).optional(),
+  weaknesses: z.array(z.string()).optional(),
+  recommendation: z.string().optional(),
+}).passthrough();
 
 const ForecastSchema = z.object({
   summary: z.string().describe("Overall demand outlook for next 90 days"),
