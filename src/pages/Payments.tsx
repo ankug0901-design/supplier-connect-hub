@@ -19,7 +19,7 @@ export default function Payments() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
-    if (!supplier?.zoho_vendor_id) {
+    if (!isAdmin && !supplier?.zoho_vendor_id) {
       setIsLoading(false);
       return;
     }
@@ -27,10 +27,12 @@ export default function Payments() {
     (async () => {
       setIsLoading(true);
       try {
-        const [pData, iData] = await Promise.all([
-          fetchPayments(supplier.zoho_vendor_id!),
-          fetchInvoices(supplier.zoho_vendor_id!),
-        ]);
+        const [pData, iData] = isAdmin
+          ? await Promise.all([fetchPaymentsFromDb(), fetchInvoicesFromDb()])
+          : await Promise.all([
+              fetchPayments(supplier!.zoho_vendor_id!),
+              fetchInvoices(supplier!.zoho_vendor_id!),
+            ]);
         if (!cancelled) {
           setPayments(pData);
           setInvoices(iData);
@@ -44,7 +46,7 @@ export default function Payments() {
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id]);
+  }, [supplier?.zoho_vendor_id, isAdmin]);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-IN', {
