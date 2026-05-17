@@ -18,27 +18,27 @@ async function zoho(operation: string, vendorId: string) {
   return res.json();
 }
 
-function mapPOStatus(s?: string): string {
+function mapPOStatus(s?: string, billed?: string): string {
   const v = (s || "").toLowerCase();
-  if (["billed", "closed", "completed"].includes(v)) return "completed";
-  if (["partially_billed", "partial"].includes(v)) return "partial";
-  if (["invoiced"].includes(v)) return "invoiced";
+  const b = (billed || "").toLowerCase();
+  if (b === "billed" || v === "closed" || v === "completed") return "completed";
+  if (b === "partially_billed" || v === "partial") return "partial";
+  if (v === "invoiced") return "invoiced";
   return "pending";
 }
 
 function mapInvoiceStatus(s?: string): string {
   const v = (s || "").toLowerCase();
-  if (["paid"].includes(v)) return "paid";
-  if (["rejected", "void"].includes(v)) return "rejected";
-  if (["open", "approved", "partially_paid"].includes(v)) return "approved";
+  if (v === "paid") return "paid";
+  if (v === "rejected" || v === "void") return "rejected";
+  if (v === "approved" || v === "open" || v === "partially_paid") return "approved";
   return "pending";
 }
 
 function mapPaymentStatus(s?: string): string {
   const v = (s || "").toLowerCase();
-  if (["paid", "completed", "success"].includes(v)) return "completed";
-  if (["processing", "pending_approval"].includes(v)) return "processing";
-  return "completed"; // Zoho payments default to completed once recorded
+  if (v === "processing" || v === "pending") return "processing";
+  return "completed";
 }
 
 Deno.serve(async (req) => {
@@ -58,16 +58,19 @@ Deno.serve(async (req) => {
   };
 
   try {
-    // Optional: sync a single supplier when called with { supplier_id }
     let supplierQuery = supabase
       .from("suppliers")
       .select("id, zoho_vendor_id")
-      .not("zoho_vendor_id", "is", null);
+      .not("zoho_vendor_id", "is", null)
+      .neq("zoho_vendor_id", "");
 
     if (req.method === "POST") {
       try {
         const body = await req.json();
-        if (body?.supplier_id) supplierQuery = supplierQuery.eq("id", body.supplier_id);
+        if (body?.supplier_id) supplierQuery = supabase
+          .from("suppliers")
+          .select("id, zoho_vendor_id")
+          .eq("id", body.supplier_id);
       } catch (_) { /* no body */ }
     }
 
@@ -75,9 +78,9 @@ Deno.serve(async (req) => {
     if (sErr) throw sErr;
 
     for (const sup of suppliers || []) {
-      summary.suppliers++;
       const vendorId = sup.zoho_vendor_id as string;
       if (!vendorId) continue;
+      summary.suppliers++;
 
       // ---- Purchase Orders ----
       try {
@@ -85,13 +88,13 @@ Deno.serve(async (req) => {
         const pos = posR.purchaseOrders || [];
         const poRows = pos.map((p: any) => ({
           supplier_id: sup.id,
-          po_number: p.purchaseorder_number,
-          zoho_id: p.purchaseorder_id,
+          po_number: p.poNumber,
+          zoho_id: p.id,
           date: p.date || new Date().toISOString().slice(0, 10),
-          amount: Number(p.total || 0),
-          status: mapPOStatus(p.status),
-          expected_delivery: p.delivery_date || null,
-          delivery_address: p.delivery_address || null,
+          amount: Number(p.amount || 0),
+          status: mapPOStatus(p.status, p.zohoBilledStatus),
+          expected_delivery: p.expectedDelivery || null,
+          delivery_address: p.deliveryAddress || null,
         })).filter((r: any) => r.po_number);
 
         if (poRows.length) {
@@ -102,32 +105,30 @@ Deno.serve(async (req) => {
           summary.pos_upserted += poRows.length;
         }
       } catch (e: any) {
-        summary.errors.push(`PO sync ${sup.id}: ${e.message}`);
+        summary.errors.push(`PO ${sup.id}: ${e.message}`);
       }
 
-      // Build PO lookup for invoice/payment linkage
+      // PO lookup for invoice linkage
       const { data: poList } = await supabase
         .from("purchase_orders")
-        .select("id, po_number, zoho_id")
+        .select("id, po_number")
         .eq("supplier_id", sup.id);
       const poByNumber = new Map((poList || []).map(p => [p.po_number, p.id]));
 
       // ---- Invoices (Bills) ----
-      let invRows: any[] = [];
       try {
         const invR = await zoho("get_bills", vendorId);
         const invs = invR.invoices || [];
-        invRows = invs.map((i: any) => {
-          const poNum = i.purchaseorder_number || (i.purchaseorders?.[0]?.purchaseorder_number);
-          const poId = poNum ? poByNumber.get(poNum) : null;
+        const invRows = invs.map((i: any) => {
+          const poId = i.poNumber ? poByNumber.get(i.poNumber) : null;
           if (!poId) return null;
           return {
             supplier_id: sup.id,
             po_id: poId,
-            invoice_number: i.bill_number,
-            zoho_id: i.bill_id,
+            invoice_number: i.invoiceNumber,
+            zoho_id: i.id,
             date: i.date || new Date().toISOString().slice(0, 10),
-            amount: Number(i.total || 0),
+            amount: Number(i.amount || 0),
             status: mapInvoiceStatus(i.status),
           };
         }).filter((r: any) => r && r.invoice_number);
@@ -140,37 +141,30 @@ Deno.serve(async (req) => {
           summary.invoices_upserted += invRows.length;
         }
       } catch (e: any) {
-        summary.errors.push(`Invoice sync ${sup.id}: ${e.message}`);
+        summary.errors.push(`Invoice ${sup.id}: ${e.message}`);
       }
 
       // ---- Payments ----
       try {
         const { data: invList } = await supabase
           .from("invoices")
-          .select("id, invoice_number, zoho_id")
+          .select("id, invoice_number")
           .eq("supplier_id", sup.id);
-        const invByZohoId = new Map((invList || []).map(i => [i.zoho_id, i.id]));
         const invByNumber = new Map((invList || []).map(i => [i.invoice_number, i.id]));
 
         const payR = await zoho("get_payments", vendorId);
         const pays = payR.payments || [];
-        const payRows: any[] = [];
-        for (const p of pays) {
-          // payment may reference one or more bills
-          const refs = p.bills || p.applied_bills || (p.bill_id ? [{ bill_id: p.bill_id, bill_number: p.bill_number }] : []);
-          const targets = refs.length ? refs : [{ bill_id: null, bill_number: p.bill_number }];
-          for (const r of targets) {
-            const invId = (r.bill_id && invByZohoId.get(r.bill_id)) || (r.bill_number && invByNumber.get(r.bill_number));
-            if (!invId) continue;
-            payRows.push({
-              invoice_id: invId,
-              amount: Number(r.amount_applied || r.amount || p.amount || 0),
-              date: p.date || new Date().toISOString().slice(0, 10),
-              status: mapPaymentStatus(p.status),
-              transaction_id: p.payment_id || p.reference_number || p.payment_number || `${p.date}-${invId}`,
-            });
-          }
-        }
+        const payRows = pays.map((p: any) => {
+          const invId = p.invoiceNumber ? invByNumber.get(p.invoiceNumber) : null;
+          if (!invId) return null;
+          return {
+            invoice_id: invId,
+            amount: Number(p.amount || 0),
+            date: p.date || new Date().toISOString().slice(0, 10),
+            status: mapPaymentStatus(p.status),
+            transaction_id: p.transactionId || p.paymentNumber || p.id,
+          };
+        }).filter((r: any) => r && r.transaction_id);
 
         if (payRows.length) {
           const { error } = await supabase
@@ -180,7 +174,7 @@ Deno.serve(async (req) => {
           summary.payments_upserted += payRows.length;
         }
       } catch (e: any) {
-        summary.errors.push(`Payment sync ${sup.id}: ${e.message}`);
+        summary.errors.push(`Payment ${sup.id}: ${e.message}`);
       }
     }
 
