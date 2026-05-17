@@ -72,6 +72,8 @@ const ForecastSchema = z.object({
   risks: z.array(z.string()),
 });
 
+type ForecastTrend = "growing" | "stable" | "declining" | "volatile";
+
 function extractJSON(raw: string): unknown {
   let cleaned = raw
     .replace(/^```json\s*/im, "")
@@ -120,6 +122,30 @@ function normalizeRecommendation(value: unknown, failed: boolean, hasIssues: boo
   if (rec.includes("approve") || rec.includes("pass")) return "approve";
   if (rec.includes("review") || rec.includes("check") || rec.includes("hold")) return "review";
   return failed ? "reject" : hasIssues ? "review" : "approve";
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/,/g, "").replace(/[^0-9.-]/g, ""));
+    if (Number.isFinite(parsed)) return Math.round(parsed);
+  }
+  return Math.round(fallback);
+}
+
+function normalizeTrend(value: unknown, monthlySeries: Array<{ total_value_inr: number }>): ForecastTrend {
+  const raw = String(value || "").toLowerCase();
+  if (raw.includes("grow") || raw.includes("increase") || raw.includes("rising")) return "growing";
+  if (raw.includes("declin") || raw.includes("decrease") || raw.includes("falling")) return "declining";
+  if (raw.includes("volatil") || raw.includes("fluctuat") || raw.includes("uneven")) return "volatile";
+  const values = monthlySeries.map((m) => m.total_value_inr).filter((v) => v > 0);
+  const avg = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / Math.max(1, arr.length);
+  const recent = avg(values.slice(-3));
+  const previous = avg(values.slice(-6, -3));
+  if (previous > 0 && Math.abs(recent - previous) / previous > 0.35) return "volatile";
+  if (previous > 0 && recent > previous * 1.15) return "growing";
+  if (previous > 0 && recent < previous * 0.85) return "declining";
+  return "stable";
 }
 
 Deno.serve(async (req) => {
