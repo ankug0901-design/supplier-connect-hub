@@ -17,6 +17,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminSuppliers from "./pages/admin/AdminSuppliers";
 import AdminRegistrations from "./pages/admin/AdminRegistrations";
 import AdminRfq from "./pages/admin/AdminRfq";
+import AdminAiInsights from "./pages/admin/AdminAiInsights";
 import RfqRequests from "./pages/RfqRequests";
 import NotFound from "./pages/NotFound";
 
