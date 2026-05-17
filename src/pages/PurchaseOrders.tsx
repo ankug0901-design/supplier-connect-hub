@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders, downloadPurchaseOrder } from '@/services/api';
+import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, downloadPurchaseOrder } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
@@ -49,7 +49,7 @@ export default function PurchaseOrders() {
   };
 
   useEffect(() => {
-    if (!supplier?.zoho_vendor_id) {
+    if (!isAdmin && !supplier?.zoho_vendor_id) {
       setIsLoading(false);
       return;
     }
@@ -57,7 +57,9 @@ export default function PurchaseOrders() {
     (async () => {
       setIsLoading(true);
       try {
-        const data = await fetchPurchaseOrders(supplier.zoho_vendor_id!);
+        const data = isAdmin
+          ? await fetchPurchaseOrdersFromDb()
+          : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
         if (!cancelled) setPurchaseOrders(data);
       } catch (err) {
         console.error('Failed to load purchase orders', err);
@@ -68,7 +70,7 @@ export default function PurchaseOrders() {
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id]);
+  }, [supplier?.zoho_vendor_id, isAdmin]);
 
   const filteredOrders = purchaseOrders.filter((order: any) => {
     const matchesSearch = order.poNumber?.toLowerCase().includes(searchQuery.toLowerCase());
