@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
       const invoiceById = new Map(payload.map((p) => [p.invoice_id, p]));
       const resultsArr = rawResults.map((r) => {
         const inv = invoiceById.get(r.invoice_id);
-        const issues = r.issues || (r.remarks ? r.remarks.split(/[,;]\s*/).filter(Boolean) : []);
+        const issues = toStringArray(r.issues).length ? toStringArray(r.issues) : toStringArray(r.remarks);
         const failed = String(r.status || "").toLowerCase() === "failed";
         return InvoiceValidationItemSchema.parse({
           invoice_id: r.invoice_id,
@@ -327,8 +327,8 @@ Deno.serve(async (req) => {
           company: v.company || metrics?.company || "Unknown",
           score,
           grade,
-          strengths: v.strengths || [],
-          weaknesses: v.weaknesses || [],
+          strengths: toStringArray(v.strengths),
+          weaknesses: toStringArray(v.weaknesses),
           recommendation: v.recommendation || (grade === "A" ? "Preferred vendor" : grade === "D" ? "Review before new awards" : "Monitor performance"),
         });
       });
