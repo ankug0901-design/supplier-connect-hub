@@ -8,18 +8,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const InvoiceValidationSchema = z.object({
-  results: z.array(
-    z.object({
-      invoice_id: z.string(),
-      invoice_number: z.string(),
-      supplier: z.string(),
-      risk: z.enum(["low", "medium", "high"]),
-      recommendation: z.enum(["approve", "review", "reject"]),
-      issues: z.array(z.string()).describe("Specific issues found"),
-      summary: z.string().describe("One-line explanation"),
-    }),
-  ),
+const InvoiceValidationItemSchema = z.object({
+  invoice_id: z.string(),
+  invoice_number: z.string(),
+  supplier: z.string(),
+  risk: z.enum(["low", "medium", "high"]),
+  recommendation: z.enum(["approve", "review", "reject"]),
+  issues: z.array(z.string()).describe("Specific issues found"),
+  summary: z.string().describe("One-line explanation"),
 });
 
 const VendorScoreItemSchema = z.object({
@@ -145,15 +141,16 @@ Deno.serve(async (req) => {
         };
       });
 
-      const { object } = await generateObject({
+      const { object: resultsArr } = await generateObject({
         model,
-        schema: InvoiceValidationSchema,
+        output: "array",
+        schema: InvoiceValidationItemSchema,
         system:
           "You are an invoice audit assistant for an Indian B2B procurement portal. Flag issues like: amount exceeds PO value, missing/invalid GST, duplicate invoice numbers per supplier, missing PO reference, invoice date before PO date or far in the future, unrealistic round amounts. Be strict but pragmatic. Always return one result per invoice in the same order.",
         prompt: `Validate these ${payload.length} pending invoices and return a result for each one:\n\n${JSON.stringify(payload, null, 2)}`,
       });
 
-      return new Response(JSON.stringify({ data: object }), {
+      return new Response(JSON.stringify({ data: { results: resultsArr } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
