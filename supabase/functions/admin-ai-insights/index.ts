@@ -1,4 +1,4 @@
-import { generateObject } from "npm:ai";
+import { generateText } from "npm:ai";
 import { z } from "npm:zod";
 import { createClient } from "npm:@supabase/supabase-js";
 import { createLovableAiGatewayProvider } from "../_shared/ai-gateway.ts";
@@ -18,6 +18,18 @@ const InvoiceValidationItemSchema = z.object({
   summary: z.string().describe("One-line explanation"),
 });
 
+const RawInvoiceValidationItemSchema = z.object({
+  invoice_id: z.string(),
+  invoice_number: z.string().optional(),
+  supplier: z.string().optional(),
+  risk: z.enum(["low", "medium", "high"]).optional(),
+  recommendation: z.string().optional(),
+  issues: z.union([z.array(z.string()), z.string()]).optional(),
+  summary: z.string().optional(),
+  status: z.string().optional(),
+  remarks: z.string().optional(),
+}).passthrough();
+
 const VendorScoreItemSchema = z.object({
   supplier_id: z.string(),
   company: z.string(),
@@ -27,6 +39,16 @@ const VendorScoreItemSchema = z.object({
   weaknesses: z.array(z.string()).max(3),
   recommendation: z.string(),
 });
+
+const RawVendorScoreItemSchema = z.object({
+  supplier_id: z.string(),
+  company: z.string().optional(),
+  score: z.coerce.number().optional(),
+  grade: z.enum(["A", "B", "C", "D"]).optional(),
+  strengths: z.union([z.array(z.string()), z.string()]).optional(),
+  weaknesses: z.union([z.array(z.string()), z.string()]).optional(),
+  recommendation: z.string().optional(),
+}).passthrough();
 
 const ForecastSchema = z.object({
   summary: z.string().describe("Overall demand outlook for next 90 days"),
@@ -49,6 +71,56 @@ const ForecastSchema = z.object({
   ),
   risks: z.array(z.string()),
 });
+
+function extractJSON(raw: string): unknown {
+  let cleaned = raw
+    .replace(/^```json\s*/im, "")
+    .replace(/^```\s*/im, "")
+    .replace(/```\s*$/im, "")
+    .trim();
+
+  if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
+    const objStart = cleaned.indexOf("{");
+    const arrStart = cleaned.indexOf("[");
+    const isArray = arrStart !== -1 && (objStart === -1 || arrStart < objStart);
+    const start = isArray ? arrStart : objStart;
+    const end = isArray ? cleaned.lastIndexOf("]") : cleaned.lastIndexOf("}");
+    if (start === -1 || end <= start) throw new Error("AI response did not contain valid JSON");
+    cleaned = cleaned.slice(start, end + 1);
+  }
+
+  return JSON.parse(cleaned);
+}
+
+async function generateJson<T>(params: {
+  model: any;
+  system: string;
+  prompt: string;
+  schema: z.ZodType<T>;
+}): Promise<T> {
+  const { text, finishReason } = await generateText({
+    model: params.model,
+    system: `${params.system}\nReturn only valid JSON. Do not use markdown fences, prose, or thousands separators in numbers.`,
+    prompt: params.prompt,
+  });
+
+  if (finishReason === "length") throw new Error("AI response was truncated; please retry.");
+  return params.schema.parse(extractJSON(text));
+}
+
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean).slice(0, 3);
+  if (typeof value === "string") return value.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean).slice(0, 3);
+  return [];
+}
+
+function normalizeRecommendation(value: unknown, failed: boolean, hasIssues: boolean): "approve" | "review" | "reject" {
+  const rec = String(value || "").toLowerCase();
+  if (rec.includes("reject") || rec.includes("fail") || rec.includes("block")) return "reject";
+  if (rec.includes("approve") || rec.includes("pass")) return "approve";
+  if (rec.includes("review") || rec.includes("check") || rec.includes("hold")) return "review";
+  return failed ? "reject" : hasIssues ? "review" : "approve";
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -141,13 +213,27 @@ Deno.serve(async (req) => {
         };
       });
 
-      const { object: resultsArr } = await generateObject({
+      const rawResults = await generateJson({
         model,
-        output: "array",
-        schema: InvoiceValidationItemSchema,
+        schema: z.array(RawInvoiceValidationItemSchema),
         system:
           "You are an invoice audit assistant for an Indian B2B procurement portal. Flag issues like: amount exceeds PO value, missing/invalid GST, duplicate invoice numbers per supplier, missing PO reference, invoice date before PO date or far in the future, unrealistic round amounts. Be strict but pragmatic. Always return one result per invoice in the same order.",
-        prompt: `Validate these ${payload.length} pending invoices and return a result for each one:\n\n${JSON.stringify(payload, null, 2)}`,
+        prompt: `Validate these ${payload.length} pending invoices and return a JSON array of results. Each result must include invoice_id, invoice_number, supplier, risk, recommendation, issues, and summary.\n\n${JSON.stringify(payload, null, 2)}`,
+      });
+      const invoiceById = new Map(payload.map((p) => [p.invoice_id, p]));
+      const resultsArr = rawResults.map((r) => {
+        const inv = invoiceById.get(r.invoice_id);
+        const issues = toStringArray(r.issues).length ? toStringArray(r.issues) : toStringArray(r.remarks);
+        const failed = String(r.status || "").toLowerCase() === "failed";
+        return InvoiceValidationItemSchema.parse({
+          invoice_id: r.invoice_id,
+          invoice_number: r.invoice_number || inv?.invoice_number || "Unknown",
+          supplier: r.supplier || inv?.supplier || "Unknown",
+          risk: r.risk || (failed || issues.length > 1 ? "high" : issues.length ? "medium" : "low"),
+          recommendation: normalizeRecommendation(r.recommendation, failed, issues.length > 0),
+          issues,
+          summary: r.summary || r.remarks || (issues.length ? issues.join(", ") : "No material issues found"),
+        });
       });
 
       return new Response(JSON.stringify({ data: { results: resultsArr } }), {
@@ -232,13 +318,27 @@ Deno.serve(async (req) => {
         .sort((a, b) => b.total_po_value_inr - a.total_po_value_inr)
         .slice(0, 30);
 
-      const { object: vendorsArr } = await generateObject({
+      const rawVendors = await generateJson({
         model,
-        output: "array",
-        schema: VendorScoreItemSchema,
+        schema: z.array(RawVendorScoreItemSchema),
         system:
           "You are a vendor performance analyst. Score each vendor 0-100 based on PO completion rate, invoice quality (rejection rate), shipment reliability, and volume. A=excellent (85+), B=good (70-84), C=needs improvement (50-69), D=poor (<50). Be concise.",
-        prompt: `Score these vendors based on real procurement data. Return one entry per vendor:\n\n${JSON.stringify(topVendors, null, 2)}`,
+        prompt: `Score these vendors based on real procurement data. Return a JSON array with one entry per vendor. Each entry must include supplier_id, company, score, grade, strengths, weaknesses, and recommendation.\n\n${JSON.stringify(topVendors, null, 2)}`,
+      });
+      const vendorById = new Map(topVendors.map((v) => [v.supplier_id, v]));
+      const vendorsArr = rawVendors.map((v) => {
+        const metrics = vendorById.get(v.supplier_id);
+        const score = Math.max(0, Math.min(100, Math.round(v.score ?? 0)));
+        const grade = v.grade || (score >= 85 ? "A" : score >= 70 ? "B" : score >= 50 ? "C" : "D");
+        return VendorScoreItemSchema.parse({
+          supplier_id: v.supplier_id,
+          company: v.company || metrics?.company || "Unknown",
+          score,
+          grade,
+          strengths: toStringArray(v.strengths),
+          weaknesses: toStringArray(v.weaknesses),
+          recommendation: v.recommendation || (grade === "A" ? "Preferred vendor" : grade === "D" ? "Review before new awards" : "Monitor performance"),
+        });
       });
 
       // Persist scores for historical tracking
@@ -315,7 +415,7 @@ Deno.serve(async (req) => {
         last_12mo_value_inr: Math.round((pos || []).reduce((s, p) => s + Number(p.amount || 0), 0)),
       };
 
-      const { object } = await generateObject({
+      const object = await generateJson({
         model,
         schema: ForecastSchema,
         system:
