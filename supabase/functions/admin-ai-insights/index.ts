@@ -235,9 +235,10 @@ Deno.serve(async (req) => {
         .sort((a, b) => b.total_po_value_inr - a.total_po_value_inr)
         .slice(0, 30);
 
-      const { object } = await generateObject({
+      const { object: vendorsArr } = await generateObject({
         model,
-        schema: VendorScoresSchema,
+        output: "array",
+        schema: VendorScoreItemSchema,
         system:
           "You are a vendor performance analyst. Score each vendor 0-100 based on PO completion rate, invoice quality (rejection rate), shipment reliability, and volume. A=excellent (85+), B=good (70-84), C=needs improvement (50-69), D=poor (<50). Be concise.",
         prompt: `Score these vendors based on real procurement data. Return one entry per vendor:\n\n${JSON.stringify(topVendors, null, 2)}`,
@@ -246,7 +247,7 @@ Deno.serve(async (req) => {
       // Persist scores for historical tracking
       const metricsBySupplier = new Map(topVendors.map((v) => [v.supplier_id, v]));
       const scoredAt = new Date().toISOString();
-      const rows = (object.vendors || []).map((v) => ({
+      const rows = (vendorsArr || []).map((v) => ({
         supplier_id: v.supplier_id,
         company: v.company,
         score: Math.round(v.score),
@@ -263,7 +264,7 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ data: { ...object, scored_at: scoredAt, sync_errors: syncErrors } }),
+        JSON.stringify({ data: { vendors: vendorsArr, scored_at: scoredAt, sync_errors: syncErrors } }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
