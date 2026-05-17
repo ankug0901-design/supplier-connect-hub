@@ -8,18 +8,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const InvoiceValidationSchema = z.object({
-  results: z.array(
-    z.object({
-      invoice_id: z.string(),
-      invoice_number: z.string(),
-      supplier: z.string(),
-      risk: z.enum(["low", "medium", "high"]),
-      recommendation: z.enum(["approve", "review", "reject"]),
-      issues: z.array(z.string()).describe("Specific issues found"),
-      summary: z.string().describe("One-line explanation"),
-    }),
-  ),
+const InvoiceValidationItemSchema = z.object({
+  invoice_id: z.string(),
+  invoice_number: z.string(),
+  supplier: z.string(),
+  risk: z.enum(["low", "medium", "high"]),
+  recommendation: z.enum(["approve", "review", "reject"]),
+  issues: z.array(z.string()).describe("Specific issues found"),
+  summary: z.string().describe("One-line explanation"),
 });
 
 const VendorScoreItemSchema = z.object({
