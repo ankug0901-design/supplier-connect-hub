@@ -24,7 +24,7 @@ const RawInvoiceValidationItemSchema = z.object({
   supplier: z.string().optional(),
   risk: z.enum(["low", "medium", "high"]).optional(),
   recommendation: z.enum(["approve", "review", "reject"]).optional(),
-  issues: z.array(z.string()).optional(),
+  issues: z.union([z.array(z.string()), z.string()]).optional(),
   summary: z.string().optional(),
   status: z.string().optional(),
   remarks: z.string().optional(),
@@ -45,8 +45,8 @@ const RawVendorScoreItemSchema = z.object({
   company: z.string().optional(),
   score: z.coerce.number().optional(),
   grade: z.enum(["A", "B", "C", "D"]).optional(),
-  strengths: z.array(z.string()).optional(),
-  weaknesses: z.array(z.string()).optional(),
+  strengths: z.union([z.array(z.string()), z.string()]).optional(),
+  weaknesses: z.union([z.array(z.string()), z.string()]).optional(),
   recommendation: z.string().optional(),
 }).passthrough();
 
