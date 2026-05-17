@@ -18,6 +18,72 @@ export async function fetchPurchaseOrders(zohoVendorId: string) {
   return data.purchaseOrders || [];
 }
 
+export async function fetchPurchaseOrdersFromDb() {
+  const { data, error } = await supabase
+    .from('purchase_orders')
+    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, suppliers(company), po_items(id, description, quantity, unit_price, total)')
+    .order('date', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((p: any) => ({
+    id: p.zoho_id || p.id,
+    poNumber: p.po_number,
+    date: p.date,
+    expectedDelivery: p.expected_delivery,
+    deliveryAddress: p.delivery_address,
+    amount: Number(p.amount || 0),
+    status: p.status,
+    supplierName: p.suppliers?.company,
+    items: (p.po_items || []).map((it: any) => ({
+      id: it.id,
+      description: it.description,
+      quantity: it.quantity,
+      unitPrice: Number(it.unit_price || 0),
+      total: Number(it.total || 0),
+    })),
+  }));
+}
+
+export async function fetchInvoicesFromDb() {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('id, zoho_id, invoice_number, date, amount, status, po_id, supplier_id, suppliers(company), purchase_orders(po_number)')
+    .order('date', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((i: any) => ({
+    id: i.zoho_id || i.id,
+    invoiceNumber: i.invoice_number,
+    poId: i.purchase_orders?.po_number || i.po_id,
+    poNumber: i.purchase_orders?.po_number || '',
+    date: i.date,
+    dueDate: null,
+    amount: Number(i.amount || 0),
+    balance: i.status === 'paid' ? 0 : Number(i.amount || 0),
+    status: i.status,
+    supplierName: i.suppliers?.company,
+    hasAttachment: false,
+  }));
+}
+
+export async function fetchPaymentsFromDb() {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('id, transaction_id, amount, date, status, invoice_id, invoices(invoice_number, suppliers(company))')
+    .order('date', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((p: any) => ({
+    id: p.id,
+    paymentNumber: p.transaction_id || p.id?.slice(0, 8),
+    invoiceNumber: p.invoices?.invoice_number || '-',
+    date: p.date,
+    amount: Number(p.amount || 0),
+    paymentMode: '-',
+    account: '-',
+    status: p.status,
+    transactionId: p.transaction_id,
+    supplierName: p.invoices?.suppliers?.company,
+  }));
+}
+
 export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, poNumber?: string) {
   const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
     method: 'POST',
