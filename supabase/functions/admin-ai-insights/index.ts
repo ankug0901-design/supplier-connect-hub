@@ -22,18 +22,14 @@ const InvoiceValidationSchema = z.object({
   ),
 });
 
-const VendorScoresSchema = z.object({
-  vendors: z.array(
-    z.object({
-      supplier_id: z.string(),
-      company: z.string(),
-      score: z.number().min(0).max(100).describe("Overall performance score 0-100"),
-      grade: z.enum(["A", "B", "C", "D"]),
-      strengths: z.array(z.string()).max(3),
-      weaknesses: z.array(z.string()).max(3),
-      recommendation: z.string(),
-    }),
-  ),
+const VendorScoreItemSchema = z.object({
+  supplier_id: z.string(),
+  company: z.string(),
+  score: z.number().min(0).max(100).describe("Overall performance score 0-100"),
+  grade: z.enum(["A", "B", "C", "D"]),
+  strengths: z.array(z.string()).max(3),
+  weaknesses: z.array(z.string()).max(3),
+  recommendation: z.string(),
 });
 
 const ForecastSchema = z.object({
