@@ -18,28 +18,8 @@ async function zoho(operation: string, vendorId: string) {
   return res.json();
 }
 
-function mapPOStatus(s?: string, billed?: string): string {
-  const v = (s || "").toLowerCase();
-  const b = (billed || "").toLowerCase();
-  if (b === "billed" || v === "closed" || v === "completed") return "completed";
-  if (b === "partially_billed" || v === "partial") return "partial";
-  if (v === "invoiced") return "invoiced";
-  return "pending";
-}
-
-function mapInvoiceStatus(s?: string): string {
-  const v = (s || "").toLowerCase();
-  if (v === "paid") return "paid";
-  if (v === "rejected" || v === "void") return "rejected";
-  if (v === "approved" || v === "open" || v === "partially_paid") return "approved";
-  return "pending";
-}
-
-function mapPaymentStatus(s?: string): string {
-  const v = (s || "").toLowerCase();
-  if (v === "processing" || v === "pending") return "processing";
-  return "completed";
-}
+// Pass through Zoho's status verbatim (lowercased)
+const passthrough = (s?: string) => (s || "pending").toLowerCase();
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
