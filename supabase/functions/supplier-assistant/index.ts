@@ -26,14 +26,16 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization") || "";
+    const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
     if (userErr || !userData.user) {
+      console.error("auth.getUser failed", { hasJwt: !!jwt, err: userErr?.message });
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
