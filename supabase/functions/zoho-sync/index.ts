@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
             zoho_id: i.id,
             date: i.date || new Date().toISOString().slice(0, 10),
             amount: Number(i.amount || 0),
-            status: mapInvoiceStatus(i.status),
+            status: passthrough(i.status),
           };
         }).filter((r: any) => r && r.invoice_number);
 
