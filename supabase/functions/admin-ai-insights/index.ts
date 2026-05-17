@@ -1,4 +1,4 @@
-import { generateObject } from "npm:ai";
+import { generateText } from "npm:ai";
 import { z } from "npm:zod";
 import { createClient } from "npm:@supabase/supabase-js";
 import { createLovableAiGatewayProvider } from "../_shared/ai-gateway.ts";
@@ -49,6 +49,42 @@ const ForecastSchema = z.object({
   ),
   risks: z.array(z.string()),
 });
+
+function extractJSON(raw: string): unknown {
+  let cleaned = raw
+    .replace(/^```json\s*/im, "")
+    .replace(/^```\s*/im, "")
+    .replace(/```\s*$/im, "")
+    .trim();
+
+  if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
+    const objStart = cleaned.indexOf("{");
+    const arrStart = cleaned.indexOf("[");
+    const isArray = arrStart !== -1 && (objStart === -1 || arrStart < objStart);
+    const start = isArray ? arrStart : objStart;
+    const end = isArray ? cleaned.lastIndexOf("]") : cleaned.lastIndexOf("}");
+    if (start === -1 || end <= start) throw new Error("AI response did not contain valid JSON");
+    cleaned = cleaned.slice(start, end + 1);
+  }
+
+  return JSON.parse(cleaned);
+}
+
+async function generateJson<T>(params: {
+  model: any;
+  system: string;
+  prompt: string;
+  schema: z.ZodType<T>;
+}): Promise<T> {
+  const { text, finishReason } = await generateText({
+    model: params.model,
+    system: `${params.system}\nReturn only valid JSON. Do not use markdown fences, prose, or thousands separators in numbers.`,
+    prompt: params.prompt,
+  });
+
+  if (finishReason === "length") throw new Error("AI response was truncated; please retry.");
+  return params.schema.parse(extractJSON(text));
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
