@@ -330,24 +330,45 @@ export default function InvoiceUpload() {
                   />
                 </label>
               ) : (
-                <div className="flex items-center justify-between rounded-lg border border-success/30 bg-success/5 p-4">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-success" />
-                    <div>
-                      <p className="text-sm font-medium">{invoiceFile.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(invoiceFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border border-success/30 bg-success/5 p-4">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="h-5 w-5 text-success" />
+                      <div>
+                        <p className="text-sm font-medium">{invoiceFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(invoiceFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
                     </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={removeInvoiceFile}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={removeInvoiceFile}
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    variant="outline"
+                    onClick={extractFromInvoice}
+                    disabled={isExtracting}
+                    className="w-full gap-2"
                   >
-                    <X className="h-4 w-4" />
+                    {isExtracting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Extracting invoice fields...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        Extract fields with AI
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
