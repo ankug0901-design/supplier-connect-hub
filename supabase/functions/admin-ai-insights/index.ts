@@ -23,7 +23,7 @@ const RawInvoiceValidationItemSchema = z.object({
   invoice_number: z.string().optional(),
   supplier: z.string().optional(),
   risk: z.enum(["low", "medium", "high"]).optional(),
-  recommendation: z.enum(["approve", "review", "reject"]).optional(),
+  recommendation: z.string().optional(),
   issues: z.union([z.array(z.string()), z.string()]).optional(),
   summary: z.string().optional(),
   status: z.string().optional(),
@@ -112,6 +112,14 @@ function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String).filter(Boolean).slice(0, 3);
   if (typeof value === "string") return value.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean).slice(0, 3);
   return [];
+}
+
+function normalizeRecommendation(value: unknown, failed: boolean, hasIssues: boolean): "approve" | "review" | "reject" {
+  const rec = String(value || "").toLowerCase();
+  if (rec.includes("reject") || rec.includes("fail") || rec.includes("block")) return "reject";
+  if (rec.includes("approve") || rec.includes("pass")) return "approve";
+  if (rec.includes("review") || rec.includes("check") || rec.includes("hold")) return "review";
+  return failed ? "reject" : hasIssues ? "review" : "approve";
 }
 
 Deno.serve(async (req) => {
