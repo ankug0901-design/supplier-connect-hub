@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPayments, fetchInvoices } from '@/services/api';
+import { fetchPayments, fetchInvoices, fetchPaymentsFromDb, fetchInvoicesFromDb } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
