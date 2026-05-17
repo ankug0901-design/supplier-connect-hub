@@ -110,9 +110,13 @@ export default function AdminDashboard() {
     });
 
     const poValueMonth = pos
-      .filter((p) => new Date(p.created_at) >= monthStart)
+      .filter((p) => {
+        if (['rejected', 'cancelled', 'void'].includes(String(p.status))) return false;
+        const d = p.date ? new Date(p.date) : null;
+        return d && d >= monthStart;
+      })
       .reduce((s, p) => s + Number(p.amount || 0), 0);
-    const openPOs = pos.filter((p) => !['completed', 'cancelled', 'closed'].includes(String(p.status))).length;
+    const openPOs = pos.filter((p) => !['completed', 'closed', 'cancelled', 'rejected', 'void'].includes(String(p.status))).length;
 
     const invoicesPending = invoices.filter((i) => String(i.status) === 'pending').length;
     const invoiceValuePending = invoices
@@ -120,7 +124,7 @@ export default function AdminDashboard() {
       .reduce((s, i) => s + Number(i.amount || 0), 0);
 
     const paidThisMonth = payments
-      .filter((p) => String(p.status) === 'paid' && new Date(p.date || p.created_at) >= monthStart)
+      .filter((p) => ['paid', 'completed'].includes(String(p.status)) && new Date(p.date || p.created_at) >= monthStart)
       .reduce((s, p) => s + Number(p.amount || 0), 0);
 
     const pendingRegistrations = registrations.filter((r) => String(r.status) === 'pending').length;
