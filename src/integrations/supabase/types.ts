@@ -175,6 +175,7 @@ export type Database = {
           status: string
           supplier_id: string
           updated_at: string
+          zoho_id: string | null
         }
         Insert: {
           amount?: number
@@ -187,6 +188,7 @@ export type Database = {
           status?: string
           supplier_id: string
           updated_at?: string
+          zoho_id?: string | null
         }
         Update: {
           amount?: number
@@ -199,6 +201,7 @@ export type Database = {
           status?: string
           supplier_id?: string
           updated_at?: string
+          zoho_id?: string | null
         }
         Relationships: [
           {
@@ -308,6 +311,7 @@ export type Database = {
           status: string
           supplier_id: string
           updated_at: string
+          zoho_id: string | null
         }
         Insert: {
           amount?: number
@@ -320,6 +324,7 @@ export type Database = {
           status?: string
           supplier_id: string
           updated_at?: string
+          zoho_id?: string | null
         }
         Update: {
           amount?: number
@@ -332,6 +337,7 @@ export type Database = {
           status?: string
           supplier_id?: string
           updated_at?: string
+          zoho_id?: string | null
         }
         Relationships: [
           {
