@@ -383,6 +383,7 @@ export type Database = {
           status: string
           submitted_by_email: string | null
           submitted_by_name: string | null
+          supplier_company: string | null
           supplier_email: string
           supplier_id: string | null
           supplier_notes: string | null
@@ -429,6 +430,7 @@ export type Database = {
           status?: string
           submitted_by_email?: string | null
           submitted_by_name?: string | null
+          supplier_company?: string | null
           supplier_email: string
           supplier_id?: string | null
           supplier_notes?: string | null
@@ -475,6 +477,7 @@ export type Database = {
           status?: string
           submitted_by_email?: string | null
           submitted_by_name?: string | null
+          supplier_company?: string | null
           supplier_email?: string
           supplier_id?: string | null
           supplier_notes?: string | null
