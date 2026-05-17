@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -144,14 +144,48 @@ function InvoiceValidation() {
 function VendorScoring() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const [vendors, setVendors] = useState<any[] | null>(null);
+  const [lastScoredAt, setLastScoredAt] = useState<string | null>(null);
+
+  // Load latest persisted scores on mount
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from('vendor_scores')
+        .select('*')
+        .order('scored_at', { ascending: false })
+        .limit(200);
+      if (!error && data && data.length) {
+        // Keep only the latest score per supplier
+        const seen = new Set<string>();
+        const latest: any[] = [];
+        for (const row of data) {
+          if (seen.has(row.supplier_id)) continue;
+          seen.add(row.supplier_id);
+          latest.push(row);
+        }
+        latest.sort((a, b) => b.score - a.score);
+        setVendors(latest);
+        setLastScoredAt(data[0].scored_at);
+      }
+      setLoadingHistory(false);
+    })();
+  }, []);
 
   const run = async () => {
     setLoading(true);
     try {
       const data = await runOperation('score_vendors');
       setVendors((data.vendors || []).sort((a: any, b: any) => b.score - a.score));
-      toast({ title: 'Scoring complete', description: `Scored ${data.vendors?.length || 0} vendors.` });
+      setLastScoredAt(data.scored_at || new Date().toISOString());
+      const syncWarn = (data.sync_errors || []).length
+        ? ` (${data.sync_errors.length} Zoho sync warning${data.sync_errors.length === 1 ? '' : 's'})`
+        : '';
+      toast({
+        title: 'Scoring complete',
+        description: `Synced from Zoho and scored ${data.vendors?.length || 0} vendors${syncWarn}.`,
+      });
     } catch (e: any) {
       toast({ title: 'Scoring failed', description: e.message, variant: 'destructive' });
     } finally {
@@ -175,27 +209,32 @@ function VendorScoring() {
             Vendor Performance Scoring
           </CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            AI ranks suppliers based on PO completion, invoice quality, and shipment reliability.
+            Pulls latest PO, invoice, payment, and shipment data from Zoho, then scores supplier performance.
           </p>
+          {lastScoredAt && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Last scored: {new Date(lastScoredAt).toLocaleString()}
+            </p>
+          )}
         </div>
         <Button onClick={run} disabled={loading} className="gap-2">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {loading ? 'Scoring...' : 'Score vendors'}
+          {loading ? 'Syncing & scoring...' : 'Sync from Zoho & score'}
         </Button>
       </CardHeader>
       <CardContent>
-        {!vendors && !loading && (
+        {(loadingHistory || (!vendors && !loading)) && !loading && (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Click "Score vendors" to analyze supplier performance.
+            {loadingHistory ? 'Loading latest scores...' : 'No scores yet. Click "Sync from Zoho & score" to begin.'}
           </p>
         )}
         {loading && (
           <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin" />
-            Scoring vendors...
+            Pulling fresh data from Zoho and scoring vendors...
           </div>
         )}
-        {vendors && vendors.length === 0 && (
+        {!loading && vendors && vendors.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">No vendor activity to score yet.</p>
         )}
         {vendors && vendors.length > 0 && (

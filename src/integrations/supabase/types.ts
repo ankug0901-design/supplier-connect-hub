@@ -603,6 +603,48 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_scores: {
+        Row: {
+          company: string
+          created_at: string
+          grade: string
+          id: string
+          metrics: Json
+          recommendation: string | null
+          score: number
+          scored_at: string
+          strengths: Json
+          supplier_id: string
+          weaknesses: Json
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          grade: string
+          id?: string
+          metrics?: Json
+          recommendation?: string | null
+          score: number
+          scored_at?: string
+          strengths?: Json
+          supplier_id: string
+          weaknesses?: Json
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          grade?: string
+          id?: string
+          metrics?: Json
+          recommendation?: string | null
+          score?: number
+          scored_at?: string
+          strengths?: Json
+          supplier_id?: string
+          weaknesses?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

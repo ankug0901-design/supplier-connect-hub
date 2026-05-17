@@ -163,6 +163,29 @@ Deno.serve(async (req) => {
     }
 
     if (operation === "score_vendors") {
+      // Refresh data from Zoho first so scoring uses the latest vendor performance metrics
+      const syncErrors: string[] = [];
+      try {
+        const syncRes = await fetch(
+          `${Deno.env.get("SUPABASE_URL")}/functions/v1/zoho-sync`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({}),
+          },
+        );
+        const syncJson = await syncRes.json().catch(() => ({}));
+        if (!syncRes.ok || syncJson?.success === false) {
+          syncErrors.push(syncJson?.error || `Zoho sync returned ${syncRes.status}`);
+        }
+        if (Array.isArray(syncJson?.errors)) syncErrors.push(...syncJson.errors);
+      } catch (e: any) {
+        syncErrors.push(`Zoho sync failed: ${String(e?.message || e)}`);
+      }
+
       const [{ data: suppliers }, { data: pos }, { data: invoices }, { data: payments }, { data: challans }] =
         await Promise.all([
           admin.from("suppliers").select("id, company, created_at").eq("role", "supplier").limit(200),
@@ -207,7 +230,7 @@ Deno.serve(async (req) => {
       }).filter((v) => v.po_count > 0 || v.invoice_count > 0);
 
       if (aggregated.length === 0) {
-        return new Response(JSON.stringify({ data: { vendors: [] } }), {
+        return new Response(JSON.stringify({ data: { vendors: [], sync_errors: syncErrors } }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -224,9 +247,29 @@ Deno.serve(async (req) => {
         prompt: `Score these vendors based on real procurement data. Return one entry per vendor:\n\n${JSON.stringify(topVendors, null, 2)}`,
       });
 
-      return new Response(JSON.stringify({ data: object }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // Persist scores for historical tracking
+      const metricsBySupplier = new Map(topVendors.map((v) => [v.supplier_id, v]));
+      const scoredAt = new Date().toISOString();
+      const rows = (object.vendors || []).map((v) => ({
+        supplier_id: v.supplier_id,
+        company: v.company,
+        score: Math.round(v.score),
+        grade: v.grade,
+        strengths: v.strengths || [],
+        weaknesses: v.weaknesses || [],
+        recommendation: v.recommendation,
+        metrics: metricsBySupplier.get(v.supplier_id) || {},
+        scored_at: scoredAt,
+      }));
+      if (rows.length) {
+        const { error: insertErr } = await admin.from("vendor_scores").insert(rows);
+        if (insertErr) console.error("vendor_scores insert error", insertErr);
+      }
+
+      return new Response(
+        JSON.stringify({ data: { ...object, scored_at: scoredAt, sync_errors: syncErrors } }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     if (operation === "forecast_demand") {
