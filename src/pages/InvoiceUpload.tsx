@@ -103,6 +103,62 @@ export default function InvoiceUpload() {
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { item_name: '', quantity: 1, rate: 0 },
   ]);
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  const extractFromInvoice = async () => {
+    if (!invoiceFile) return;
+    setIsExtracting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const form = new FormData();
+      form.append('file', invoiceFile);
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invoice-ocr`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token ?? ''}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: form,
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Extraction failed');
+      const d = json.data || {};
+      if (d.invoice_number) setInvoiceNumber(d.invoice_number);
+      if (d.invoice_date) setInvoiceDate(d.invoice_date);
+      if (d.total_amount) setAmount(String(d.total_amount));
+      if (Array.isArray(d.line_items) && d.line_items.length) {
+        setLineItems(
+          d.line_items.map((li: any) => ({
+            item_name: li.item_name || '',
+            quantity: Number(li.quantity) || 0,
+            rate: Number(li.rate) || 0,
+          })),
+        );
+      }
+      if (d.po_number) {
+        const match = purchaseOrders.find(
+          (po: any) => po.poNumber?.toLowerCase() === String(d.po_number).toLowerCase(),
+        );
+        if (match) setSelectedPO(match.id);
+      }
+      toast({
+        title: 'Extraction complete',
+        description: 'Review the fields and submit when ready.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Extraction failed',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  };
 
   useEffect(() => {
     if (!supplier?.zoho_vendor_id) return;
