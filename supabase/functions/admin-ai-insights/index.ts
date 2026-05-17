@@ -199,12 +199,27 @@ Deno.serve(async (req) => {
         };
       });
 
-      const resultsArr = await generateJson({
+      const rawResults = await generateJson({
         model,
-        schema: z.array(InvoiceValidationItemSchema),
+        schema: z.array(RawInvoiceValidationItemSchema),
         system:
           "You are an invoice audit assistant for an Indian B2B procurement portal. Flag issues like: amount exceeds PO value, missing/invalid GST, duplicate invoice numbers per supplier, missing PO reference, invoice date before PO date or far in the future, unrealistic round amounts. Be strict but pragmatic. Always return one result per invoice in the same order.",
         prompt: `Validate these ${payload.length} pending invoices and return a JSON array of results. Each result must include invoice_id, invoice_number, supplier, risk, recommendation, issues, and summary.\n\n${JSON.stringify(payload, null, 2)}`,
+      });
+      const invoiceById = new Map(payload.map((p) => [p.invoice_id, p]));
+      const resultsArr = rawResults.map((r) => {
+        const inv = invoiceById.get(r.invoice_id);
+        const issues = r.issues || (r.remarks ? r.remarks.split(/[,;]\s*/).filter(Boolean) : []);
+        const failed = String(r.status || "").toLowerCase() === "failed";
+        return InvoiceValidationItemSchema.parse({
+          invoice_id: r.invoice_id,
+          invoice_number: r.invoice_number || inv?.invoice_number || "Unknown",
+          supplier: r.supplier || inv?.supplier || "Unknown",
+          risk: r.risk || (failed || issues.length > 1 ? "high" : issues.length ? "medium" : "low"),
+          recommendation: r.recommendation || (failed ? "reject" : issues.length ? "review" : "approve"),
+          issues,
+          summary: r.summary || r.remarks || (issues.length ? issues.join(", ") : "No material issues found"),
+        });
       });
 
       return new Response(JSON.stringify({ data: { results: resultsArr } }), {
@@ -289,12 +304,27 @@ Deno.serve(async (req) => {
         .sort((a, b) => b.total_po_value_inr - a.total_po_value_inr)
         .slice(0, 30);
 
-      const vendorsArr = await generateJson({
+      const rawVendors = await generateJson({
         model,
-        schema: z.array(VendorScoreItemSchema),
+        schema: z.array(RawVendorScoreItemSchema),
         system:
           "You are a vendor performance analyst. Score each vendor 0-100 based on PO completion rate, invoice quality (rejection rate), shipment reliability, and volume. A=excellent (85+), B=good (70-84), C=needs improvement (50-69), D=poor (<50). Be concise.",
         prompt: `Score these vendors based on real procurement data. Return a JSON array with one entry per vendor. Each entry must include supplier_id, company, score, grade, strengths, weaknesses, and recommendation.\n\n${JSON.stringify(topVendors, null, 2)}`,
+      });
+      const vendorById = new Map(topVendors.map((v) => [v.supplier_id, v]));
+      const vendorsArr = rawVendors.map((v) => {
+        const metrics = vendorById.get(v.supplier_id);
+        const score = Math.max(0, Math.min(100, Math.round(v.score ?? 0)));
+        const grade = v.grade || (score >= 85 ? "A" : score >= 70 ? "B" : score >= 50 ? "C" : "D");
+        return VendorScoreItemSchema.parse({
+          supplier_id: v.supplier_id,
+          company: v.company || metrics?.company || "Unknown",
+          score,
+          grade,
+          strengths: v.strengths || [],
+          weaknesses: v.weaknesses || [],
+          recommendation: v.recommendation || (grade === "A" ? "Preferred vendor" : grade === "D" ? "Review before new awards" : "Monitor performance"),
+        });
       });
 
       // Persist scores for historical tracking
