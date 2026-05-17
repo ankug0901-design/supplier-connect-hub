@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
           invoice_number: r.invoice_number || inv?.invoice_number || "Unknown",
           supplier: r.supplier || inv?.supplier || "Unknown",
           risk: r.risk || (failed || issues.length > 1 ? "high" : issues.length ? "medium" : "low"),
-          recommendation: r.recommendation || (failed ? "reject" : issues.length ? "review" : "approve"),
+          recommendation: normalizeRecommendation(r.recommendation, failed, issues.length > 0),
           issues,
           summary: r.summary || r.remarks || (issues.length ? issues.join(", ") : "No material issues found"),
         });
