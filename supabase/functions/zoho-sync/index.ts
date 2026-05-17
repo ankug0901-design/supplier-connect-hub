@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
             invoice_id: invId,
             amount: Number(p.amount || 0),
             date: p.date || new Date().toISOString().slice(0, 10),
-            status: mapPaymentStatus(p.status),
+            status: passthrough(p.status),
             transaction_id: p.transactionId || p.paymentNumber || p.id,
           };
         }).filter((r: any) => r && r.transaction_id);
