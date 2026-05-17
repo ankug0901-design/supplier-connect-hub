@@ -17,6 +17,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminSuppliers from "./pages/admin/AdminSuppliers";
 import AdminRegistrations from "./pages/admin/AdminRegistrations";
 import AdminRfq from "./pages/admin/AdminRfq";
+import AdminAiInsights from "./pages/admin/AdminAiInsights";
 import RfqRequests from "./pages/RfqRequests";
 import NotFound from "./pages/NotFound";
 
@@ -92,6 +93,7 @@ function AppRoutes() {
       <Route path="/admin/suppliers" element={<AdminRoute><AdminSuppliers /></AdminRoute>} />
       <Route path="/admin/registrations" element={<AdminRoute><AdminRegistrations /></AdminRoute>} />
       <Route path="/admin/rfq" element={<AdminRoute><AdminRfq /></AdminRoute>} />
+      <Route path="/admin/ai-insights" element={<AdminRoute><AdminAiInsights /></AdminRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
