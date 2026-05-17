@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
       }).filter((v) => v.po_count > 0 || v.invoice_count > 0);
 
       if (aggregated.length === 0) {
-        return new Response(JSON.stringify({ data: { vendors: [] } }), {
+        return new Response(JSON.stringify({ data: { vendors: [], sync_errors: syncErrors } }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
