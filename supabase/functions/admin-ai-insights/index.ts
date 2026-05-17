@@ -177,13 +177,12 @@ Deno.serve(async (req) => {
         };
       });
 
-      const { object: resultsArr } = await generateObject({
+      const resultsArr = await generateJson({
         model,
-        output: "array",
-        schema: InvoiceValidationItemSchema,
+        schema: z.array(InvoiceValidationItemSchema),
         system:
           "You are an invoice audit assistant for an Indian B2B procurement portal. Flag issues like: amount exceeds PO value, missing/invalid GST, duplicate invoice numbers per supplier, missing PO reference, invoice date before PO date or far in the future, unrealistic round amounts. Be strict but pragmatic. Always return one result per invoice in the same order.",
-        prompt: `Validate these ${payload.length} pending invoices and return a result for each one:\n\n${JSON.stringify(payload, null, 2)}`,
+        prompt: `Validate these ${payload.length} pending invoices and return a JSON array of results. Each result must include invoice_id, invoice_number, supplier, risk, recommendation, issues, and summary.\n\n${JSON.stringify(payload, null, 2)}`,
       });
 
       return new Response(JSON.stringify({ data: { results: resultsArr } }), {
@@ -268,13 +267,12 @@ Deno.serve(async (req) => {
         .sort((a, b) => b.total_po_value_inr - a.total_po_value_inr)
         .slice(0, 30);
 
-      const { object: vendorsArr } = await generateObject({
+      const vendorsArr = await generateJson({
         model,
-        output: "array",
-        schema: VendorScoreItemSchema,
+        schema: z.array(VendorScoreItemSchema),
         system:
           "You are a vendor performance analyst. Score each vendor 0-100 based on PO completion rate, invoice quality (rejection rate), shipment reliability, and volume. A=excellent (85+), B=good (70-84), C=needs improvement (50-69), D=poor (<50). Be concise.",
-        prompt: `Score these vendors based on real procurement data. Return one entry per vendor:\n\n${JSON.stringify(topVendors, null, 2)}`,
+        prompt: `Score these vendors based on real procurement data. Return a JSON array with one entry per vendor. Each entry must include supplier_id, company, score, grade, strengths, weaknesses, and recommendation.\n\n${JSON.stringify(topVendors, null, 2)}`,
       });
 
       // Persist scores for historical tracking
@@ -351,7 +349,7 @@ Deno.serve(async (req) => {
         last_12mo_value_inr: Math.round((pos || []).reduce((s, p) => s + Number(p.amount || 0), 0)),
       };
 
-      const { object } = await generateObject({
+      const object = await generateJson({
         model,
         schema: ForecastSchema,
         system:
