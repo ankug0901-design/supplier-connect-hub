@@ -163,6 +163,29 @@ Deno.serve(async (req) => {
     }
 
     if (operation === "score_vendors") {
+      // Refresh data from Zoho first so scoring uses the latest vendor performance metrics
+      const syncErrors: string[] = [];
+      try {
+        const syncRes = await fetch(
+          `${Deno.env.get("SUPABASE_URL")}/functions/v1/zoho-sync`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({}),
+          },
+        );
+        const syncJson = await syncRes.json().catch(() => ({}));
+        if (!syncRes.ok || syncJson?.success === false) {
+          syncErrors.push(syncJson?.error || `Zoho sync returned ${syncRes.status}`);
+        }
+        if (Array.isArray(syncJson?.errors)) syncErrors.push(...syncJson.errors);
+      } catch (e: any) {
+        syncErrors.push(`Zoho sync failed: ${String(e?.message || e)}`);
+      }
+
       const [{ data: suppliers }, { data: pos }, { data: invoices }, { data: payments }, { data: challans }] =
         await Promise.all([
           admin.from("suppliers").select("id, company, created_at").eq("role", "supplier").limit(200),
