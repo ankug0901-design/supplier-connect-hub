@@ -18,28 +18,8 @@ async function zoho(operation: string, vendorId: string) {
   return res.json();
 }
 
-function mapPOStatus(s?: string, billed?: string): string {
-  const v = (s || "").toLowerCase();
-  const b = (billed || "").toLowerCase();
-  if (b === "billed" || v === "closed" || v === "completed") return "completed";
-  if (b === "partially_billed" || v === "partial") return "partial";
-  if (v === "invoiced") return "invoiced";
-  return "pending";
-}
-
-function mapInvoiceStatus(s?: string): string {
-  const v = (s || "").toLowerCase();
-  if (v === "paid") return "paid";
-  if (v === "rejected" || v === "void") return "rejected";
-  if (v === "approved" || v === "open" || v === "partially_paid") return "approved";
-  return "pending";
-}
-
-function mapPaymentStatus(s?: string): string {
-  const v = (s || "").toLowerCase();
-  if (v === "processing" || v === "pending") return "processing";
-  return "completed";
-}
+// Pass through Zoho's status verbatim (lowercased)
+const passthrough = (s?: string) => (s || "pending").toLowerCase();
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -92,7 +72,7 @@ Deno.serve(async (req) => {
           zoho_id: p.id,
           date: p.date || new Date().toISOString().slice(0, 10),
           amount: Number(p.amount || 0),
-          status: mapPOStatus(p.status, p.zohoBilledStatus),
+          status: passthrough(p.status),
           expected_delivery: p.expectedDelivery || null,
           delivery_address: p.deliveryAddress || null,
         })).filter((r: any) => r.po_number);
@@ -129,7 +109,7 @@ Deno.serve(async (req) => {
             zoho_id: i.id,
             date: i.date || new Date().toISOString().slice(0, 10),
             amount: Number(i.amount || 0),
-            status: mapInvoiceStatus(i.status),
+            status: passthrough(i.status),
           };
         }).filter((r: any) => r && r.invoice_number);
 
@@ -161,7 +141,7 @@ Deno.serve(async (req) => {
             invoice_id: invId,
             amount: Number(p.amount || 0),
             date: p.date || new Date().toISOString().slice(0, 10),
-            status: mapPaymentStatus(p.status),
+            status: passthrough(p.status),
             transaction_id: p.transactionId || p.paymentNumber || p.id,
           };
         }).filter((r: any) => r && r.transaction_id);
