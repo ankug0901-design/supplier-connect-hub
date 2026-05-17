@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Supplier } from '@/types/supplier';
@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const profileUserIdRef = useRef<string | null>(null);
 
   async function fetchSupplierProfile(userId: string) {
     const { data, error } = await supabase
@@ -37,45 +38,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('user_id', userId)
       .single();
-    if (!error && data) {
-      setSupplier({
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        phone: data.phone || '',
-        company: data.company,
-        gstNumber: data.gst_number || '',
-        address: data.address || '',
-        zoho_vendor_id: data.zoho_vendor_id || '',
-      });
-      setIsAdmin((data as any).role === 'admin');
+    if (error || !data) {
+      setSupplier(null);
+      setIsAdmin(false);
+      return;
     }
+
+    setSupplier({
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone || '',
+      company: data.company,
+      gstNumber: data.gst_number || '',
+      address: data.address || '',
+      zoho_vendor_id: data.zoho_vendor_id || '',
+    });
+    setIsAdmin((data as any).role === 'admin');
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    let cancelled = false;
+
+    const handleSession = async (session: Session | null, forceProfile = false) => {
+      if (cancelled) return;
       setUser(session?.user ?? null);
-      if (session?.user) await fetchSupplierProfile(session.user.id);
-      setIsLoading(false);
-    });
+
+      if (!session?.user) {
+        profileUserIdRef.current = null;
+        setSupplier(null);
+        setIsAdmin(false);
+        setIsLoading(false);
+        return;
+      }
+
+      const userId = session.user.id;
+      if (forceProfile || profileUserIdRef.current !== userId) {
+        setIsLoading(true);
+        await fetchSupplierProfile(userId);
+        profileUserIdRef.current = userId;
+      }
+
+      if (!cancelled) setIsLoading(false);
+    };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setIsLoading(true);
-          setTimeout(async () => {
-            await fetchSupplierProfile(session.user.id);
-            setIsLoading(false);
-          }, 0);
-        } else {
-          setSupplier(null);
-          setIsAdmin(false);
-          setIsLoading(false);
+        if (event === 'TOKEN_REFRESHED' && session?.user && profileUserIdRef.current === session.user.id) {
+          setUser(session.user);
+          return;
         }
+
+        setTimeout(() => {
+          void handleSession(session, event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'USER_UPDATED');
+        }, 0);
       }
     );
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
