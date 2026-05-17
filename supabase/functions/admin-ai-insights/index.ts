@@ -441,12 +441,34 @@ Deno.serve(async (req) => {
         last_12mo_value_inr: Math.round((pos || []).reduce((s, p) => s + Number(p.amount || 0), 0)),
       };
 
-      const object = await generateJson({
+      const baselineMonth = monthlySeries.length
+        ? Math.round(monthlySeries.slice(-3).reduce((sum, m) => sum + m.total_value_inr, 0) / Math.min(3, monthlySeries.length))
+        : Math.round(totals.last_12mo_value_inr / 12);
+
+      const rawForecast = await generateJson({
         model,
-        schema: ForecastSchema,
+        schema: z.record(z.string(), z.any()),
         system:
           "You are a demand-forecasting analyst for a B2B printing/marketing supplier portal. Use the monthly PO time series to forecast next month and next quarter. Identify seasonality, top recurring categories, and reorder alerts. Be specific and quantitative. All currency in INR.",
-        prompt: `Analyze this 12-month procurement history and produce a demand forecast.\n\nTotals: ${JSON.stringify(totals)}\n\nMonthly series:\n${JSON.stringify(monthlySeries, null, 2)}\n\nTop recurring items:\n${JSON.stringify(topItems, null, 2)}`,
+        prompt: `Analyze this 12-month procurement history and produce a demand forecast as one JSON object. Use these exact keys when possible: summary, trend, next_month_forecast_inr, next_quarter_forecast_inr, top_categories, reorder_alerts, risks.\n\nTotals: ${JSON.stringify(totals)}\n\nMonthly series:\n${JSON.stringify(monthlySeries, null, 2)}\n\nTop recurring items:\n${JSON.stringify(topItems, null, 2)}`,
+      });
+
+      const object = ForecastSchema.parse({
+        summary: String(rawForecast.summary || rawForecast.outlook || rawForecast.forecast_summary || "Demand is forecast from recent purchase order history and recurring item value."),
+        trend: normalizeTrend(rawForecast.trend, monthlySeries),
+        next_month_forecast_inr: toNumber(rawForecast.next_month_forecast_inr ?? rawForecast.next_month ?? rawForecast.monthly_forecast_inr, baselineMonth),
+        next_quarter_forecast_inr: toNumber(rawForecast.next_quarter_forecast_inr ?? rawForecast.next_quarter ?? rawForecast.quarterly_forecast_inr, baselineMonth * 3),
+        top_categories: (Array.isArray(rawForecast.top_categories) ? rawForecast.top_categories : topItems.slice(0, 5)).map((c: any) => ({
+          category: String(c.category || c.item || c.description || "Other"),
+          projected_inr: toNumber(c.projected_inr ?? c.projected_value_inr ?? c.total_value_inr, baselineMonth),
+          reasoning: String(c.reasoning || c.reason || "Based on recurring PO item value."),
+        })),
+        reorder_alerts: (Array.isArray(rawForecast.reorder_alerts) ? rawForecast.reorder_alerts : []).map((a: any) => ({
+          item_or_supplier: String(a.item_or_supplier || a.item || a.supplier || "Recurring item"),
+          reason: String(a.reason || "Monitor demand against recent purchase order activity."),
+          urgency: ["low", "medium", "high"].includes(String(a.urgency)) ? String(a.urgency) : "medium",
+        })),
+        risks: toStringArray(rawForecast.risks).length ? toStringArray(rawForecast.risks) : ["Forecast accuracy depends on the available 12-month PO history."],
       });
 
       return new Response(JSON.stringify({ data: object }), {
