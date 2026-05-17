@@ -41,6 +41,7 @@ const adminNavigation: NavItem[] = [
   { name: 'All Suppliers', href: '/admin/suppliers', icon: Users },
   { name: 'Registrations', href: '/admin/registrations', icon: ClipboardList, badgeKey: 'pending_regs' },
   { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all' },
+  { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles },
 ];
 
 export function Sidebar() {
