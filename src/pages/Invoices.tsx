@@ -76,7 +76,7 @@ export default function Invoices() {
   };
 
   useEffect(() => {
-    if (!supplier?.zoho_vendor_id) {
+    if (!isAdmin && !supplier?.zoho_vendor_id) {
       setIsLoading(false);
       return;
     }
@@ -84,7 +84,9 @@ export default function Invoices() {
     (async () => {
       setIsLoading(true);
       try {
-        const data = await fetchInvoices(supplier.zoho_vendor_id!);
+        const data = isAdmin
+          ? await fetchInvoicesFromDb()
+          : await fetchInvoices(supplier!.zoho_vendor_id!);
         if (!cancelled) setInvoices(data);
       } catch (err) {
         console.error('Failed to load invoices', err);
@@ -95,7 +97,7 @@ export default function Invoices() {
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id]);
+  }, [supplier?.zoho_vendor_id, isAdmin]);
 
   const filteredInvoices = invoices.filter((invoice: any) => {
     const matchesSearch =
