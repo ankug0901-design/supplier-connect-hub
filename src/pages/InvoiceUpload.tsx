@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, X, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, X, CheckCircle, Plus, Trash2, Sparkles, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,6 +103,62 @@ export default function InvoiceUpload() {
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { item_name: '', quantity: 1, rate: 0 },
   ]);
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  const extractFromInvoice = async () => {
+    if (!invoiceFile) return;
+    setIsExtracting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const form = new FormData();
+      form.append('file', invoiceFile);
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invoice-ocr`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token ?? ''}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: form,
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Extraction failed');
+      const d = json.data || {};
+      if (d.invoice_number) setInvoiceNumber(d.invoice_number);
+      if (d.invoice_date) setInvoiceDate(d.invoice_date);
+      if (d.total_amount) setAmount(String(d.total_amount));
+      if (Array.isArray(d.line_items) && d.line_items.length) {
+        setLineItems(
+          d.line_items.map((li: any) => ({
+            item_name: li.item_name || '',
+            quantity: Number(li.quantity) || 0,
+            rate: Number(li.rate) || 0,
+          })),
+        );
+      }
+      if (d.po_number) {
+        const match = purchaseOrders.find(
+          (po: any) => po.poNumber?.toLowerCase() === String(d.po_number).toLowerCase(),
+        );
+        if (match) setSelectedPO(match.id);
+      }
+      toast({
+        title: 'Extraction complete',
+        description: 'Review the fields and submit when ready.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Extraction failed',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  };
 
   useEffect(() => {
     if (!supplier?.zoho_vendor_id) return;
@@ -273,24 +330,45 @@ export default function InvoiceUpload() {
                   />
                 </label>
               ) : (
-                <div className="flex items-center justify-between rounded-lg border border-success/30 bg-success/5 p-4">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-success" />
-                    <div>
-                      <p className="text-sm font-medium">{invoiceFile.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(invoiceFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border border-success/30 bg-success/5 p-4">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="h-5 w-5 text-success" />
+                      <div>
+                        <p className="text-sm font-medium">{invoiceFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(invoiceFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
                     </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={removeInvoiceFile}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={removeInvoiceFile}
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    variant="outline"
+                    onClick={extractFromInvoice}
+                    disabled={isExtracting}
+                    className="w-full gap-2"
                   >
-                    <X className="h-4 w-4" />
+                    {isExtracting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Extracting invoice fields...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        Extract fields with AI
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
