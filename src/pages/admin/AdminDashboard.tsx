@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 
-type Row = Record<string, string | number | boolean | null | undefined>;
+type Row = any;
 
 function fmtDate(d?: string | null) {
   if (!d) return '—';
@@ -70,7 +70,7 @@ export default function AdminDashboard() {
 
   const companyByEmail = useMemo(() => {
     const map: Record<string, string> = {};
-    suppliers.forEach((s) => {
+    suppliers.forEach((s: any) => {
       const k = String(s.email || '').trim().toLowerCase();
       if (k && s.company) map[k] = s.company;
     });
@@ -78,8 +78,8 @@ export default function AdminDashboard() {
   }, [suppliers]);
 
   const supplierById = useMemo(() => {
-    const m: Record<string, Row> = {};
-    suppliers.forEach((s) => { m[String(s.id)] = s; });
+    const m: Record<string, any> = {};
+    suppliers.forEach((s) => { m[s.id] = s; });
     return m;
   }, [suppliers]);
 
