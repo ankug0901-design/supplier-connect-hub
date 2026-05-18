@@ -87,8 +87,9 @@ export default function AdminSuppliers() {
   };
 
   return (
-    <DashboardLayout title="All Suppliers">
-      <div className="mb-4 flex justify-end">
+    <DashboardLayout
+      title="All Suppliers"
+      actions={(
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
             <Button variant="gradient">
@@ -142,7 +143,8 @@ export default function AdminSuppliers() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      )}
+    >
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
