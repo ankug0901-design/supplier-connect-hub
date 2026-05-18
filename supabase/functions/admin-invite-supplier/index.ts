@@ -48,14 +48,31 @@ Deno.serve(async (req) => {
     if (inviteErr) {
       const msg = inviteErr.message?.toLowerCase() || '';
       if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
+        // Look up the existing user so we can flag this as a re-invite via
+        // user_metadata. The auth-email-hook reads is_reinvite from
+        // payload.data.user_metadata and renders the Invite email instead of
+        // the Recovery email when true.
+        const { data: existing } = await admin.from('suppliers').select('user_id').eq('email', email).maybeSingle();
+        const existingUserId = existing?.user_id;
+
+        if (existingUserId) {
+          const { data: userRecord } = await admin.auth.admin.getUserById(existingUserId);
+          const mergedMeta = {
+            ...(userRecord?.user?.user_metadata || {}),
+            name,
+            company,
+            is_reinvite: true,
+          };
+          await admin.auth.admin.updateUserById(existingUserId, { user_metadata: mergedMeta });
+        }
+
         const { error: linkErr } = await admin.auth.admin.generateLink({
           type: 'recovery',
           email,
           options: { redirectTo },
         });
         if (linkErr) throw linkErr;
-        const { data: existing } = await admin.from('suppliers').select('user_id').eq('email', email).maybeSingle();
-        userId = existing?.user_id;
+        userId = existingUserId;
       } else {
         throw inviteErr;
       }

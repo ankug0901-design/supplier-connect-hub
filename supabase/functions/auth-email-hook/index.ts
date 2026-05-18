@@ -16,11 +16,12 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-lovable-signature, x-lovable-timestamp, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
+const INVITE_SUBJECT = "You're invited to Supplier Connect Hub | Emboss Marketing"
 const EMAIL_SUBJECTS: Record<string, string> = {
-  signup: 'Confirm your email',
-  invite: "You've been invited",
+  signup: 'Confirm your email | Supplier Connect Hub | Emboss Marketing',
+  invite: INVITE_SUBJECT,
   magiclink: 'Your login link',
-  recovery: 'Reset your password',
+  recovery: 'Reset your password | Supplier Connect Hub | Emboss Marketing',
   email_change: 'Confirm your new email',
   reauthentication: 'Your verification code',
 }
@@ -209,7 +210,18 @@ async function handleWebhook(req: Request): Promise<Response> {
   const emailType = payload.data.action_type
   console.log('Received auth event', { emailType, email: payload.data.email, run_id })
 
-  const EmailTemplate = EMAIL_TEMPLATES[emailType]
+  // Re-invite handling: when admin re-invites an existing user, Supabase uses
+  // the recovery flow. The admin function sets user_metadata.is_reinvite = true
+  // so we can render the Invite email instead of the Recovery email.
+  const isReinvite =
+    emailType === 'recovery' &&
+    (payload.data.user_metadata?.is_reinvite === true ||
+      payload.data.user_metadata?.is_reinvite === 'true')
+
+  const templateKey = isReinvite ? 'invite' : emailType
+  const subjectKey = isReinvite ? 'invite' : emailType
+
+  const EmailTemplate = EMAIL_TEMPLATES[templateKey]
   if (!EmailTemplate) {
     console.error('Unknown email type', { emailType, run_id })
     return new Response(
@@ -260,7 +272,7 @@ async function handleWebhook(req: Request): Promise<Response> {
       to: payload.data.email,
       from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
-      subject: EMAIL_SUBJECTS[emailType] || 'Notification',
+      subject: EMAIL_SUBJECTS[subjectKey] || 'Notification',
       html,
       text,
       purpose: 'transactional',

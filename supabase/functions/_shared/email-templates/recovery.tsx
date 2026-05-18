@@ -1,72 +1,100 @@
 /// <reference types="npm:@types/react@18.3.1" />
 
 import * as React from 'npm:react@18.3.1'
-
 import {
   Body,
-  Button,
-  Container,
   Head,
-  Heading,
   Html,
   Preview,
-  Text,
 } from 'npm:@react-email/components@0.0.22'
 
 interface RecoveryEmailProps {
-  siteName: string
+  siteName?: string
   confirmationUrl: string
+  recipient?: string
+  email?: string
 }
 
 export const RecoveryEmail = ({
-  siteName,
   confirmationUrl,
-}: RecoveryEmailProps) => (
-  <Html lang="en" dir="ltr">
-    <Head />
-    <Preview>Reset your password for {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Reset your password</Heading>
-        <Text style={text}>
-          We received a request to reset your password for {siteName}. Click
-          the button below to choose a new password.
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Reset Password
-        </Button>
-        <Text style={footer}>
-          If you didn't request a password reset, you can safely ignore this
-          email. Your password will not be changed.
-        </Text>
-      </Container>
-    </Body>
-  </Html>
-)
+  recipient,
+  email,
+}: RecoveryEmailProps) => {
+  const to = recipient || email || ''
+  return (
+    <Html lang="en" dir="ltr">
+      <Head />
+      <Preview>Reset your password for the Emboss Supplier Connect Hub</Preview>
+      <Body style={{ margin: 0, padding: 0, background: '#f5f5f5', fontFamily: 'Arial, sans-serif', color: '#000' }}>
+        <table width="100%" cellPadding={0} cellSpacing={0} style={{ background: '#f5f5f5', padding: '24px 0' }}>
+          <tr>
+            <td align="center">
+              <table width={640} cellPadding={0} cellSpacing={0} style={{ background: '#ffffff', border: '1px solid #e0e0e0', maxWidth: '640px' }}>
+                <tr>
+                  <td style={{ background: '#1a1a2e', padding: '24px 32px' }}>
+                    <div style={{ color: '#4ade80', fontSize: '22px', fontWeight: 'bold', letterSpacing: '1px' }}>EMBOSS MARKETING</div>
+                    <div style={{ color: '#aaa', fontSize: '11px', letterSpacing: '2px', marginTop: '4px' }}>PRINTING · PACKAGING · POS DISPLAYS</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ background: '#1a6b3c', padding: '10px 32px', color: 'white', fontSize: '13px', fontWeight: 'bold' }}>
+                    🔐 Password Reset Request
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '32px' }}>
+                    <p style={{ margin: '0 0 16px', fontSize: '14px', lineHeight: 1.6 }}>Dear Partner,</p>
+                    <p style={{ margin: '0 0 16px', fontSize: '14px', lineHeight: 1.6 }}>
+                      We received a request to reset the password for your <strong>Supplier Connect Hub</strong> account.
+                    </p>
+                    <p style={{ margin: '0 0 16px', fontSize: '14px', lineHeight: 1.6 }}>
+                      To set a new password, please click the button below:
+                    </p>
+
+                    <table cellPadding={0} cellSpacing={0} style={{ margin: '24px 0' }}>
+                      <tr>
+                        <td style={{ background: '#1a6b3c', borderRadius: '4px' }}>
+                          <a href={confirmationUrl} style={{ display: 'inline-block', padding: '14px 32px', color: '#ffffff', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px' }}>
+                            Reset Password →
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#666', lineHeight: 1.6 }}>
+                      This password reset link is unique to you and will expire in 1 hour for security reasons.
+                    </p>
+                    <p style={{ margin: '0 0 20px', fontSize: '12px', color: '#666', lineHeight: 1.6 }}>
+                      If the button doesn't work, copy and paste this link into your browser:<br />
+                      <a href={confirmationUrl} style={{ color: '#1a6b3c', wordBreak: 'break-all' }}>{confirmationUrl}</a>
+                    </p>
+
+                    <div style={{ background: '#fef2f2', borderLeft: '4px solid #dc2626', padding: '12px 16px', fontSize: '12px', color: '#7f1d1d', lineHeight: 1.6, margin: '20px 0' }}>
+                      <strong>Didn't request this?</strong> If you did not request a password reset, please ignore this email — your password will remain unchanged. For account security, you may want to reply to this email to let us know.
+                    </div>
+
+                    <p style={{ margin: '24px 0 4px', fontSize: '13px', color: '#444' }}>For any questions, simply reply to this email.</p>
+                    <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#444' }}>Best regards,</p>
+                    <p style={{ margin: '4px 0 0', fontSize: '13px', fontWeight: 'bold' }}>Procurement Team</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#666' }}>Emboss Marketing LLP</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#666' }}>✉ procurement@embossmarketing.in</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ background: '#f0f0f0', padding: '14px 32px', textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '11px', color: '#999' }}>
+                      Emboss Marketing LLP | Printing · Packaging · POS Displays<br />
+                      This email was sent to {to}.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </Body>
+    </Html>
+  )
+}
 
 export default RecoveryEmail
-
-const main = { backgroundColor: '#ffffff', fontFamily: 'Inter, Arial, sans-serif' }
-const container = { padding: '24px 28px', maxWidth: '560px' }
-const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: 'hsl(222, 47%, 11%)',
-  margin: '0 0 20px',
-}
-const text = {
-  fontSize: '14px',
-  color: 'hsl(215, 16%, 47%)',
-  lineHeight: '1.6',
-  margin: '0 0 25px',
-}
-const button = {
-  backgroundColor: 'hsl(142, 71%, 45%)',
-  color: '#ffffff',
-  fontSize: '14px',
-  fontWeight: '600' as const,
-  borderRadius: '12px',
-  padding: '12px 22px',
-  textDecoration: 'none',
-}
-const footer = { fontSize: '12px', color: 'hsl(215, 16%, 60%)', margin: '32px 0 0' }
