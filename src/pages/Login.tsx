@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
+import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 
 type DocKey = 'gst' | 'pan' | 'tan' | 'msme' | 'bank' | 'other';
 
@@ -49,6 +50,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const { login } = useAuth();
@@ -204,6 +206,8 @@ export default function Login() {
   };
 
   return (
+    <>
+    <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} defaultEmail={email} />
     <div className="flex min-h-screen">
       {/* Left Panel - Branding */}
       <div className="hidden w-1/2 bg-gradient-hero lg:flex lg:flex-col lg:justify-between lg:p-12">
@@ -285,9 +289,13 @@ export default function Login() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Password</Label>
-                    <a href="#" className="text-sm text-primary hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => setForgotOpen(true)}
+                      className="text-sm text-primary hover:underline"
+                    >
                       Forgot password?
-                    </a>
+                    </button>
                   </div>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -571,5 +579,6 @@ export default function Login() {
         </div>
       </div>
     </div>
+    </>
   );
 }
