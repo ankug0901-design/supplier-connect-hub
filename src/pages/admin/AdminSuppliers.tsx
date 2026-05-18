@@ -66,8 +66,83 @@ export default function AdminSuppliers() {
     }
   };
 
+  const handleInvite = async () => {
+    if (!invite.email || !invite.name || !invite.company) {
+      toast({ title: 'Missing info', description: 'Email, name and company are required', variant: 'destructive' });
+      return;
+    }
+    setInviting(true);
+    const { data, error } = await supabase.functions.invoke('admin-invite-supplier', {
+      body: { ...invite, redirect_to: `${window.location.origin}/reset-password` },
+    });
+    setInviting(false);
+    if (error || (data as any)?.error) {
+      toast({ title: 'Invite failed', description: (data as any)?.error || error?.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Invitation sent', description: `${invite.email} will receive an email to set their password.` });
+    setInvite({ email: '', name: '', company: '', phone: '', gst_number: '', zoho_vendor_id: '' });
+    setInviteOpen(false);
+    load();
+  };
+
   return (
     <DashboardLayout title="All Suppliers">
+      <div className="mb-4 flex justify-end">
+        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+          <DialogTrigger asChild>
+            <Button variant="gradient">
+              <UserPlus className="h-4 w-4" />
+              Invite Supplier
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Invite a new supplier</DialogTitle>
+              <DialogDescription>
+                They'll receive an email to set their password and access the portal.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Full Name *</Label>
+                  <Input value={invite.name} onChange={(e) => setInvite((p) => ({ ...p, name: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Company *</Label>
+                  <Input value={invite.company} onChange={(e) => setInvite((p) => ({ ...p, company: e.target.value }))} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Email *</Label>
+                <Input type="email" value={invite.email} onChange={(e) => setInvite((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Phone</Label>
+                  <Input value={invite.phone} onChange={(e) => setInvite((p) => ({ ...p, phone: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>GST Number</Label>
+                  <Input value={invite.gst_number} onChange={(e) => setInvite((p) => ({ ...p, gst_number: e.target.value }))} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Zoho Vendor ID (optional)</Label>
+                <Input value={invite.zoho_vendor_id} onChange={(e) => setInvite((p) => ({ ...p, zoho_vendor_id: e.target.value }))} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+              <Button variant="gradient" onClick={handleInvite} disabled={inviting}>
+                {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                Send Invitation
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
