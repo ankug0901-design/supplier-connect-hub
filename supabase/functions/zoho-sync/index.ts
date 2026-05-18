@@ -24,10 +24,39 @@ const passthrough = (s?: string) => (s || "pending").toLowerCase();
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  // Auth check: accept either the service role key (for internal calls from other edge
+  // functions like admin-ai-insights) or a JWT belonging to an admin user.
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+
+  let authorized = false;
+  if (token && token === serviceRoleKey) {
+    authorized = true;
+  } else if (token) {
+    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: userData } = await userClient.auth.getUser(token);
+    if (userData?.user) {
+      const { data: supplierRow } = await userClient
+        .from("suppliers")
+        .select("role")
+        .eq("user_id", userData.user.id)
+        .maybeSingle();
+      if (supplierRow?.role === "admin") authorized = true;
+    }
+  }
+
+  if (!authorized) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   const summary = {
     suppliers: 0,
