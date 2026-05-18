@@ -74,7 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const userId = session.user.id;
       if (forceProfile || profileUserIdRef.current !== userId) {
-        setIsLoading(true);
+        const isInitialProfileLoad = !user || profileUserIdRef.current !== userId;
+        if (isInitialProfileLoad) setIsLoading(true);
         await fetchSupplierProfile(userId);
         profileUserIdRef.current = userId;
       }
