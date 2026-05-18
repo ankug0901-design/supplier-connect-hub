@@ -29,9 +29,13 @@ export default function AdminSuppliers() {
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [invite, setInvite] = useState({ email: '', name: '', company: '', phone: '', gst_number: '', zoho_vendor_id: '' });
   const { toast } = useToast();
 
   const load = async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from('suppliers')
       .select('id, name, company, email, phone, gst_number, zoho_vendor_id, role, created_at')
