@@ -1,0 +1,91 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  try {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    // Verify caller is admin
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
+    const { data: userRes } = await userClient.auth.getUser();
+    if (!userRes?.user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data: callerSupplier } = await admin.from('suppliers').select('role').eq('user_id', userRes.user.id).maybeSingle();
+    if (callerSupplier?.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Forbidden - admin only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const body = await req.json();
+    const { email, name, company, phone, gst_number, zoho_vendor_id, redirect_to } = body || {};
+    if (!email || !name || !company) {
+      return new Response(JSON.stringify({ error: 'email, name and company are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const redirectTo = redirect_to || 'https://supplierconnect.embossmarketing.in/reset-password';
+
+    // Send invite (creates user + emails them a link to set password)
+    const { data: inviteData, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
+      redirectTo,
+      data: { name, company },
+    });
+
+    let userId = inviteData?.user?.id;
+
+    // If user already exists, fall back to a password reset email
+    if (inviteErr) {
+      const msg = inviteErr.message?.toLowerCase() || '';
+      if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
+        const { error: linkErr } = await admin.auth.admin.generateLink({
+          type: 'recovery',
+          email,
+          options: { redirectTo },
+        });
+        if (linkErr) throw linkErr;
+        const { data: existing } = await admin.from('suppliers').select('user_id').eq('email', email).maybeSingle();
+        userId = existing?.user_id;
+      } else {
+        throw inviteErr;
+      }
+    }
+
+    // Upsert supplier row with provided details
+    if (userId) {
+      await admin.from('suppliers').upsert(
+        {
+          user_id: userId,
+          name,
+          email,
+          company,
+          phone: phone || null,
+          gst_number: gst_number || null,
+          zoho_vendor_id: zoho_vendor_id || null,
+          role: 'supplier',
+        },
+        { onConflict: 'user_id' }
+      );
+    }
+
+    return new Response(JSON.stringify({ success: true, user_id: userId }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (e: any) {
+    console.error('admin-invite-supplier error', e);
+    return new Response(JSON.stringify({ error: e.message || 'Server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
