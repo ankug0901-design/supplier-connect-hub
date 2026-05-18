@@ -210,7 +210,18 @@ async function handleWebhook(req: Request): Promise<Response> {
   const emailType = payload.data.action_type
   console.log('Received auth event', { emailType, email: payload.data.email, run_id })
 
-  const EmailTemplate = EMAIL_TEMPLATES[emailType]
+  // Re-invite handling: when admin re-invites an existing user, Supabase uses
+  // the recovery flow. The admin function sets user_metadata.is_reinvite = true
+  // so we can render the Invite email instead of the Recovery email.
+  const isReinvite =
+    emailType === 'recovery' &&
+    (payload.data.user_metadata?.is_reinvite === true ||
+      payload.data.user_metadata?.is_reinvite === 'true')
+
+  const templateKey = isReinvite ? 'invite' : emailType
+  const subjectKey = isReinvite ? 'invite' : emailType
+
+  const EmailTemplate = EMAIL_TEMPLATES[templateKey]
   if (!EmailTemplate) {
     console.error('Unknown email type', { emailType, run_id })
     return new Response(
