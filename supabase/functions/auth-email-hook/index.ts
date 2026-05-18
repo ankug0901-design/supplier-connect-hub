@@ -16,11 +16,12 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-lovable-signature, x-lovable-timestamp, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
+const INVITE_SUBJECT = "You're invited to Supplier Connect Hub | Emboss Marketing"
 const EMAIL_SUBJECTS: Record<string, string> = {
-  signup: 'Confirm your email',
-  invite: "You've been invited",
+  signup: 'Confirm your email | Supplier Connect Hub | Emboss Marketing',
+  invite: INVITE_SUBJECT,
   magiclink: 'Your login link',
-  recovery: 'Reset your password',
+  recovery: 'Reset your password | Supplier Connect Hub | Emboss Marketing',
   email_change: 'Confirm your new email',
   reauthentication: 'Your verification code',
 }
