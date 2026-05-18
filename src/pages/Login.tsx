@@ -206,6 +206,8 @@ export default function Login() {
   };
 
   return (
+    <>
+    <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} defaultEmail={email} />
     <div className="flex min-h-screen">
       {/* Left Panel - Branding */}
       <div className="hidden w-1/2 bg-gradient-hero lg:flex lg:flex-col lg:justify-between lg:p-12">
