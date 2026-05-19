@@ -359,19 +359,18 @@ export async function fetchInvoicedQuantitiesForPo(
   supplierId: string,
   poNumber: string,
 ): Promise<Record<string, number>> {
-  const { data, error } = await supabase
-    .from('invoice_line_items')
-    .select('item_name, quantity')
-    .eq('supplier_id', supplierId)
-    .eq('po_number', poNumber);
+  const { data, error } = await supabase.rpc('get_invoiced_quantities_for_po', {
+    _supplier_id: supplierId,
+    _po_number: poNumber,
+  });
   if (error) {
     console.warn('Failed to fetch invoiced quantities', error);
     return {};
   }
-  return (data || []).reduce<Record<string, number>>((acc, row: any) => {
+  return ((data as any[]) || []).reduce<Record<string, number>>((acc, row: any) => {
     const key = String(row.item_name || '').trim().toLowerCase();
     if (!key) return acc;
-    acc[key] = (acc[key] || 0) + Number(row.quantity || 0);
+    acc[key] = (acc[key] || 0) + Number(row.total_quantity || 0);
     return acc;
   }, {});
 }
