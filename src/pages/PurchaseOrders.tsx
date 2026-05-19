@@ -73,7 +73,10 @@ export default function PurchaseOrders() {
   }, [supplier?.zoho_vendor_id, isAdmin]);
 
   const filteredOrders = purchaseOrders.filter((order: any) => {
-    const matchesSearch = order.poNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      order.poNumber?.toLowerCase().includes(q) ||
+      order.supplierName?.toLowerCase().includes(q);
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
