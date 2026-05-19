@@ -297,30 +297,51 @@ export default function InvoiceUpload() {
     };
   }, [supplier?.zoho_vendor_id]);
 
-  // Prepopulate line items from the selected PO (from Zoho Books). All items are
-  // selected by default — supplier can untick items not being invoiced this time.
+  // Prepopulate line items from the selected PO (from Zoho Books), then subtract
+  // any previously-invoiced quantities for the same PO/items.
   useEffect(() => {
     if (!selectedPO) return;
     const po = purchaseOrders.find((p: any) => p.id === selectedPO);
     if (!po) return;
-    if (Array.isArray(po.items) && po.items.length) {
-      setLineItems(
-        po.items.map((it: any) => {
-          const qty = Number(it.quantity ?? it.qty ?? 0) || 0;
-          return {
-            item_name:
-              it.item_name || it.name || it.description || it.item_description || '',
-            hsn: it.hsn || it.hsn_or_sac || it.hsn_sac || it.sac || '',
-            po_quantity: qty,
-            quantity: qty,
-            rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) || 0,
-            selected: true,
-          };
-        }),
-      );
-    }
-    setAmountTouched(false);
-  }, [selectedPO, purchaseOrders]);
+    let cancelled = false;
+
+    (async () => {
+      let invoicedMap: Record<string, number> = {};
+      if (supplier?.id && po.poNumber) {
+        try {
+          invoicedMap = await fetchInvoicedQuantitiesForPo(supplier.id, po.poNumber);
+        } catch (err) {
+          console.warn('Failed to load prior invoiced qty', err);
+        }
+      }
+      if (cancelled) return;
+
+      if (Array.isArray(po.items) && po.items.length) {
+        setLineItems(
+          po.items.map((it: any) => {
+            const qty = Number(it.quantity ?? it.qty ?? 0) || 0;
+            const name = it.item_name || it.name || it.description || it.item_description || '';
+            const invoiced = invoicedMap[name.trim().toLowerCase()] || 0;
+            const remaining = Math.max(qty - invoiced, 0);
+            return {
+              item_name: name,
+              hsn: it.hsn || it.hsn_or_sac || it.hsn_sac || it.sac || '',
+              po_quantity: qty,
+              invoiced_quantity: invoiced,
+              quantity: remaining,
+              rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) || 0,
+              selected: remaining > 0,
+            };
+          }),
+        );
+      }
+      setAmountTouched(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPO, purchaseOrders, supplier?.id]);
 
   // Auto-compute invoice amount from selected line items (qty × rate),
   // unless the user has manually edited the amount.
