@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchInvoices, fetchInvoicesFromDb, downloadBillAttachment, type BillAttachment } from '@/services/api';
+import { supabase } from '@/integrations/supabase/client';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { PdfViewer } from '@/components/PdfViewer';
 import { useToast } from '@/hooks/use-toast';
@@ -93,7 +94,29 @@ export default function Invoices() {
         const data = isAdmin
           ? await fetchInvoicesFromDb()
           : await fetchInvoices(supplier!.zoho_vendor_id!);
-        if (!cancelled) setInvoices(data);
+        // Merge supplier submission timestamps from invoice_line_items
+        const invoiceNumbers = Array.from(
+          new Set((data || []).map((i: any) => i.invoiceNumber).filter(Boolean)),
+        ) as string[];
+        let submissionByNumber: Record<string, string> = {};
+        if (invoiceNumbers.length) {
+          const { data: liData } = await supabase
+            .from('invoice_line_items')
+            .select('invoice_number, created_at')
+            .in('invoice_number', invoiceNumbers);
+          (liData || []).forEach((row: any) => {
+            const k = row.invoice_number;
+            if (!k) return;
+            if (!submissionByNumber[k] || row.created_at < submissionByNumber[k]) {
+              submissionByNumber[k] = row.created_at;
+            }
+          });
+        }
+        const enriched = (data || []).map((i: any) => ({
+          ...i,
+          submittedAt: submissionByNumber[i.invoiceNumber] || null,
+        }));
+        if (!cancelled) setInvoices(enriched);
       } catch (err) {
         console.error('Failed to load invoices', err);
       } finally {
@@ -109,9 +132,14 @@ export default function Invoices() {
     const matchesSearch =
       invoice.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       invoice.poNumber?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
+    const invStatus = (invoice.status || '').toString().toLowerCase();
+    const matchesStatus = statusFilter === 'all' || invStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const availableInvoiceStatuses = Array.from(
+    new Set(invoices.map((i: any) => (i.status || '').toString().toLowerCase()).filter(Boolean)),
+  ).sort();
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-IN', {
@@ -155,12 +183,11 @@ export default function Invoices() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="partially_paid">Partial Billed</SelectItem>
-                <SelectItem value="paid">Closed</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="due_soon">Due Soon</SelectItem>
-                <SelectItem value="void">Void</SelectItem>
+                {availableInvoiceStatuses.map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">
+                    {statusConfig[s]?.label || s.replace(/_/g, ' ')}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -188,7 +215,8 @@ export default function Invoices() {
                       <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Supplier</th>
                     )}
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">PO Number</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Invoice Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Submitted On</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Due Date</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Payment Date</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Amount</th>
@@ -225,6 +253,9 @@ export default function Invoices() {
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
                           {formatDate(invoice.date)}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                          {invoice.submittedAt ? formatDate(invoice.submittedAt) : '—'}
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-sm">
                           <div className="flex flex-col">

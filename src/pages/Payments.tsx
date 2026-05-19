@@ -82,9 +82,13 @@ export default function Payments() {
       payment.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       payment.paymentNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (payment.transactionId && payment.transactionId.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesStatus = statusFilter === 'all' || (payment.status || '').toLowerCase() === statusFilter;
+    const matchesStatus = statusFilter === 'all' || (payment.status || '').toString().toLowerCase() === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const availablePaymentStatuses = Array.from(
+    new Set(payments.map((p: any) => (p.status || '').toString().toLowerCase()).filter(Boolean)),
+  ).sort();
 
   const getInvoiceStatus = (inv: any) => {
     if (!inv.dueDate) return { label: 'Pending', cls: 'bg-warning/10 text-warning border-warning/20' };
@@ -165,9 +169,11 @@ export default function Payments() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="processing">Processing</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
+                {availablePaymentStatuses.map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">
+                    {s.replace(/_/g, ' ')}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

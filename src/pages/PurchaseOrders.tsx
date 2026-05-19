@@ -72,12 +72,17 @@ export default function PurchaseOrders() {
     };
   }, [supplier?.zoho_vendor_id, isAdmin]);
 
+  const availableStatuses = Array.from(
+    new Set(purchaseOrders.map((o: any) => (o.status || '').toString().toLowerCase()).filter(Boolean)),
+  ).sort();
+
   const filteredOrders = purchaseOrders.filter((order: any) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       order.poNumber?.toLowerCase().includes(q) ||
       order.supplierName?.toLowerCase().includes(q);
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    const orderStatus = (order.status || '').toString().toLowerCase();
+    const matchesStatus = statusFilter === 'all' || orderStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -119,10 +124,11 @@ export default function PurchaseOrders() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="invoiced">Invoiced</SelectItem>
-                <SelectItem value="partial">Partial</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                {availableStatuses.map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">
+                    {s.replace(/_/g, ' ')}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
