@@ -94,7 +94,29 @@ export default function Invoices() {
         const data = isAdmin
           ? await fetchInvoicesFromDb()
           : await fetchInvoices(supplier!.zoho_vendor_id!);
-        if (!cancelled) setInvoices(data);
+        // Merge supplier submission timestamps from invoice_line_items
+        const invoiceNumbers = Array.from(
+          new Set((data || []).map((i: any) => i.invoiceNumber).filter(Boolean)),
+        );
+        let submissionByNumber: Record<string, string> = {};
+        if (invoiceNumbers.length) {
+          const { data: liData } = await supabase
+            .from('invoice_line_items')
+            .select('invoice_number, created_at')
+            .in('invoice_number', invoiceNumbers);
+          (liData || []).forEach((row: any) => {
+            const k = row.invoice_number;
+            if (!k) return;
+            if (!submissionByNumber[k] || row.created_at < submissionByNumber[k]) {
+              submissionByNumber[k] = row.created_at;
+            }
+          });
+        }
+        const enriched = (data || []).map((i: any) => ({
+          ...i,
+          submittedAt: submissionByNumber[i.invoiceNumber] || null,
+        }));
+        if (!cancelled) setInvoices(enriched);
       } catch (err) {
         console.error('Failed to load invoices', err);
       } finally {
