@@ -399,14 +399,19 @@ export default function AdminRfq() {
         </div>
       ) : (
         <div className="space-y-6">
-          <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="awaiting">Awaiting Quotes</TabsTrigger>
-              <TabsTrigger value="compare">Ready to Compare</TabsTrigger>
-              <TabsTrigger value="decided">Decision Made</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="awaiting">Awaiting Quotes</TabsTrigger>
+                <TabsTrigger value="compare">Ready to Compare</TabsTrigger>
+                <TabsTrigger value="decided">Decision Made</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" /> Create RFQ
+            </Button>
+          </div>
 
           {filtered.length === 0 && (
             <Card><CardContent className="py-10 text-center text-muted-foreground">No RFQs in this view.</CardContent></Card>
