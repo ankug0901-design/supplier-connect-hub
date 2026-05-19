@@ -97,7 +97,7 @@ export default function Invoices() {
         // Merge supplier submission timestamps from invoice_line_items
         const invoiceNumbers = Array.from(
           new Set((data || []).map((i: any) => i.invoiceNumber).filter(Boolean)),
-        );
+        ) as string[];
         let submissionByNumber: Record<string, string> = {};
         if (invoiceNumbers.length) {
           const { data: liData } = await supabase
