@@ -195,6 +195,23 @@ export default function InvoiceUpload() {
     };
   }, [supplier?.zoho_vendor_id]);
 
+  // Prepopulate line items + amount from the selected PO (from Zoho Books)
+  useEffect(() => {
+    if (!selectedPO) return;
+    const po = purchaseOrders.find((p: any) => p.id === selectedPO);
+    if (!po) return;
+    if (Array.isArray(po.items) && po.items.length) {
+      setLineItems(
+        po.items.map((it: any) => ({
+          item_name: it.description || '',
+          quantity: Number(it.quantity) || 0,
+          rate: Number(it.unitPrice ?? it.rate ?? 0),
+        })),
+      );
+    }
+    if (po.amount != null) setAmount(String(po.amount));
+  }, [selectedPO, purchaseOrders]);
+
   const handleInvoiceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
