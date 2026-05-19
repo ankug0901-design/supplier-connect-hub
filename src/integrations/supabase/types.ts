@@ -309,31 +309,40 @@ export type Database = {
       }
       payments: {
         Row: {
+          account: string | null
           amount: number
           created_at: string
           date: string
           id: string
           invoice_id: string
+          payment_mode: string | null
+          payment_number: string | null
           status: string
           transaction_id: string | null
           updated_at: string
         }
         Insert: {
+          account?: string | null
           amount?: number
           created_at?: string
           date?: string
           id?: string
           invoice_id: string
+          payment_mode?: string | null
+          payment_number?: string | null
           status?: string
           transaction_id?: string | null
           updated_at?: string
         }
         Update: {
+          account?: string | null
           amount?: number
           created_at?: string
           date?: string
           id?: string
           invoice_id?: string
+          payment_mode?: string | null
+          payment_number?: string | null
           status?: string
           transaction_id?: string | null
           updated_at?: string
