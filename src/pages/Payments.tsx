@@ -199,7 +199,7 @@ export default function Payments() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
-                      {['Payment #', 'Invoice #', 'Date', 'Amount', 'Payment Mode', 'Account', 'Status'].map((h) => (
+                      {['Payment #', 'PO #', 'Invoice #', 'Payment Date', 'Amount', 'Payment Mode', 'Account', 'Status'].map((h) => (
                         <th key={h} className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                           {h}
                         </th>
@@ -207,38 +207,51 @@ export default function Payments() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredPayments.map((payment: any, index: number) => (
-                      <tr
-                        key={payment.id}
-                        className="transition-colors hover:bg-muted/50 animate-slide-up"
-                        style={{ animationDelay: `${index * 30}ms` }}
-                      >
-                        <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
-                          {payment.paymentNumber || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
-                          {payment.invoiceNumber || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                          {formatDate(payment.date)}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-foreground">
-                          {formatCurrency(Number(payment.amount || 0))}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                          {payment.paymentMode || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                          {payment.account || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <Badge variant="outline" className="gap-1 bg-success/10 text-success border-success/20">
-                            <CheckCircle className="h-3 w-3" />
-                            Completed
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredPayments.map((payment: any, index: number) => {
+                      const status = (payment.status || 'completed').toString();
+                      const statusLower = status.toLowerCase();
+                      const statusCls =
+                        statusLower === 'completed' || statusLower === 'paid'
+                          ? 'bg-success/10 text-success border-success/20'
+                          : statusLower === 'processing'
+                          ? 'bg-primary/10 text-primary border-primary/20'
+                          : 'bg-warning/10 text-warning border-warning/20';
+                      return (
+                        <tr
+                          key={payment.id}
+                          className="transition-colors hover:bg-muted/50 animate-slide-up"
+                          style={{ animationDelay: `${index * 30}ms` }}
+                        >
+                          <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
+                            {payment.paymentNumber || '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                            {payment.poNumber || '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
+                            {payment.invoiceNumber || '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                            {formatDate(payment.date)}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-foreground">
+                            {formatCurrency(Number(payment.amount || 0))}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                            {payment.paymentMode || '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                            {payment.account || '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4">
+                            <Badge variant="outline" className={cn('gap-1 capitalize', statusCls)}>
+                              {statusLower === 'completed' || statusLower === 'paid' ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                              {status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
