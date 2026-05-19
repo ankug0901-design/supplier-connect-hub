@@ -215,7 +215,8 @@ export default function Invoices() {
                       <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Supplier</th>
                     )}
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">PO Number</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Invoice Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Submitted On</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Due Date</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Payment Date</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Amount</th>
