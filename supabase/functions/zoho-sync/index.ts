@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
             transaction_id: p.transactionId || p.transaction_id || p.referenceNumber || p.reference_number || paymentNumber,
             payment_number: paymentNumber,
             payment_mode: p.paymentMode || p.payment_mode || p.mode || null,
-            account: p.paidThroughAccountName || p.paid_through_account_name || p.accountName || p.account_name || p.paidThrough || p.paid_through || null,
+            account: p.account || p.paidThroughAccountName || p.paid_through_account_name || p.accountName || p.account_name || p.paidThrough || p.paid_through || null,
           };
         }).filter((r: any) => r && r.transaction_id);
 
