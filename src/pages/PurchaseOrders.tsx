@@ -181,6 +181,11 @@ export default function PurchaseOrders() {
                       <td className="whitespace-nowrap px-6 py-4">
                         <span className="font-medium text-foreground">{order.poNumber}</span>
                       </td>
+                      {isAdmin && (
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
+                          {order.supplierName || '—'}
+                        </td>
+                      )}
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
                         {new Date(order.date).toLocaleDateString('en-IN', {
                           day: '2-digit',
