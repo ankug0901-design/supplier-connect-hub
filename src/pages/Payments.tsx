@@ -104,7 +104,8 @@ export default function Payments() {
   }
 
   return (
-    <DashboardLayout title="Payments" subtitle="Track your payment status and history">
+    <DashboardLayout title="Payments" subtitle={isAdmin ? 'Vendor payments made to suppliers' : 'Payments made to you by Emboss'}>
+
       <div className="space-y-6">
         {/* Summary Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
