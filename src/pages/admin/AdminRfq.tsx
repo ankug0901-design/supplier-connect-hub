@@ -647,51 +647,63 @@ export default function AdminRfq() {
       <Dialog open={!!reopenTarget} onOpenChange={(o) => !o && setReopenTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reopen RFQ</DialogTitle>
+            <DialogTitle>{reopenTarget?.mode === 'extend' ? 'Extend RFQ Deadline' : 'Reopen RFQ'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">New Closing Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !reopenDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {reopenDate ? format(reopenDate, 'PPP') : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={reopenDate}
-                    onSelect={setReopenDate}
-                    disabled={(date) => date <= new Date()}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Reason</label>
-              <Input
-                value={reopenReason}
-                onChange={(e) => setReopenReason(e.target.value)}
-                placeholder="Reason for reopening"
-              />
-            </div>
-          </div>
+          {(() => {
+            // urgent: target within 24h
+            let urgent = false;
+            if (reopenDate && /^\d{2}:\d{2}/.test(reopenTime)) {
+              const [hh, mm] = reopenTime.split(':').map(Number);
+              const t = new Date(reopenDate); t.setHours(hh, mm, 0, 0);
+              const diff = t.getTime() - Date.now();
+              urgent = diff > 0 && diff < 24 * 60 * 60 * 1000;
+            }
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">New Closing Date *</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !reopenDate && 'text-muted-foreground')}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {reopenDate ? format(reopenDate, 'PPP') : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={reopenDate} onSelect={setReopenDate} disabled={(date) => date < new Date(new Date().toDateString())} initialFocus className={cn('p-3 pointer-events-auto')} />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">New Closing Time *</label>
+                    <Input type="time" value={reopenTime} onChange={(e) => setReopenTime(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">IST (Indian Standard Time)</p>
+                  </div>
+                </div>
+                {urgent && (
+                  <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                    <Zap className="mr-1 h-3 w-3" /> Urgent
+                  </Badge>
+                )}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Reason * (min 10 chars)</label>
+                  <Textarea value={reopenReason} onChange={(e) => setReopenReason(e.target.value)} placeholder={reopenTarget?.mode === 'extend' ? 'Reason for extending' : 'Reason for reopening'} rows={3} />
+                </div>
+              </div>
+            );
+          })()}
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setReopenTarget(null)}>Cancel</Button>
-            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={reopen}>Reopen</Button>
+            <Button className={reopenTarget?.mode === 'extend' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'} onClick={reopen}>
+              {reopenTarget?.mode === 'extend' ? 'Extend' : 'Reopen'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RfqCreateDrawer open={createOpen} onOpenChange={setCreateOpen} onSuccess={load} />
+
 
       <Dialog open={!!justifyTarget} onOpenChange={(o) => { if (!o) { setJustifyTarget(null); setJustifyText(''); } }}>
         <DialogContent>
