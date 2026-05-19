@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, CheckCircle2, Minus, UserPlus } from 'lucide-react';
+import { Loader2, CheckCircle2, Minus, UserPlus, Pencil } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,50 +20,84 @@ interface SupplierRow {
   email: string;
   phone: string | null;
   gst_number: string | null;
+  address: string | null;
   zoho_vendor_id: string | null;
   role: string;
   created_at: string;
 }
 
+type EditDraft = {
+  name: string;
+  company: string;
+  phone: string;
+  gst_number: string;
+  address: string;
+  zoho_vendor_id: string;
+};
+
+const emptyEdit: EditDraft = { name: '', company: '', phone: '', gst_number: '', address: '', zoho_vendor_id: '' };
+
 export default function AdminSuppliers() {
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [invite, setInvite] = useState({ email: '', name: '', company: '', phone: '', gst_number: '', zoho_vendor_id: '' });
+  const [editing, setEditing] = useState<SupplierRow | null>(null);
+  const [editDraft, setEditDraft] = useState<EditDraft>(emptyEdit);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('suppliers')
-      .select('id, name, company, email, phone, gst_number, zoho_vendor_id, role, created_at')
+      .select('id, name, company, email, phone, gst_number, address, zoho_vendor_id, role, created_at')
       .order('created_at', { ascending: false });
     if (!error && data) {
       setSuppliers(data as SupplierRow[]);
-      const d: Record<string, string> = {};
-      (data as SupplierRow[]).forEach((s) => { d[s.id] = s.zoho_vendor_id || ''; });
-      setDrafts(d);
     }
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
-  const handleBlur = async (supplier: SupplierRow) => {
-    const value = drafts[supplier.id]?.trim() || '';
-    if (value === (supplier.zoho_vendor_id || '')) return;
-    const { error } = await supabase
-      .from('suppliers')
-      .update({ zoho_vendor_id: value || null })
-      .eq('id', supplier.id);
+  const openEdit = (s: SupplierRow) => {
+    setEditing(s);
+    setEditDraft({
+      name: s.name || '',
+      company: s.company || '',
+      phone: s.phone || '',
+      gst_number: s.gst_number || '',
+      address: s.address || '',
+      zoho_vendor_id: s.zoho_vendor_id || '',
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editing) return;
+    if (!editDraft.name.trim() || !editDraft.company.trim()) {
+      toast({ title: 'Missing info', description: 'Name and company are required', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    const payload = {
+      name: editDraft.name.trim(),
+      company: editDraft.company.trim(),
+      phone: editDraft.phone.trim() || null,
+      gst_number: editDraft.gst_number.trim() || null,
+      address: editDraft.address.trim() || null,
+      zoho_vendor_id: editDraft.zoho_vendor_id.trim() || null,
+    };
+    const { error } = await supabase.from('suppliers').update(payload).eq('id', editing.id);
+    setSaving(false);
     if (error) {
       toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Saved', description: `Zoho Vendor ID updated for ${supplier.company}` });
-      setSuppliers((prev) => prev.map((s) => (s.id === supplier.id ? { ...s, zoho_vendor_id: value || null } : s)));
+      return;
     }
+    toast({ title: 'Supplier updated', description: payload.company });
+    setSuppliers((prev) => prev.map((s) => (s.id === editing.id ? { ...s, ...payload } : s)));
+    setEditing(null);
   };
 
   const handleInvite = async () => {
@@ -163,12 +197,13 @@ export default function AdminSuppliers() {
                   <TableHead>Zoho Vendor ID</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Joined</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {suppliers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       No suppliers yet
                     </TableCell>
                   </TableRow>
@@ -182,13 +217,7 @@ export default function AdminSuppliers() {
                     <TableCell>{s.gst_number || '—'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Input
-                          value={drafts[s.id] ?? ''}
-                          onChange={(e) => setDrafts((p) => ({ ...p, [s.id]: e.target.value }))}
-                          onBlur={() => handleBlur(s)}
-                          placeholder="Vendor ID"
-                          className="h-8 w-36"
-                        />
+                        <span className="text-sm">{s.zoho_vendor_id || '—'}</span>
                         {s.zoho_vendor_id ? (
                           <CheckCircle2 className="h-4 w-4 text-success" />
                         ) : (
@@ -200,6 +229,12 @@ export default function AdminSuppliers() {
                       <Badge variant={s.role === 'admin' ? 'default' : 'secondary'}>{s.role}</Badge>
                     </TableCell>
                     <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -207,6 +242,58 @@ export default function AdminSuppliers() {
           </div>
         </Card>
       )}
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit supplier</DialogTitle>
+            <DialogDescription>
+              Update supplier details. Email cannot be changed here.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Full Name *</Label>
+                <Input value={editDraft.name} onChange={(e) => setEditDraft((p) => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Company *</Label>
+                <Input value={editDraft.company} onChange={(e) => setEditDraft((p) => ({ ...p, company: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input value={editing?.email || ''} disabled />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Phone</Label>
+                <Input value={editDraft.phone} onChange={(e) => setEditDraft((p) => ({ ...p, phone: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>GST Number</Label>
+                <Input value={editDraft.gst_number} onChange={(e) => setEditDraft((p) => ({ ...p, gst_number: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Address</Label>
+              <Input value={editDraft.address} onChange={(e) => setEditDraft((p) => ({ ...p, address: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Zoho Vendor ID</Label>
+              <Input value={editDraft.zoho_vendor_id} onChange={(e) => setEditDraft((p) => ({ ...p, zoho_vendor_id: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button variant="gradient" onClick={handleSaveEdit} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
