@@ -392,7 +392,18 @@ export default function InvoiceUpload() {
             </div>
 
             <div className="mt-6">
-              <LineItemsInput items={lineItems} onChange={setLineItems} lockDetails={!!selectedPO} />
+              {(() => {
+                const po = purchaseOrders.find((p: any) => p.id === selectedPO);
+                const poHasItems = !!po && Array.isArray(po.items) && po.items.length > 0;
+                return (
+                  <LineItemsInput
+                    items={lineItems}
+                    onChange={setLineItems}
+                    lockDetails={!!selectedPO && poHasItems}
+                    emptyFromPO={!!selectedPO && !poHasItems}
+                  />
+                );
+              })()}
             </div>
           </div>
 
