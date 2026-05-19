@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchInvoices, fetchInvoicesFromDb, downloadBillAttachment, type BillAttachment } from '@/services/api';
+import { supabase } from '@/integrations/supabase/client';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { PdfViewer } from '@/components/PdfViewer';
 import { useToast } from '@/hooks/use-toast';
