@@ -439,19 +439,31 @@ export default function InvoiceUpload() {
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="po">Purchase Order *</Label>
-                <Select value={selectedPO} onValueChange={setSelectedPO} required>
+                <Select value={selectedPO} onValueChange={setSelectedPO} required disabled={isLoadingPOs}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select Purchase Order" />
+                    <SelectValue
+                      placeholder={isLoadingPOs ? 'Loading purchase orders…' : 'Select Purchase Order'}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {purchaseOrders.map((po: any) => (
-                      <SelectItem key={po.id} value={po.id}>
-                        {po.poNumber}
-                      </SelectItem>
-                    ))}
+                    {isLoadingPOs ? (
+                      <div className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                      </div>
+                    ) : purchaseOrders.length === 0 ? (
+                      <div className="px-2 py-3 text-sm text-muted-foreground">No purchase orders found.</div>
+                    ) : (
+                      purchaseOrders.map((po: any) => (
+                        <SelectItem key={po.id} value={po.id}>
+                          {po.poNumber}
+                          {isAdmin && po.supplierName ? ` — ${po.supplierName}` : ''}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="invoiceNumber">Invoice Number *</Label>
