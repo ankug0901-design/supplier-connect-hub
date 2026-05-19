@@ -415,18 +415,20 @@ export async function submitInvoice(payload: {
 
   // Persist invoiced quantities locally so future invoices can enforce PO Qty limits.
   if (payload.supplier_id && payload.line_items.length) {
-    const rows = payload.line_items
+    const items = payload.line_items
       .filter((li) => li.item_name && Number(li.quantity) > 0)
       .map((li) => ({
-        supplier_id: payload.supplier_id!,
-        po_number: payload.po_number,
-        invoice_number: payload.invoice_number,
         item_name: li.item_name,
         quantity: Number(li.quantity) || 0,
         rate: Number(li.rate) || 0,
       }));
-    if (rows.length) {
-      const { error } = await supabase.from('invoice_line_items').insert(rows);
+    if (items.length) {
+      const { error } = await supabase.rpc('record_invoice_line_items', {
+        _supplier_id: payload.supplier_id,
+        _po_number: payload.po_number,
+        _invoice_number: payload.invoice_number,
+        _items: items,
+      });
       if (error) console.warn('Failed to record invoice line items', error);
     }
   }
