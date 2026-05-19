@@ -144,7 +144,12 @@ Deno.serve(async (req) => {
             invoice_number: i.invoiceNumber,
             zoho_id: i.id,
             date: i.date || new Date().toISOString().slice(0, 10),
+            due_date: i.dueDate || i.due_date || null,
+            payment_date: i.paymentDate || i.payment_date || i.last_payment_date || null,
             amount: Number(i.amount || 0),
+            balance: Number(i.balance ?? i.balance_due ?? i.amount ?? 0),
+            has_attachment: Boolean(i.hasAttachment ?? i.has_attachment ?? false),
+            attachment_name: i.attachmentName || i.attachment_name || null,
             status: passthrough(i.status),
           };
         }).filter((r: any) => r && r.invoice_number);
