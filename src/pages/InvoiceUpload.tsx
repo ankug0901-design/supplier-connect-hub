@@ -105,14 +105,13 @@ export default function InvoiceUpload() {
   ]);
   const [isExtracting, setIsExtracting] = useState(false);
 
-  const extractFromInvoice = async () => {
-    if (!invoiceFile) return;
+  const extractFromInvoiceFile = async (file: File) => {
     setIsExtracting(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       const form = new FormData();
-      form.append('file', invoiceFile);
+      form.append('file', file);
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invoice-ocr`,
         {
@@ -158,6 +157,11 @@ export default function InvoiceUpload() {
     } finally {
       setIsExtracting(false);
     }
+  };
+
+  const extractFromInvoice = async () => {
+    if (!invoiceFile) return;
+    await extractFromInvoiceFile(invoiceFile);
   };
 
   useEffect(() => {
