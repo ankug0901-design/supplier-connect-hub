@@ -41,8 +41,12 @@ function LineItemsInput({
     onChange(u);
   };
   const add = () =>
-    onChange([...items, { item_name: '', hsn: '', po_quantity: 0, quantity: 1, rate: 0 }]);
+    onChange([...items, { item_name: '', hsn: '', po_quantity: 0, quantity: 1, rate: 0, selected: true }]);
   const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
+
+  const allSelected = items.length > 0 && items.every((it) => it.selected !== false);
+  const toggleAll = (checked: boolean) =>
+    onChange(items.map((it) => ({ ...it, selected: checked })));
 
   return (
     <div className="space-y-3">
@@ -50,7 +54,7 @@ function LineItemsInput({
         <Label>Line Items *</Label>
         {lockDetails && (
           <span className="text-xs text-muted-foreground">
-            Item, HSN & rate auto-filled from PO · edit Invoice Qty as needed
+            Tick only the items you're invoicing now · Invoice Qty stays editable
           </span>
         )}
       </div>
@@ -59,7 +63,14 @@ function LineItemsInput({
           This PO didn't return any line items from Zoho Books. Please enter them manually.
         </div>
       )}
-      <div className="grid grid-cols-12 gap-2 px-1 text-xs font-medium text-muted-foreground">
+      <div className="grid grid-cols-13 gap-2 px-1 text-xs font-medium text-muted-foreground">
+        <div className="col-span-1 flex items-center">
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={(v) => toggleAll(!!v)}
+            aria-label="Select all line items"
+          />
+        </div>
         <div className="col-span-3">Item description</div>
         <div className="col-span-2">HSN/SAC</div>
         <div className="col-span-2">PO Qty</div>
@@ -68,71 +79,83 @@ function LineItemsInput({
         <div className="col-span-1" />
       </div>
       <div className="space-y-3">
-        {items.map((item, i) => (
-          <div key={i} className="grid grid-cols-12 gap-2">
-            <div className="col-span-3">
-              <Input
-                placeholder="Item description"
-                value={item.item_name}
-                onChange={(e) => update(i, 'item_name', e.target.value)}
-                readOnly={lockDetails}
-                disabled={lockDetails}
-              />
+        {items.map((item, i) => {
+          const isSelected = item.selected !== false;
+          return (
+            <div key={i} className="grid grid-cols-13 gap-2">
+              <div className="col-span-1 flex items-center justify-center">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={(v) => update(i, 'selected', !!v)}
+                  aria-label={`Select line ${i + 1}`}
+                />
+              </div>
+              <div className="col-span-3">
+                <Input
+                  placeholder="Item description"
+                  value={item.item_name}
+                  onChange={(e) => update(i, 'item_name', e.target.value)}
+                  readOnly={lockDetails}
+                  disabled={lockDetails || !isSelected}
+                />
+              </div>
+              <div className="col-span-2">
+                <Input
+                  placeholder="HSN"
+                  value={item.hsn || ''}
+                  onChange={(e) => update(i, 'hsn', e.target.value)}
+                  disabled={!isSelected}
+                />
+              </div>
+              <div className="col-span-2">
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="PO Qty"
+                  value={item.po_quantity ?? ''}
+                  onChange={(e) => update(i, 'po_quantity', parseFloat(e.target.value) || 0)}
+                  readOnly={lockDetails}
+                  disabled={lockDetails || !isSelected}
+                />
+              </div>
+              <div className="col-span-2">
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="Invoice Qty"
+                  value={item.quantity}
+                  onChange={(e) => update(i, 'quantity', parseFloat(e.target.value) || 0)}
+                  disabled={!isSelected}
+                />
+              </div>
+              <div className="col-span-2">
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Rate"
+                  value={item.rate}
+                  onChange={(e) => update(i, 'rate', parseFloat(e.target.value) || 0)}
+                  readOnly={lockDetails}
+                  disabled={lockDetails || !isSelected}
+                />
+              </div>
+              <div className="col-span-1 flex items-center justify-center">
+                {!lockDetails && items.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => remove(i)}
+                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="col-span-2">
-              <Input
-                placeholder="HSN"
-                value={item.hsn || ''}
-                onChange={(e) => update(i, 'hsn', e.target.value)}
-              />
-            </div>
-            <div className="col-span-2">
-              <Input
-                type="number"
-                min="0"
-                placeholder="PO Qty"
-                value={item.po_quantity ?? ''}
-                onChange={(e) => update(i, 'po_quantity', parseFloat(e.target.value) || 0)}
-                readOnly={lockDetails}
-                disabled={lockDetails}
-              />
-            </div>
-            <div className="col-span-2">
-              <Input
-                type="number"
-                min="0"
-                placeholder="Invoice Qty"
-                value={item.quantity}
-                onChange={(e) => update(i, 'quantity', parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="col-span-2">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Rate"
-                value={item.rate}
-                onChange={(e) => update(i, 'rate', parseFloat(e.target.value) || 0)}
-                readOnly={lockDetails}
-                disabled={lockDetails}
-              />
-            </div>
-            <div className="col-span-1 flex items-center justify-center">
-              {!lockDetails && items.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => remove(i)}
-                  className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       {!lockDetails && (
         <Button type="button" variant="outline" size="sm" onClick={add} className="gap-1">
