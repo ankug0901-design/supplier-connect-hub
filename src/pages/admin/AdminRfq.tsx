@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -16,6 +16,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { RfqCreateDrawer } from '@/components/admin/RfqCreateDrawer';
+import { useAuth } from '@/contexts/AuthContext';
 
 const N8N_QUOTE_ACCEPTED = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-quote-accepted';
 const N8N_RFQ_MANAGE = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-manage';
@@ -36,19 +38,39 @@ function daysSince(d: string) {
   return Math.floor((Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function deadlineCutoff(d?: string | null): Date | null {
+function deadlineCutoff(d?: string | null, t?: string | null): Date | null {
   if (!d) return null;
   const datePart = d.length >= 10 ? d.slice(0, 10) : d;
-  return new Date(`${datePart}T17:00:00+05:30`);
+  const timePart = (t && /^\d{2}:\d{2}/.test(t)) ? t.slice(0, 5) : '17:00';
+  return new Date(`${datePart}T${timePart}:00+05:30`);
 }
 
-function fmtDeadline(d?: string | null) {
+function fmtTime12(t?: string | null) {
+  const src = t && /^\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : '17:00';
+  const [hh, mm] = src.split(':').map(Number);
+  const period = hh >= 12 ? 'PM' : 'AM';
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  return `${h12}:${mm.toString().padStart(2, '0')} ${period}`;
+}
+
+function fmtDeadline(d?: string | null, t?: string | null) {
   if (!d) return '—';
-  return `${fmtDate(d)} at 5:00 PM IST`;
+  return `${fmtDate(d)} at ${fmtTime12(t)} IST`;
 }
 
-function closingCountdown(deadline?: string | null): { label: string; tone: 'red' | 'orange' | 'gray' | 'expired' } | null {
-  const target = deadlineCutoff(deadline);
+function deadlineToneClass(d?: string | null, t?: string | null): string {
+  const target = deadlineCutoff(d, t);
+  if (!target) return '';
+  const ms = target.getTime() - Date.now();
+  if (ms <= 0) return 'text-red-700 font-semibold';
+  const todayStr = new Date().toDateString();
+  if (ms < 4 * 60 * 60 * 1000) return 'text-red-700 font-bold';
+  if (target.toDateString() === todayStr) return 'text-amber-700 font-semibold';
+  return '';
+}
+
+function closingCountdown(deadline?: string | null, time?: string | null): { label: string; tone: 'red' | 'orange' | 'gray' | 'expired' } | null {
+  const target = deadlineCutoff(deadline, time);
   if (!target) return null;
   const ms = target.getTime() - Date.now();
   if (ms <= 0) return { label: 'Closed', tone: 'expired' };
@@ -92,9 +114,12 @@ export default function AdminRfq() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [forceCloseTarget, setForceCloseTarget] = useState<string | null>(null);
   const [forceCloseReason, setForceCloseReason] = useState('');
-  const [reopenTarget, setReopenTarget] = useState<string | null>(null);
+  const [reopenTarget, setReopenTarget] = useState<{ id: string; mode: 'reopen' | 'extend' } | null>(null);
   const [reopenReason, setReopenReason] = useState('');
   const [reopenDate, setReopenDate] = useState<Date | undefined>(undefined);
+  const [reopenTime, setReopenTime] = useState<string>('17:00');
+  const [createOpen, setCreateOpen] = useState(false);
+  const { supplier, user } = useAuth();
   const [justifyTarget, setJustifyTarget] = useState<{ row: Rfq; rank: number; l1: Rfq | null } | null>(null);
   const [justifyText, setJustifyText] = useState('');
 
@@ -304,41 +329,66 @@ export default function AdminRfq() {
       toast.error('New closing date is required');
       return;
     }
-    if (reopenDate.getTime() <= Date.now()) {
-      toast.error('New closing date must be in the future');
+    if (!reopenTime || !/^\d{2}:\d{2}/.test(reopenTime)) {
+      toast.error('New closing time is required');
       return;
     }
-    if (!reopenReason.trim()) {
-      toast.error('Reason is required');
+    const [hh, mm] = reopenTime.split(':').map(Number);
+    const target = new Date(reopenDate);
+    target.setHours(hh, mm, 0, 0);
+    if (target.getTime() <= Date.now()) {
+      toast.error('New closing date/time must be in the future');
       return;
     }
-    const targetId = reopenTarget;
+    if (reopenReason.trim().length < 10) {
+      toast.error('Reason must be at least 10 characters');
+      return;
+    }
+    const targetId = reopenTarget.id;
+    const action = reopenTarget.mode;
     const reason = reopenReason.trim();
     const newDeadline = format(reopenDate, 'yyyy-MM-dd');
+    const newDeadlineTime = reopenTime;
     setBusyId(targetId);
-    patchLocalForRfq(targetId, { rfq_closed_at: null, response_deadline: newDeadline });
+    patchLocalForRfq(targetId, {
+      rfq_closed_at: action === 'reopen' ? null : undefined,
+      response_deadline: newDeadline,
+      closing_time: newDeadlineTime,
+    });
     setReopenTarget(null);
     setReopenReason('');
     setReopenDate(undefined);
-    toast.success('RFQ reopened successfully');
+    setReopenTime('17:00');
+    toast.success(action === 'extend' ? 'RFQ deadline extended — suppliers have been notified' : 'RFQ reopened successfully');
     try {
       const res = await fetch(N8N_RFQ_MANAGE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rfq_id: targetId,
-          action: 'reopen',
+          action,
           new_deadline: newDeadline,
+          new_deadline_time: newDeadlineTime,
           reason,
-          actioned_by: 'Ankur Gupta',
+          actioned_by: supplier?.name || user?.email || 'Admin',
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch (e: any) {
-      toast.error(`Reopen webhook failed: ${e.message || 'Unknown error'}`);
+      toast.error(`${action === 'extend' ? 'Extend' : 'Reopen'} webhook failed: ${e.message || 'Unknown error'}`);
     } finally {
       setBusyId(null);
     }
+  };
+
+  const openReopenOrExtend = (rfqId: string, deadline?: string | null, time?: string | null, currentlyClosed?: boolean) => {
+    const target = deadlineCutoff(deadline, time);
+    const inPast = !!target && target.getTime() <= Date.now();
+    const mode: 'reopen' | 'extend' = currentlyClosed || inPast ? 'reopen' : 'extend';
+    setReopenTarget({ id: rfqId, mode });
+    setReopenDate(undefined);
+    setReopenTime('17:00');
+    setReopenReason('');
   };
 
   return (
@@ -349,14 +399,19 @@ export default function AdminRfq() {
         </div>
       ) : (
         <div className="space-y-6">
-          <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="awaiting">Awaiting Quotes</TabsTrigger>
-              <TabsTrigger value="compare">Ready to Compare</TabsTrigger>
-              <TabsTrigger value="decided">Decision Made</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="awaiting">Awaiting Quotes</TabsTrigger>
+                <TabsTrigger value="compare">Ready to Compare</TabsTrigger>
+                <TabsTrigger value="decided">Decision Made</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" /> Create RFQ
+            </Button>
+          </div>
 
           {filtered.length === 0 && (
             <Card><CardContent className="py-10 text-center text-muted-foreground">No RFQs in this view.</CardContent></Card>
@@ -388,7 +443,7 @@ export default function AdminRfq() {
             });
             
             const groupHasAccepted = items.some((r) => r.status === 'accepted');
-            const countdown = closingCountdown(first.response_deadline);
+            const countdown = closingCountdown(first.response_deadline, first.closing_time);
             const rfqIsClosed = isClosed || countdown?.tone === 'expired';
             const l1Row = submitted[0] || null;
             const countdownClass =
@@ -396,6 +451,7 @@ export default function AdminRfq() {
               countdown?.tone === 'orange' ? 'border-orange-300 bg-orange-50 text-orange-700' :
               countdown?.tone === 'expired' ? 'border-red-400 bg-red-100 text-red-800' :
               'border-muted bg-muted text-muted-foreground';
+            const deadlineToneCls = deadlineToneClass(first.response_deadline, first.closing_time);
             return (
               <Card key={rfq_id}>
                 <CardContent className="space-y-4 p-5">
@@ -406,7 +462,7 @@ export default function AdminRfq() {
                         <h3 className="text-lg font-bold">{first.product_name}</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Closes: {fmtDeadline(first.response_deadline)}
+                        Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Closes: <span className={deadlineToneCls}>{fmtDeadline(first.response_deadline, first.closing_time)}</span>
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -423,8 +479,13 @@ export default function AdminRfq() {
                           Force Close
                         </Button>
                       )}
+                      {!decided && !rfqIsClosed && (
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!!busyId} onClick={() => openReopenOrExtend(rfq_id, first.response_deadline, first.closing_time, false)}>
+                          Extend
+                        </Button>
+                      )}
                       {(isClosed || decided || (countdown && countdown.label === 'Closed')) && (
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={!!busyId} onClick={() => setReopenTarget(rfq_id)}>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={!!busyId} onClick={() => openReopenOrExtend(rfq_id, first.response_deadline, first.closing_time, true)}>
                           Reopen
                         </Button>
                       )}
@@ -586,51 +647,63 @@ export default function AdminRfq() {
       <Dialog open={!!reopenTarget} onOpenChange={(o) => !o && setReopenTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reopen RFQ</DialogTitle>
+            <DialogTitle>{reopenTarget?.mode === 'extend' ? 'Extend RFQ Deadline' : 'Reopen RFQ'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">New Closing Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !reopenDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {reopenDate ? format(reopenDate, 'PPP') : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={reopenDate}
-                    onSelect={setReopenDate}
-                    disabled={(date) => date <= new Date()}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Reason</label>
-              <Input
-                value={reopenReason}
-                onChange={(e) => setReopenReason(e.target.value)}
-                placeholder="Reason for reopening"
-              />
-            </div>
-          </div>
+          {(() => {
+            // urgent: target within 24h
+            let urgent = false;
+            if (reopenDate && /^\d{2}:\d{2}/.test(reopenTime)) {
+              const [hh, mm] = reopenTime.split(':').map(Number);
+              const t = new Date(reopenDate); t.setHours(hh, mm, 0, 0);
+              const diff = t.getTime() - Date.now();
+              urgent = diff > 0 && diff < 24 * 60 * 60 * 1000;
+            }
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">New Closing Date *</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !reopenDate && 'text-muted-foreground')}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {reopenDate ? format(reopenDate, 'PPP') : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={reopenDate} onSelect={setReopenDate} disabled={(date) => date < new Date(new Date().toDateString())} initialFocus className={cn('p-3 pointer-events-auto')} />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">New Closing Time *</label>
+                    <Input type="time" value={reopenTime} onChange={(e) => setReopenTime(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">IST (Indian Standard Time)</p>
+                  </div>
+                </div>
+                {urgent && (
+                  <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                    <Zap className="mr-1 h-3 w-3" /> Urgent
+                  </Badge>
+                )}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Reason * (min 10 chars)</label>
+                  <Textarea value={reopenReason} onChange={(e) => setReopenReason(e.target.value)} placeholder={reopenTarget?.mode === 'extend' ? 'Reason for extending' : 'Reason for reopening'} rows={3} />
+                </div>
+              </div>
+            );
+          })()}
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setReopenTarget(null)}>Cancel</Button>
-            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={reopen}>Reopen</Button>
+            <Button className={reopenTarget?.mode === 'extend' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'} onClick={reopen}>
+              {reopenTarget?.mode === 'extend' ? 'Extend' : 'Reopen'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RfqCreateDrawer open={createOpen} onOpenChange={setCreateOpen} onSuccess={load} />
+
 
       <Dialog open={!!justifyTarget} onOpenChange={(o) => { if (!o) { setJustifyTarget(null); setJustifyText(''); } }}>
         <DialogContent>
