@@ -164,7 +164,24 @@ export async function downloadBillAttachment(
 
 export async function fetchPayments(zohoVendorId: string) {
   const data = await zohoProxy('get_payments', zohoVendorId);
-  return data.payments || [];
+  const raw = data.payments || [];
+  return raw.map((p: any) => ({
+    id: p.payment_id || p.id,
+    paymentNumber: p.payment_number || p.reference_number || p.payment_id,
+    invoiceNumber:
+      p.invoice_number ||
+      p.bill_number ||
+      (Array.isArray(p.bills) && p.bills.length
+        ? p.bills.map((b: any) => b.bill_number).filter(Boolean).join(', ')
+        : '-'),
+    poNumber: p.po_number || (Array.isArray(p.bills) && p.bills[0]?.po_number) || '-',
+    date: p.date || p.payment_date,
+    amount: Number(p.amount || p.payment_amount || 0),
+    paymentMode: p.payment_mode || p.mode || '-',
+    account: p.paid_through_account_name || p.account_name || p.paid_through || '-',
+    status: p.status || 'completed',
+    transactionId: p.reference_number || p.transaction_id || p.payment_number || '',
+  }));
 }
 
 export async function submitInvoice(payload: {
