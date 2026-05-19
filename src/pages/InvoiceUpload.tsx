@@ -218,6 +218,7 @@ export default function InvoiceUpload() {
             item_name: li.item_name || '',
             quantity: Number(li.quantity) || 0,
             rate: Number(li.rate) || 0,
+            selected: true,
           })),
         );
       }
