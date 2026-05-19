@@ -188,6 +188,7 @@ export default function AdminDashboard() {
           {/* Hero KPIs */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard
+              to="/purchase-orders"
               label="PO Value (This Month)"
               value={fmtINR(kpis.poValueMonth)}
               hint={`${kpis.openPOs} open POs`}
@@ -196,6 +197,7 @@ export default function AdminDashboard() {
               iconClass="bg-primary/10 text-primary"
             />
             <KpiCard
+              to="/invoices"
               label="Pending Invoices"
               value={String(kpis.invoicesPending)}
               hint={fmtINR(kpis.invoiceValuePending) + ' awaiting'}
@@ -204,6 +206,7 @@ export default function AdminDashboard() {
               iconClass="bg-orange-500/10 text-orange-600"
             />
             <KpiCard
+              to="/payments"
               label="Paid (This Month)"
               value={fmtINR(kpis.paidThisMonth)}
               hint="Across all suppliers"
@@ -212,6 +215,7 @@ export default function AdminDashboard() {
               iconClass="bg-emerald-500/10 text-emerald-600"
             />
             <KpiCard
+              to="/admin/suppliers"
               label="Active Suppliers"
               value={String(kpis.totalSuppliers)}
               hint={`${kpis.pendingRegistrations} pending approval`}
@@ -223,10 +227,10 @@ export default function AdminDashboard() {
 
           {/* Secondary KPIs */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <MiniStat label="Active RFQs" value={kpis.activeRfqs} icon={<FileQuestion className="h-4 w-4" />} />
-            <MiniStat label="Quotes Pending Review" value={kpis.pendingAction} icon={<AlertCircle className="h-4 w-4" />} tone="orange" />
-            <MiniStat label="Shipments In Transit" value={kpis.shipmentsInTransit} icon={<Truck className="h-4 w-4" />} tone="blue" />
-            <MiniStat label="Decisions This Week" value={kpis.decidedThisWeek} icon={<CheckCircle2 className="h-4 w-4" />} tone="green" />
+            <MiniStat to="/admin/rfq" label="Active RFQs" value={kpis.activeRfqs} icon={<FileQuestion className="h-4 w-4" />} />
+            <MiniStat to="/admin/rfq" label="Quotes Pending Review" value={kpis.pendingAction} icon={<AlertCircle className="h-4 w-4" />} tone="orange" />
+            <MiniStat to="/shipments" label="Shipments In Transit" value={kpis.shipmentsInTransit} icon={<Truck className="h-4 w-4" />} tone="blue" />
+            <MiniStat to="/admin/rfq" label="Decisions This Week" value={kpis.decidedThisWeek} icon={<CheckCircle2 className="h-4 w-4" />} tone="green" />
           </div>
 
           {/* Two-column: Recent POs + Recent Invoices */}
