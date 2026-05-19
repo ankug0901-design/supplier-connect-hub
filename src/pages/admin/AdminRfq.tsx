@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -16,6 +16,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { RfqCreateDrawer } from '@/components/admin/RfqCreateDrawer';
+import { useAuth } from '@/contexts/AuthContext';
 
 const N8N_QUOTE_ACCEPTED = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-quote-accepted';
 const N8N_RFQ_MANAGE = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-manage';
@@ -36,19 +38,39 @@ function daysSince(d: string) {
   return Math.floor((Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function deadlineCutoff(d?: string | null): Date | null {
+function deadlineCutoff(d?: string | null, t?: string | null): Date | null {
   if (!d) return null;
   const datePart = d.length >= 10 ? d.slice(0, 10) : d;
-  return new Date(`${datePart}T17:00:00+05:30`);
+  const timePart = (t && /^\d{2}:\d{2}/.test(t)) ? t.slice(0, 5) : '17:00';
+  return new Date(`${datePart}T${timePart}:00+05:30`);
 }
 
-function fmtDeadline(d?: string | null) {
+function fmtTime12(t?: string | null) {
+  const src = t && /^\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : '17:00';
+  const [hh, mm] = src.split(':').map(Number);
+  const period = hh >= 12 ? 'PM' : 'AM';
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  return `${h12}:${mm.toString().padStart(2, '0')} ${period}`;
+}
+
+function fmtDeadline(d?: string | null, t?: string | null) {
   if (!d) return '—';
-  return `${fmtDate(d)} at 5:00 PM IST`;
+  return `${fmtDate(d)} at ${fmtTime12(t)} IST`;
 }
 
-function closingCountdown(deadline?: string | null): { label: string; tone: 'red' | 'orange' | 'gray' | 'expired' } | null {
-  const target = deadlineCutoff(deadline);
+function deadlineToneClass(d?: string | null, t?: string | null): string {
+  const target = deadlineCutoff(d, t);
+  if (!target) return '';
+  const ms = target.getTime() - Date.now();
+  if (ms <= 0) return 'text-red-700 font-semibold';
+  const todayStr = new Date().toDateString();
+  if (ms < 4 * 60 * 60 * 1000) return 'text-red-700 font-bold';
+  if (target.toDateString() === todayStr) return 'text-amber-700 font-semibold';
+  return '';
+}
+
+function closingCountdown(deadline?: string | null, time?: string | null): { label: string; tone: 'red' | 'orange' | 'gray' | 'expired' } | null {
+  const target = deadlineCutoff(deadline, time);
   if (!target) return null;
   const ms = target.getTime() - Date.now();
   if (ms <= 0) return { label: 'Closed', tone: 'expired' };
