@@ -264,7 +264,8 @@ export default function InvoiceUpload() {
     };
   }, [supplier?.zoho_vendor_id]);
 
-  // Prepopulate line items + amount from the selected PO (from Zoho Books)
+  // Prepopulate line items from the selected PO (from Zoho Books). All items are
+  // selected by default — supplier can untick items not being invoiced this time.
   useEffect(() => {
     if (!selectedPO) return;
     const po = purchaseOrders.find((p: any) => p.id === selectedPO);
@@ -280,12 +281,23 @@ export default function InvoiceUpload() {
             po_quantity: qty,
             quantity: qty,
             rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) || 0,
+            selected: true,
           };
         }),
       );
     }
-    if (po.amount != null) setAmount(String(po.amount));
+    setAmountTouched(false);
   }, [selectedPO, purchaseOrders]);
+
+  // Auto-compute invoice amount from selected line items (qty × rate),
+  // unless the user has manually edited the amount.
+  useEffect(() => {
+    if (amountTouched) return;
+    const total = lineItems
+      .filter((li) => li.selected !== false)
+      .reduce((sum, li) => sum + (Number(li.quantity) || 0) * (Number(li.rate) || 0), 0);
+    setAmount(total ? String(Math.round(total * 100) / 100) : '');
+  }, [lineItems, amountTouched]);
 
   const handleInvoiceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
