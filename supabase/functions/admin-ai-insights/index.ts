@@ -18,11 +18,20 @@ const InvoiceValidationItemSchema = z.object({
   summary: z.string().describe("One-line explanation"),
 });
 
+const RiskLevel = z.preprocess((v) => {
+  const s = String(v ?? "").toLowerCase().trim();
+  if (!s) return undefined;
+  if (s.includes("high") || s.includes("critical") || s.includes("severe")) return "high";
+  if (s.includes("med") || s.includes("moderate") || s.includes("warn")) return "medium";
+  if (s.includes("low") || s.includes("minor") || s.includes("none") || s.includes("ok") || s.includes("pass")) return "low";
+  return undefined;
+}, z.enum(["low", "medium", "high"]).optional());
+
 const RawInvoiceValidationItemSchema = z.object({
   invoice_id: z.string(),
   invoice_number: z.string().optional(),
   supplier: z.string().optional(),
-  risk: z.enum(["low", "medium", "high"]).optional(),
+  risk: RiskLevel,
   recommendation: z.string().optional(),
   issues: z.union([z.array(z.string()), z.string()]).optional(),
   summary: z.string().optional(),
