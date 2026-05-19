@@ -123,8 +123,7 @@ export function PdfViewer({ base64Data, filename, title = 'Document', onClose }:
   }, [pdfDoc, currentPage]);
 
   const handleDownload = () => {
-    const cleanBase64 = base64Data.replace(/\s/g, '');
-    const bytes = Uint8Array.from(atob(cleanBase64), (c) => c.charCodeAt(0));
+    const bytes = base64ToBytes(base64Data);
     const blob = new Blob([bytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
