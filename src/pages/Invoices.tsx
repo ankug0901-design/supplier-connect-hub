@@ -49,7 +49,11 @@ export default function Invoices() {
   };
 
   const handleViewAttachment = async (invoice: any) => {
-    if (!supplier?.zoho_vendor_id) return;
+    const vendorId = isAdmin ? invoice.supplierZohoVendorId : supplier?.zoho_vendor_id;
+    if (!vendorId) {
+      toast({ title: 'Cannot open attachment', description: 'Missing supplier Zoho vendor ID.', variant: 'destructive' });
+      return;
+    }
     setDownloadingId(invoice.id);
     setAttachmentInvoice(invoice);
     setAttachmentError(null);
