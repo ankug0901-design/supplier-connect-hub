@@ -182,6 +182,9 @@ export default function Invoices() {
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Invoice #</th>
+                    {isAdmin && (
+                      <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Supplier</th>
+                    )}
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">PO Number</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</th>
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Due Date</th>
@@ -208,6 +211,11 @@ export default function Invoices() {
                         <td className="whitespace-nowrap px-6 py-4">
                           <span className="font-medium text-foreground">{invoice.invoiceNumber}</span>
                         </td>
+                        {isAdmin && (
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                            {invoice.supplierName || '—'}
+                          </td>
+                        )}
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
                           <Link to={`/purchase-orders/${invoice.poId}`} className="hover:text-primary hover:underline">
                             {invoice.poNumber}
