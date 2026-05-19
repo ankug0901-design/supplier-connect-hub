@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { fetchPurchaseOrders, submitInvoice } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type LineItem = {
   item_name: string;
@@ -18,6 +19,7 @@ type LineItem = {
   po_quantity?: number;
   quantity: number;
   rate: number;
+  selected?: boolean;
 };
 
 function LineItemsInput({
