@@ -253,11 +253,16 @@ export type Database = {
       invoices: {
         Row: {
           amount: number
+          attachment_name: string | null
           attachments: string[] | null
+          balance: number | null
           created_at: string
           date: string
+          due_date: string | null
+          has_attachment: boolean | null
           id: string
           invoice_number: string
+          payment_date: string | null
           po_id: string
           status: string
           supplier_id: string
@@ -266,11 +271,16 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          attachment_name?: string | null
           attachments?: string[] | null
+          balance?: number | null
           created_at?: string
           date?: string
+          due_date?: string | null
+          has_attachment?: boolean | null
           id?: string
           invoice_number: string
+          payment_date?: string | null
           po_id: string
           status?: string
           supplier_id: string
@@ -279,11 +289,16 @@ export type Database = {
         }
         Update: {
           amount?: number
+          attachment_name?: string | null
           attachments?: string[] | null
+          balance?: number | null
           created_at?: string
           date?: string
+          due_date?: string | null
+          has_attachment?: boolean | null
           id?: string
           invoice_number?: string
+          payment_date?: string | null
           po_id?: string
           status?: string
           supplier_id?: string

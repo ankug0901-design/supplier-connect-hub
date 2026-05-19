@@ -46,7 +46,7 @@ export async function fetchPurchaseOrdersFromDb() {
 export async function fetchInvoicesFromDb() {
   const { data, error } = await supabase
     .from('invoices')
-    .select('id, zoho_id, invoice_number, date, amount, status, po_id, supplier_id, suppliers(company), purchase_orders(po_number)')
+    .select('id, zoho_id, invoice_number, date, due_date, payment_date, amount, balance, has_attachment, attachment_name, status, po_id, supplier_id, suppliers(company, zoho_vendor_id), purchase_orders(po_number)')
     .order('date', { ascending: false });
   if (error) throw error;
   return (data || []).map((i: any) => ({
@@ -55,12 +55,15 @@ export async function fetchInvoicesFromDb() {
     poId: i.purchase_orders?.po_number || i.po_id,
     poNumber: i.purchase_orders?.po_number || '',
     date: i.date,
-    dueDate: null,
+    dueDate: i.due_date,
+    paymentDate: i.payment_date,
     amount: Number(i.amount || 0),
-    balance: i.status === 'paid' ? 0 : Number(i.amount || 0),
+    balance: i.status === 'paid' ? 0 : Number(i.balance ?? i.amount ?? 0),
     status: i.status,
     supplierName: i.suppliers?.company,
-    hasAttachment: false,
+    supplierZohoVendorId: i.suppliers?.zoho_vendor_id,
+    hasAttachment: Boolean(i.has_attachment),
+    attachmentName: i.attachment_name,
   }));
 }
 
