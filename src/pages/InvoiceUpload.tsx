@@ -419,12 +419,17 @@ export default function InvoiceUpload() {
                 <Input
                   id="amount"
                   type="number"
-                  placeholder="Enter amount"
+                  placeholder="Auto-calculated from selected items"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  readOnly={!!selectedPO}
+                  onChange={(e) => {
+                    setAmountTouched(true);
+                    setAmount(e.target.value);
+                  }}
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Auto-calculated from ticked line items. Edit to override.
+                </p>
               </div>
             </div>
 
