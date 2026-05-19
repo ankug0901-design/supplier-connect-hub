@@ -443,7 +443,7 @@ export default function AdminRfq() {
             });
             
             const groupHasAccepted = items.some((r) => r.status === 'accepted');
-            const countdown = closingCountdown(first.response_deadline);
+            const countdown = closingCountdown(first.response_deadline, first.closing_time);
             const rfqIsClosed = isClosed || countdown?.tone === 'expired';
             const l1Row = submitted[0] || null;
             const countdownClass =
@@ -451,6 +451,7 @@ export default function AdminRfq() {
               countdown?.tone === 'orange' ? 'border-orange-300 bg-orange-50 text-orange-700' :
               countdown?.tone === 'expired' ? 'border-red-400 bg-red-100 text-red-800' :
               'border-muted bg-muted text-muted-foreground';
+            const deadlineToneCls = deadlineToneClass(first.response_deadline, first.closing_time);
             return (
               <Card key={rfq_id}>
                 <CardContent className="space-y-4 p-5">
@@ -461,7 +462,7 @@ export default function AdminRfq() {
                         <h3 className="text-lg font-bold">{first.product_name}</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Closes: {fmtDeadline(first.response_deadline)}
+                        Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Closes: <span className={deadlineToneCls}>{fmtDeadline(first.response_deadline, first.closing_time)}</span>
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -478,8 +479,13 @@ export default function AdminRfq() {
                           Force Close
                         </Button>
                       )}
+                      {!decided && !rfqIsClosed && (
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!!busyId} onClick={() => openReopenOrExtend(rfq_id, first.response_deadline, first.closing_time, false)}>
+                          Extend
+                        </Button>
+                      )}
                       {(isClosed || decided || (countdown && countdown.label === 'Closed')) && (
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={!!busyId} onClick={() => setReopenTarget(rfq_id)}>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={!!busyId} onClick={() => openReopenOrExtend(rfq_id, first.response_deadline, first.closing_time, true)}>
                           Reopen
                         </Button>
                       )}
