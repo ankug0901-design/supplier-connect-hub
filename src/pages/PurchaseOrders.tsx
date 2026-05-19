@@ -73,7 +73,10 @@ export default function PurchaseOrders() {
   }, [supplier?.zoho_vendor_id, isAdmin]);
 
   const filteredOrders = purchaseOrders.filter((order: any) => {
-    const matchesSearch = order.poNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      order.poNumber?.toLowerCase().includes(q) ||
+      order.supplierName?.toLowerCase().includes(q);
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -103,7 +106,7 @@ export default function PurchaseOrders() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search by PO number..."
+                placeholder={isAdmin ? "Search by PO number or supplier..." : "Search by PO number..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -143,6 +146,11 @@ export default function PurchaseOrders() {
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       PO Number
                     </th>
+                    {isAdmin && (
+                      <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        Supplier
+                      </th>
+                    )}
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Date
                     </th>
@@ -173,6 +181,11 @@ export default function PurchaseOrders() {
                       <td className="whitespace-nowrap px-6 py-4">
                         <span className="font-medium text-foreground">{order.poNumber}</span>
                       </td>
+                      {isAdmin && (
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
+                          {order.supplierName || '—'}
+                        </td>
+                      )}
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
                         {new Date(order.date).toLocaleDateString('en-IN', {
                           day: '2-digit',
