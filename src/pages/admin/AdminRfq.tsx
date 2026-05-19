@@ -114,9 +114,12 @@ export default function AdminRfq() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [forceCloseTarget, setForceCloseTarget] = useState<string | null>(null);
   const [forceCloseReason, setForceCloseReason] = useState('');
-  const [reopenTarget, setReopenTarget] = useState<string | null>(null);
+  const [reopenTarget, setReopenTarget] = useState<{ id: string; mode: 'reopen' | 'extend' } | null>(null);
   const [reopenReason, setReopenReason] = useState('');
   const [reopenDate, setReopenDate] = useState<Date | undefined>(undefined);
+  const [reopenTime, setReopenTime] = useState<string>('17:00');
+  const [createOpen, setCreateOpen] = useState(false);
+  const { supplier, user } = useAuth();
   const [justifyTarget, setJustifyTarget] = useState<{ row: Rfq; rank: number; l1: Rfq | null } | null>(null);
   const [justifyText, setJustifyText] = useState('');
 
