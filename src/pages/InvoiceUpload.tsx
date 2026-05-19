@@ -17,11 +17,12 @@ type LineItem = { item_name: string; quantity: number; rate: number };
 function LineItemsInput({
   items,
   onChange,
-  readOnly = false,
+  lockDetails = false,
 }: {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
-  readOnly?: boolean;
+  /** When true, item description + rate are locked (from PO) but qty stays editable. */
+  lockDetails?: boolean;
 }) {
   const update = (i: number, field: keyof LineItem, value: any) => {
     const u = [...items];
@@ -34,10 +35,18 @@ function LineItemsInput({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <Label>Line Items {readOnly ? '' : '*'}</Label>
-        {readOnly && (
-          <span className="text-xs text-muted-foreground">Auto-filled from Purchase Order</span>
+        <Label>Line Items *</Label>
+        {lockDetails && (
+          <span className="text-xs text-muted-foreground">
+            Item & rate auto-filled from PO · edit qty as needed
+          </span>
         )}
+      </div>
+      <div className="grid grid-cols-12 gap-2 px-1 text-xs font-medium text-muted-foreground">
+        <div className="col-span-6">Item description</div>
+        <div className="col-span-2">Qty</div>
+        <div className="col-span-3">Rate (₹)</div>
+        <div className="col-span-1" />
       </div>
       <div className="space-y-3">
         {items.map((item, i) => (
@@ -47,8 +56,8 @@ function LineItemsInput({
                 placeholder="Item description"
                 value={item.item_name}
                 onChange={(e) => update(i, 'item_name', e.target.value)}
-                readOnly={readOnly}
-                disabled={readOnly}
+                readOnly={lockDetails}
+                disabled={lockDetails}
               />
             </div>
             <div className="col-span-2">
@@ -58,8 +67,6 @@ function LineItemsInput({
                 placeholder="Qty"
                 value={item.quantity}
                 onChange={(e) => update(i, 'quantity', parseFloat(e.target.value) || 0)}
-                readOnly={readOnly}
-                disabled={readOnly}
               />
             </div>
             <div className="col-span-3">
@@ -70,12 +77,12 @@ function LineItemsInput({
                 placeholder="Rate"
                 value={item.rate}
                 onChange={(e) => update(i, 'rate', parseFloat(e.target.value) || 0)}
-                readOnly={readOnly}
-                disabled={readOnly}
+                readOnly={lockDetails}
+                disabled={lockDetails}
               />
             </div>
             <div className="col-span-1 flex items-center justify-center">
-              {!readOnly && items.length > 1 && (
+              {!lockDetails && items.length > 1 && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -90,7 +97,7 @@ function LineItemsInput({
           </div>
         ))}
       </div>
-      {!readOnly && (
+      {!lockDetails && (
         <Button type="button" variant="outline" size="sm" onClick={add} className="gap-1">
           <Plus className="h-4 w-4" />
           Add Item
