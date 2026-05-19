@@ -45,6 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const profile = data as typeof data & { role?: string | null };
+
     setSupplier({
       id: data.id,
       name: data.name,
@@ -55,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       address: data.address || '',
       zoho_vendor_id: data.zoho_vendor_id || '',
     });
-    setIsAdmin((data as any).role === 'admin');
+    setIsAdmin(profile.role === 'admin');
   }
 
   useEffect(() => {
