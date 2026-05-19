@@ -350,7 +350,7 @@ export default function InvoiceUpload() {
             </div>
 
             <div className="mt-6">
-              <LineItemsInput items={lineItems} onChange={setLineItems} readOnly={!!selectedPO} />
+              <LineItemsInput items={lineItems} onChange={setLineItems} lockDetails={!!selectedPO} />
             </div>
           </div>
 
