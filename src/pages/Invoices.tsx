@@ -211,6 +211,11 @@ export default function Invoices() {
                         <td className="whitespace-nowrap px-6 py-4">
                           <span className="font-medium text-foreground">{invoice.invoiceNumber}</span>
                         </td>
+                        {isAdmin && (
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                            {invoice.supplierName || '—'}
+                          </td>
+                        )}
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
                           <Link to={`/purchase-orders/${invoice.poId}`} className="hover:text-primary hover:underline">
                             {invoice.poNumber}
