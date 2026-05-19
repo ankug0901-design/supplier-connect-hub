@@ -834,6 +834,13 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_invoiced_quantities_for_po: {
+        Args: { _po_number: string; _supplier_id: string }
+        Returns: {
+          item_name: string
+          total_quantity: number
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
       move_to_dlq: {
         Args: {
@@ -851,6 +858,15 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      record_invoice_line_items: {
+        Args: {
+          _invoice_number: string
+          _items: Json
+          _po_number: string
+          _supplier_id: string
+        }
+        Returns: number
       }
     }
     Enums: {
