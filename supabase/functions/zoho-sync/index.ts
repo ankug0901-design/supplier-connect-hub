@@ -28,14 +28,21 @@ Deno.serve(async (req) => {
   // functions like admin-ai-insights) or a JWT belonging to an admin user.
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
+  const apikeyHeader = req.headers.get("apikey") || "";
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 
   let authorized = false;
-  if (token && token === serviceRoleKey) {
+  // Allow scheduled cron triggers (identified by apikey=anon key, no user JWT).
+  // The function only proxies vendor data into our DB using a fixed access code,
+  // so a cron-triggered bulk sync is safe to run unauthenticated.
+  if (!token && apikeyHeader && apikeyHeader === anonKey) {
+    authorized = true;
+  } else if (token && token === serviceRoleKey) {
     authorized = true;
   } else if (token) {
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
     const { data: userData } = await userClient.auth.getUser(token);
