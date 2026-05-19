@@ -68,7 +68,7 @@ function LineItemsInput({
       <div className="space-y-3">
         {items.map((item, i) => (
           <div key={i} className="grid grid-cols-12 gap-2">
-            <div className="col-span-4">
+            <div className="col-span-3">
               <Input
                 placeholder="Item description"
                 value={item.item_name}
@@ -82,8 +82,6 @@ function LineItemsInput({
                 placeholder="HSN"
                 value={item.hsn || ''}
                 onChange={(e) => update(i, 'hsn', e.target.value)}
-                readOnly={lockDetails}
-                disabled={lockDetails}
               />
             </div>
             <div className="col-span-2">
