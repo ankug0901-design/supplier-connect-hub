@@ -254,6 +254,9 @@ export default function Invoices() {
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
                           {formatDate(invoice.date)}
                         </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                          {invoice.submittedAt ? formatDate(invoice.submittedAt) : '—'}
+                        </td>
                         <td className="whitespace-nowrap px-6 py-4 text-sm">
                           <div className="flex flex-col">
                             <span className={cn(isOverdue && 'text-destructive font-semibold', !isOverdue && 'text-foreground')}>
