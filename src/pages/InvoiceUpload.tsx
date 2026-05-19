@@ -64,7 +64,7 @@ function LineItemsInput({
           This PO didn't return any line items from Zoho Books. Please enter them manually.
         </div>
       )}
-      <div className="grid grid-cols-[2rem_repeat(12,minmax(0,1fr))] gap-2 px-1 text-xs font-medium text-muted-foreground">
+      <div className="grid grid-cols-[2rem_repeat(13,minmax(0,1fr))] gap-2 px-1 text-xs font-medium text-muted-foreground">
         <div className="col-span-1 flex items-center">
           <Checkbox
             checked={allSelected}
@@ -75,85 +75,117 @@ function LineItemsInput({
         <div className="col-span-3">Item description</div>
         <div className="col-span-2">HSN/SAC</div>
         <div className="col-span-2">PO Qty</div>
+        <div className="col-span-2">Already Invoiced</div>
         <div className="col-span-2">Invoice Qty</div>
         <div className="col-span-2">Rate (₹)</div>
-        <div className="col-span-1" />
       </div>
       <div className="space-y-3">
         {items.map((item, i) => {
-          const isSelected = item.selected !== false;
+          const poQty = Number(item.po_quantity || 0);
+          const invoicedQty = Number(item.invoiced_quantity || 0);
+          const remaining = Math.max(poQty - invoicedQty, 0);
+          const fullyInvoiced = poQty > 0 && remaining <= 0;
+          const isSelected = item.selected !== false && !fullyInvoiced;
           return (
-            <div key={i} className="grid grid-cols-[2rem_repeat(12,minmax(0,1fr))] gap-2">
-              <div className="col-span-1 flex items-center justify-center">
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={(v) => update(i, 'selected', !!v)}
-                  aria-label={`Select line ${i + 1}`}
-                />
+            <div key={i} className="space-y-1">
+              <div className="grid grid-cols-[2rem_repeat(13,minmax(0,1fr))] gap-2">
+                <div className="col-span-1 flex items-center justify-center">
+                  <Checkbox
+                    checked={isSelected}
+                    disabled={fullyInvoiced}
+                    onCheckedChange={(v) => update(i, 'selected', !!v)}
+                    aria-label={`Select line ${i + 1}`}
+                  />
+                </div>
+                <div className="col-span-3">
+                  <Input
+                    placeholder="Item description"
+                    value={item.item_name}
+                    onChange={(e) => update(i, 'item_name', e.target.value)}
+                    readOnly={lockDetails}
+                    disabled={lockDetails || !isSelected}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    placeholder="HSN"
+                    value={item.hsn || ''}
+                    onChange={(e) => update(i, 'hsn', e.target.value)}
+                    disabled={!isSelected}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="PO Qty"
+                    value={item.po_quantity ?? ''}
+                    onChange={(e) => update(i, 'po_quantity', parseFloat(e.target.value) || 0)}
+                    readOnly={lockDetails}
+                    disabled={lockDetails || !isSelected}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    type="number"
+                    value={invoicedQty}
+                    readOnly
+                    disabled
+                    className="bg-muted/40"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    max={poQty > 0 ? remaining : undefined}
+                    placeholder={fullyInvoiced ? 'Fully invoiced' : 'Invoice Qty'}
+                    value={fullyInvoiced ? 0 : item.quantity}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value) || 0;
+                      const capped = poQty > 0 ? Math.min(v, remaining) : v;
+                      update(i, 'quantity', capped);
+                    }}
+                    disabled={!isSelected || fullyInvoiced}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Rate"
+                    value={item.rate}
+                    onChange={(e) => update(i, 'rate', parseFloat(e.target.value) || 0)}
+                    readOnly={lockDetails}
+                    disabled={lockDetails || !isSelected}
+                  />
+                </div>
               </div>
-              <div className="col-span-3">
-                <Input
-                  placeholder="Item description"
-                  value={item.item_name}
-                  onChange={(e) => update(i, 'item_name', e.target.value)}
-                  readOnly={lockDetails}
-                  disabled={lockDetails || !isSelected}
-                />
-              </div>
-              <div className="col-span-2">
-                <Input
-                  placeholder="HSN"
-                  value={item.hsn || ''}
-                  onChange={(e) => update(i, 'hsn', e.target.value)}
-                  disabled={!isSelected}
-                />
-              </div>
-              <div className="col-span-2">
-                <Input
-                  type="number"
-                  min="0"
-                  placeholder="PO Qty"
-                  value={item.po_quantity ?? ''}
-                  onChange={(e) => update(i, 'po_quantity', parseFloat(e.target.value) || 0)}
-                  readOnly={lockDetails}
-                  disabled={lockDetails || !isSelected}
-                />
-              </div>
-              <div className="col-span-2">
-                <Input
-                  type="number"
-                  min="0"
-                  placeholder="Invoice Qty"
-                  value={item.quantity}
-                  onChange={(e) => update(i, 'quantity', parseFloat(e.target.value) || 0)}
-                  disabled={!isSelected}
-                />
-              </div>
-              <div className="col-span-2">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Rate"
-                  value={item.rate}
-                  onChange={(e) => update(i, 'rate', parseFloat(e.target.value) || 0)}
-                  readOnly={lockDetails}
-                  disabled={lockDetails || !isSelected}
-                />
-              </div>
-              <div className="col-span-1 flex items-center justify-center">
-                {!lockDetails && items.length > 1 && (
+              {fullyInvoiced && (
+                <p className="pl-10 text-xs text-success">
+                  Fully invoiced — PO quantity has already been billed.
+                </p>
+              )}
+              {!fullyInvoiced && invoicedQty > 0 && (
+                <p className="pl-10 text-xs text-muted-foreground">
+                  {remaining} of {poQty} remaining to invoice.
+                </p>
+              )}
+              {!lockDetails && items.length > 1 && (
+                <div className="flex justify-end">
                   <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     onClick={() => remove(i)}
-                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                    className="text-muted-foreground hover:text-destructive"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="mr-1 h-4 w-4" />
+                    Remove
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           );
         })}
