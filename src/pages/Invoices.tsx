@@ -21,11 +21,13 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 const statusConfig: Record<string, { label: string; className: string }> = {
-  paid: { label: 'Paid', className: 'bg-success/10 text-success border-success/20' },
+  paid: { label: 'Closed', className: 'bg-success/10 text-success border-success/20' },
+  closed: { label: 'Closed', className: 'bg-success/10 text-success border-success/20' },
   overdue: { label: 'Overdue', className: 'bg-destructive/10 text-destructive border-destructive/20' },
   due_soon: { label: 'Due Soon', className: 'bg-warning/10 text-warning border-warning/20' },
   pending: { label: 'Pending', className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
-  partially_paid: { label: 'Partial', className: 'bg-info/10 text-info border-info/20' },
+  partially_paid: { label: 'Partial Billed', className: 'bg-info/10 text-info border-info/20' },
+  partial: { label: 'Partial Billed', className: 'bg-info/10 text-info border-info/20' },
   void: { label: 'Void', className: 'bg-muted text-muted-foreground border-border' },
 };
 
