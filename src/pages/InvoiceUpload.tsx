@@ -283,20 +283,25 @@ export default function InvoiceUpload() {
   };
 
   useEffect(() => {
-    if (!supplier?.zoho_vendor_id) return;
+    if (!isAdmin && !supplier?.zoho_vendor_id) return;
     let cancelled = false;
+    setIsLoadingPOs(true);
     (async () => {
       try {
-        const data = await fetchPurchaseOrders(supplier.zoho_vendor_id!);
+        const data = isAdmin
+          ? await fetchPurchaseOrdersFromDb()
+          : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
         if (!cancelled) setPurchaseOrders(data);
       } catch (err) {
         console.error('Failed to load POs', err);
+      } finally {
+        if (!cancelled) setIsLoadingPOs(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id]);
+  }, [supplier?.zoho_vendor_id, isAdmin]);
 
   // Prepopulate line items from the selected PO (from Zoho Books), then subtract
   // any previously-invoiced quantities for the same PO/items.
