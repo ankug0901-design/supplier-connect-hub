@@ -246,12 +246,17 @@ export default function InvoiceUpload() {
     if (!po) return;
     if (Array.isArray(po.items) && po.items.length) {
       setLineItems(
-        po.items.map((it: any) => ({
-          item_name:
-            it.item_name || it.name || it.description || it.item_description || '',
-          quantity: Number(it.quantity ?? it.qty ?? 0) || 0,
-          rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) || 0,
-        })),
+        po.items.map((it: any) => {
+          const qty = Number(it.quantity ?? it.qty ?? 0) || 0;
+          return {
+            item_name:
+              it.item_name || it.name || it.description || it.item_description || '',
+            hsn: it.hsn || it.hsn_or_sac || it.hsn_sac || it.sac || '',
+            po_quantity: qty,
+            quantity: qty,
+            rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) || 0,
+          };
+        }),
       );
     }
     if (po.amount != null) setAmount(String(po.amount));
