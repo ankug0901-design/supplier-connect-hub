@@ -183,8 +183,9 @@ export default function InvoiceUpload() {
   const [materialReceipts, setMaterialReceipts] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { item_name: '', quantity: 1, rate: 0 },
+    { item_name: '', quantity: 1, rate: 0, selected: true },
   ]);
+  const [amountTouched, setAmountTouched] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
 
   const extractFromInvoiceFile = async (file: File) => {
