@@ -386,7 +386,8 @@ export default function InvoiceUpload() {
         invoice_date: invoiceDate,
         supplier_name: supplier.company,
         contact_email: supplier.email,
-        line_items: lineItems.filter((li) => li.selected !== false && li.item_name),
+        supplier_id: supplier.id,
+        line_items: lineItems.filter((li) => li.selected !== false && li.item_name && Number(li.quantity) > 0),
         pdf_file: invoiceFile || undefined,
         notes: '',
       });
