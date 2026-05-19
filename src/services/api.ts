@@ -67,17 +67,18 @@ export async function fetchInvoicesFromDb() {
 export async function fetchPaymentsFromDb() {
   const { data, error } = await supabase
     .from('payments')
-    .select('id, transaction_id, amount, date, status, invoice_id, invoices(invoice_number, suppliers(company))')
+    .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id, invoices(invoice_number, suppliers(company), purchase_orders(po_number))')
     .order('date', { ascending: false });
   if (error) throw error;
   return (data || []).map((p: any) => ({
     id: p.id,
-    paymentNumber: p.transaction_id || p.id?.slice(0, 8),
+    paymentNumber: p.payment_number || p.transaction_id || p.id?.slice(0, 8),
+    poNumber: p.invoices?.purchase_orders?.po_number || '-',
     invoiceNumber: p.invoices?.invoice_number || '-',
     date: p.date,
     amount: Number(p.amount || 0),
-    paymentMode: '-',
-    account: '-',
+    paymentMode: p.payment_mode || '-',
+    account: p.account || '-',
     status: p.status,
     transactionId: p.transaction_id,
     supplierName: p.invoices?.suppliers?.company,
@@ -167,20 +168,22 @@ export async function fetchPayments(zohoVendorId: string) {
   const raw = data.payments || [];
   return raw.map((p: any) => ({
     id: p.payment_id || p.id,
-    paymentNumber: p.payment_number || p.reference_number || p.payment_id,
+    paymentNumber: p.payment_number || p.paymentNumber || p.reference_number || p.referenceNumber || p.payment_id || p.id,
     invoiceNumber:
       p.invoice_number ||
+      p.invoiceNumber ||
       p.bill_number ||
+      p.billNumber ||
       (Array.isArray(p.bills) && p.bills.length
-        ? p.bills.map((b: any) => b.bill_number).filter(Boolean).join(', ')
+        ? p.bills.map((b: any) => b.bill_number || b.billNumber).filter(Boolean).join(', ')
         : '-'),
-    poNumber: p.po_number || (Array.isArray(p.bills) && p.bills[0]?.po_number) || '-',
-    date: p.date || p.payment_date,
-    amount: Number(p.amount || p.payment_amount || 0),
-    paymentMode: p.payment_mode || p.mode || '-',
-    account: p.paid_through_account_name || p.account_name || p.paid_through || '-',
+    poNumber: p.po_number || p.poNumber || (Array.isArray(p.bills) && (p.bills[0]?.po_number || p.bills[0]?.poNumber)) || '-',
+    date: p.date || p.payment_date || p.paymentDate,
+    amount: Number(p.amount || p.payment_amount || p.paymentAmount || 0),
+    paymentMode: p.payment_mode || p.paymentMode || p.mode || '-',
+    account: p.paid_through_account_name || p.paidThroughAccountName || p.account_name || p.accountName || p.paid_through || p.paidThrough || '-',
     status: p.status || 'completed',
-    transactionId: p.reference_number || p.transaction_id || p.payment_number || '',
+    transactionId: p.reference_number || p.referenceNumber || p.transaction_id || p.transactionId || p.payment_number || p.paymentNumber || '',
   }));
 }
 
