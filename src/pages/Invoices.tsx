@@ -109,9 +109,14 @@ export default function Invoices() {
     const matchesSearch =
       invoice.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       invoice.poNumber?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
+    const invStatus = (invoice.status || '').toString().toLowerCase();
+    const matchesStatus = statusFilter === 'all' || invStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const availableInvoiceStatuses = Array.from(
+    new Set(invoices.map((i: any) => (i.status || '').toString().toLowerCase()).filter(Boolean)),
+  ).sort();
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-IN', {
