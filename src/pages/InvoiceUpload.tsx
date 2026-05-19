@@ -63,7 +63,7 @@ function LineItemsInput({
           This PO didn't return any line items from Zoho Books. Please enter them manually.
         </div>
       )}
-      <div className="grid grid-cols-13 gap-2 px-1 text-xs font-medium text-muted-foreground">
+      <div className="grid grid-cols-[2rem_repeat(12,minmax(0,1fr))] gap-2 px-1 text-xs font-medium text-muted-foreground">
         <div className="col-span-1 flex items-center">
           <Checkbox
             checked={allSelected}
@@ -82,7 +82,7 @@ function LineItemsInput({
         {items.map((item, i) => {
           const isSelected = item.selected !== false;
           return (
-            <div key={i} className="grid grid-cols-13 gap-2">
+            <div key={i} className="grid grid-cols-[2rem_repeat(12,minmax(0,1fr))] gap-2">
               <div className="col-span-1 flex items-center justify-center">
                 <Checkbox
                   checked={isSelected}
