@@ -250,6 +250,47 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_line_items: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_number: string
+          item_name: string
+          po_number: string
+          quantity: number
+          rate: number
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_number: string
+          item_name: string
+          po_number: string
+          quantity?: number
+          rate?: number
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_number?: string
+          item_name?: string
+          po_number?: string
+          quantity?: number
+          rate?: number
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
