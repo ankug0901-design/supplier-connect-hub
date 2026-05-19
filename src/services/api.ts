@@ -181,7 +181,7 @@ export async function fetchPayments(zohoVendorId: string) {
     date: p.date || p.payment_date || p.paymentDate,
     amount: Number(p.amount || p.payment_amount || p.paymentAmount || 0),
     paymentMode: p.payment_mode || p.paymentMode || p.mode || '-',
-    account: p.paid_through_account_name || p.paidThroughAccountName || p.account_name || p.accountName || p.paid_through || p.paidThrough || '-',
+    account: p.account || p.paid_through_account_name || p.paidThroughAccountName || p.account_name || p.accountName || p.paid_through || p.paidThrough || '-',
     status: p.status || 'completed',
     transactionId: p.reference_number || p.referenceNumber || p.transaction_id || p.transactionId || p.payment_number || p.paymentNumber || '',
   }));
