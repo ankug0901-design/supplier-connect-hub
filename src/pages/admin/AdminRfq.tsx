@@ -329,41 +329,66 @@ export default function AdminRfq() {
       toast.error('New closing date is required');
       return;
     }
-    if (reopenDate.getTime() <= Date.now()) {
-      toast.error('New closing date must be in the future');
+    if (!reopenTime || !/^\d{2}:\d{2}/.test(reopenTime)) {
+      toast.error('New closing time is required');
       return;
     }
-    if (!reopenReason.trim()) {
-      toast.error('Reason is required');
+    const [hh, mm] = reopenTime.split(':').map(Number);
+    const target = new Date(reopenDate);
+    target.setHours(hh, mm, 0, 0);
+    if (target.getTime() <= Date.now()) {
+      toast.error('New closing date/time must be in the future');
       return;
     }
-    const targetId = reopenTarget;
+    if (reopenReason.trim().length < 10) {
+      toast.error('Reason must be at least 10 characters');
+      return;
+    }
+    const targetId = reopenTarget.id;
+    const action = reopenTarget.mode;
     const reason = reopenReason.trim();
     const newDeadline = format(reopenDate, 'yyyy-MM-dd');
+    const newDeadlineTime = reopenTime;
     setBusyId(targetId);
-    patchLocalForRfq(targetId, { rfq_closed_at: null, response_deadline: newDeadline });
+    patchLocalForRfq(targetId, {
+      rfq_closed_at: action === 'reopen' ? null : undefined,
+      response_deadline: newDeadline,
+      closing_time: newDeadlineTime,
+    });
     setReopenTarget(null);
     setReopenReason('');
     setReopenDate(undefined);
-    toast.success('RFQ reopened successfully');
+    setReopenTime('17:00');
+    toast.success(action === 'extend' ? 'RFQ deadline extended — suppliers have been notified' : 'RFQ reopened successfully');
     try {
       const res = await fetch(N8N_RFQ_MANAGE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rfq_id: targetId,
-          action: 'reopen',
+          action,
           new_deadline: newDeadline,
+          new_deadline_time: newDeadlineTime,
           reason,
-          actioned_by: 'Ankur Gupta',
+          actioned_by: supplier?.name || user?.email || 'Admin',
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch (e: any) {
-      toast.error(`Reopen webhook failed: ${e.message || 'Unknown error'}`);
+      toast.error(`${action === 'extend' ? 'Extend' : 'Reopen'} webhook failed: ${e.message || 'Unknown error'}`);
     } finally {
       setBusyId(null);
     }
+  };
+
+  const openReopenOrExtend = (rfqId: string, deadline?: string | null, time?: string | null, currentlyClosed?: boolean) => {
+    const target = deadlineCutoff(deadline, time);
+    const inPast = !!target && target.getTime() <= Date.now();
+    const mode: 'reopen' | 'extend' = currentlyClosed || inPast ? 'reopen' : 'extend';
+    setReopenTarget({ id: rfqId, mode });
+    setReopenDate(undefined);
+    setReopenTime('17:00');
+    setReopenReason('');
   };
 
   return (
