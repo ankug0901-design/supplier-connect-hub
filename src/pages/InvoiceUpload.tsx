@@ -335,6 +335,7 @@ export default function InvoiceUpload() {
                   placeholder="Enter amount"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
+                  readOnly={!!selectedPO}
                   required
                 />
               </div>
