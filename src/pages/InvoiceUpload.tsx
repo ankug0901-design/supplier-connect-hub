@@ -182,7 +182,9 @@ export default function InvoiceUpload() {
 
   const handleInvoiceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setInvoiceFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setInvoiceFile(file);
+      void extractFromInvoiceFile(file);
     }
   };
 
