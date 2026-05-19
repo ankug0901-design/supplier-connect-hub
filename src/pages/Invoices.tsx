@@ -60,7 +60,7 @@ export default function Invoices() {
     setAttachment(null);
     try {
       const result = await downloadBillAttachment(
-        supplier.zoho_vendor_id,
+        vendorId,
         invoice.id,
         invoice.invoiceNumber
       );
