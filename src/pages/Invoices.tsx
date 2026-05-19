@@ -160,12 +160,11 @@ export default function Invoices() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="partially_paid">Partial Billed</SelectItem>
-                <SelectItem value="paid">Closed</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="due_soon">Due Soon</SelectItem>
-                <SelectItem value="void">Void</SelectItem>
+                {availableInvoiceStatuses.map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">
+                    {statusConfig[s]?.label || s.replace(/_/g, ' ')}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
