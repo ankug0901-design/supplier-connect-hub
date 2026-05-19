@@ -359,19 +359,18 @@ export async function fetchInvoicedQuantitiesForPo(
   supplierId: string,
   poNumber: string,
 ): Promise<Record<string, number>> {
-  const { data, error } = await supabase
-    .from('invoice_line_items')
-    .select('item_name, quantity')
-    .eq('supplier_id', supplierId)
-    .eq('po_number', poNumber);
+  const { data, error } = await supabase.rpc('get_invoiced_quantities_for_po', {
+    _supplier_id: supplierId,
+    _po_number: poNumber,
+  });
   if (error) {
     console.warn('Failed to fetch invoiced quantities', error);
     return {};
   }
-  return (data || []).reduce<Record<string, number>>((acc, row: any) => {
+  return ((data as any[]) || []).reduce<Record<string, number>>((acc, row: any) => {
     const key = String(row.item_name || '').trim().toLowerCase();
     if (!key) return acc;
-    acc[key] = (acc[key] || 0) + Number(row.quantity || 0);
+    acc[key] = (acc[key] || 0) + Number(row.total_quantity || 0);
     return acc;
   }, {});
 }
@@ -416,18 +415,20 @@ export async function submitInvoice(payload: {
 
   // Persist invoiced quantities locally so future invoices can enforce PO Qty limits.
   if (payload.supplier_id && payload.line_items.length) {
-    const rows = payload.line_items
+    const items = payload.line_items
       .filter((li) => li.item_name && Number(li.quantity) > 0)
       .map((li) => ({
-        supplier_id: payload.supplier_id!,
-        po_number: payload.po_number,
-        invoice_number: payload.invoice_number,
         item_name: li.item_name,
         quantity: Number(li.quantity) || 0,
         rate: Number(li.rate) || 0,
       }));
-    if (rows.length) {
-      const { error } = await supabase.from('invoice_line_items').insert(rows);
+    if (items.length) {
+      const { error } = await supabase.rpc('record_invoice_line_items', {
+        _supplier_id: payload.supplier_id,
+        _po_number: payload.po_number,
+        _invoice_number: payload.invoice_number,
+        _items: items,
+      });
       if (error) console.warn('Failed to record invoice line items', error);
     }
   }

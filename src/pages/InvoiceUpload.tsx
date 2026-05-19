@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders, submitInvoice, fetchInvoicedQuantitiesForPo } from '@/services/api';
+import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, submitInvoice, fetchInvoicedQuantitiesForPo } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -220,6 +220,7 @@ export default function InvoiceUpload() {
   ]);
   const [amountTouched, setAmountTouched] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isLoadingPOs, setIsLoadingPOs] = useState(false);
 
   const extractFromInvoiceFile = async (file: File) => {
     setIsExtracting(true);
@@ -282,20 +283,25 @@ export default function InvoiceUpload() {
   };
 
   useEffect(() => {
-    if (!supplier?.zoho_vendor_id) return;
+    if (!isAdmin && !supplier?.zoho_vendor_id) return;
     let cancelled = false;
+    setIsLoadingPOs(true);
     (async () => {
       try {
-        const data = await fetchPurchaseOrders(supplier.zoho_vendor_id!);
+        const data = isAdmin
+          ? await fetchPurchaseOrdersFromDb()
+          : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
         if (!cancelled) setPurchaseOrders(data);
       } catch (err) {
         console.error('Failed to load POs', err);
+      } finally {
+        if (!cancelled) setIsLoadingPOs(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id]);
+  }, [supplier?.zoho_vendor_id, isAdmin]);
 
   // Prepopulate line items from the selected PO (from Zoho Books), then subtract
   // any previously-invoiced quantities for the same PO/items.
@@ -433,19 +439,31 @@ export default function InvoiceUpload() {
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="po">Purchase Order *</Label>
-                <Select value={selectedPO} onValueChange={setSelectedPO} required>
+                <Select value={selectedPO} onValueChange={setSelectedPO} required disabled={isLoadingPOs}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select Purchase Order" />
+                    <SelectValue
+                      placeholder={isLoadingPOs ? 'Loading purchase orders…' : 'Select Purchase Order'}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {purchaseOrders.map((po: any) => (
-                      <SelectItem key={po.id} value={po.id}>
-                        {po.poNumber}
-                      </SelectItem>
-                    ))}
+                    {isLoadingPOs ? (
+                      <div className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                      </div>
+                    ) : purchaseOrders.length === 0 ? (
+                      <div className="px-2 py-3 text-sm text-muted-foreground">No purchase orders found.</div>
+                    ) : (
+                      purchaseOrders.map((po: any) => (
+                        <SelectItem key={po.id} value={po.id}>
+                          {po.poNumber}
+                          {isAdmin && po.supplierName ? ` — ${po.supplierName}` : ''}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="invoiceNumber">Invoice Number *</Label>

@@ -198,7 +198,7 @@ export default function Dashboard() {
       <div className="space-y-6">
         {/* Stats Grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="animate-slide-up" style={{ animationDelay: '0ms' }}>
+          <Link to="/purchase-orders" className="animate-slide-up block" style={{ animationDelay: '0ms' }}>
             <StatCard
               title="Total Purchase Orders"
               value={purchaseOrders.length}
@@ -206,8 +206,8 @@ export default function Dashboard() {
               icon={<FileText className="h-6 w-6" />}
               variant="primary"
             />
-          </div>
-          <div className="animate-slide-up" style={{ animationDelay: '100ms' }}>
+          </Link>
+          <Link to="/invoices?status=pending" className="animate-slide-up block" style={{ animationDelay: '100ms' }}>
             <StatCard
               title="Pending Invoices"
               value={pendingInvoices}
@@ -215,8 +215,8 @@ export default function Dashboard() {
               icon={<Receipt className="h-6 w-6" />}
               variant="warning"
             />
-          </div>
-          <div className="animate-slide-up" style={{ animationDelay: '200ms' }}>
+          </Link>
+          <Link to="/payments" className="animate-slide-up block" style={{ animationDelay: '200ms' }}>
             <StatCard
               title="Payments Received"
               value={formatCurrency(totalPayments)}
@@ -225,8 +225,8 @@ export default function Dashboard() {
               variant="success"
               trend={{ value: 12, isPositive: true }}
             />
-          </div>
-          <div className="animate-slide-up" style={{ animationDelay: '300ms' }}>
+          </Link>
+          <Link to="/payments?status=processing" className="animate-slide-up block" style={{ animationDelay: '300ms' }}>
             <StatCard
               title="Pending Payments"
               value={formatCurrency(pendingPayments)}
@@ -234,7 +234,7 @@ export default function Dashboard() {
               icon={<Clock className="h-6 w-6" />}
               variant="default"
             />
-          </div>
+          </Link>
         </div>
 
         {/* Main Content Grid */}
