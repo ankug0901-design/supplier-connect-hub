@@ -210,9 +210,10 @@ export default function InvoiceUpload() {
     if (Array.isArray(po.items) && po.items.length) {
       setLineItems(
         po.items.map((it: any) => ({
-          item_name: it.description || '',
-          quantity: Number(it.quantity) || 0,
-          rate: Number(it.unitPrice ?? it.rate ?? 0),
+          item_name:
+            it.item_name || it.name || it.description || it.item_description || '',
+          quantity: Number(it.quantity ?? it.qty ?? 0) || 0,
+          rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) || 0,
         })),
       );
     }
