@@ -119,19 +119,33 @@ export async function fetchPaymentsFromDb() {
     .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id, invoices(invoice_number, suppliers(company), purchase_orders(po_number))')
     .order('date', { ascending: false });
   if (error) throw error;
-  return (data || []).map((p: any) => ({
-    id: p.id,
-    paymentNumber: p.payment_number || p.transaction_id || p.id?.slice(0, 8),
-    poNumber: p.invoices?.purchase_orders?.po_number || '-',
-    invoiceNumber: p.invoices?.invoice_number || '-',
-    date: p.date,
-    amount: Number(p.amount || 0),
-    paymentMode: p.payment_mode || '-',
-    account: p.account || '-',
-    status: p.status,
-    transactionId: p.transaction_id,
-    supplierName: p.invoices?.suppliers?.company,
-  }));
+  return (data || []).map(mapDbPayment);
+}
+
+const mapDbPayment = (p: any) => ({
+  id: p.id,
+  paymentNumber: p.payment_number || p.transaction_id || p.id?.slice(0, 8),
+  poNumber: p.invoices?.purchase_orders?.po_number || '-',
+  invoiceNumber: p.invoices?.invoice_number || '-',
+  date: p.date,
+  amount: Number(p.amount || 0),
+  paymentMode: p.payment_mode || '-',
+  account: p.account || '-',
+  status: p.status,
+  transactionId: p.transaction_id,
+  supplierName: p.invoices?.suppliers?.company,
+});
+
+async function fetchPaymentsFromDbByVendor(zohoVendorId: string) {
+  const supplierId = await fetchSupplierIdByZohoVendorId(zohoVendorId);
+  if (!supplierId) return [];
+  const { data, error } = await supabase
+    .from('payments')
+    .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id, invoices!inner(invoice_number, supplier_id, suppliers(company), purchase_orders(po_number))')
+    .eq('invoices.supplier_id', supplierId)
+    .order('date', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapDbPayment);
 }
 
 export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, poNumber?: string) {
@@ -174,8 +188,14 @@ export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, 
 }
 
 export async function fetchInvoices(zohoVendorId: string) {
-  const data = await zohoProxy('get_bills', zohoVendorId);
-  return data.invoices || [];
+  try {
+    const data = await zohoProxy('get_bills', zohoVendorId);
+    const invoices = data.invoices || [];
+    if (invoices.length) return invoices;
+  } catch (err) {
+    console.warn('Zoho bills webhook failed; falling back to synced invoices.', err);
+  }
+  return fetchInvoicesFromDbByVendor(zohoVendorId);
 }
 
 export interface BillAttachment {
@@ -213,8 +233,14 @@ export async function downloadBillAttachment(
 }
 
 export async function fetchPayments(zohoVendorId: string) {
-  const data = await zohoProxy('get_payments', zohoVendorId);
-  const raw = data.payments || [];
+  let raw: any[] = [];
+  try {
+    const data = await zohoProxy('get_payments', zohoVendorId);
+    raw = data.payments || [];
+  } catch (err) {
+    console.warn('Zoho payments webhook failed; falling back to synced payments.', err);
+  }
+  if (!raw.length) return fetchPaymentsFromDbByVendor(zohoVendorId);
   return raw.map((p: any) => ({
     id: p.payment_id || p.id,
     paymentNumber: p.payment_number || p.paymentNumber || p.reference_number || p.referenceNumber || p.payment_id || p.id,
