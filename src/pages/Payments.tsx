@@ -104,7 +104,8 @@ export default function Payments() {
   }
 
   return (
-    <DashboardLayout title="Payments" subtitle="Track your payment status and history">
+    <DashboardLayout title="Payments" subtitle={isAdmin ? 'Vendor payments made to suppliers' : 'Payments made to you by Emboss'}>
+
       <div className="space-y-6">
         {/* Summary Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -185,8 +186,14 @@ export default function Payments() {
           <>
             <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
               <div className="border-b border-border px-6 py-4">
-                <h3 className="text-lg font-semibold">Payments Received</h3>
-                <p className="text-sm text-muted-foreground">All payments credited to your account</p>
+                <h3 className="text-lg font-semibold">
+                  {isAdmin ? 'Payments Made to Suppliers' : 'Payments Received'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {isAdmin
+                    ? 'All vendor payments disbursed from Emboss'
+                    : 'All payments credited to your account by Emboss'}
+                </p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
