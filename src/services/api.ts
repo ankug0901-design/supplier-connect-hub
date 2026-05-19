@@ -34,9 +34,12 @@ const mapDbPurchaseOrder = (p: any) => ({
 });
 
 async function fetchSupplierIdByZohoVendorId(zohoVendorId: string) {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
   const { data, error } = await supabase
     .from('suppliers')
     .select('id')
+    .eq('user_id', authData.user?.id || '')
     .eq('zoho_vendor_id', zohoVendorId)
     .maybeSingle();
   if (error) throw error;
