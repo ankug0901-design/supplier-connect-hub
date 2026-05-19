@@ -104,7 +104,7 @@ function LineItemsInput({
                 onChange={(e) => update(i, 'quantity', parseFloat(e.target.value) || 0)}
               />
             </div>
-            <div className="col-span-1">
+            <div className="col-span-2">
               <Input
                 type="number"
                 min="0"
