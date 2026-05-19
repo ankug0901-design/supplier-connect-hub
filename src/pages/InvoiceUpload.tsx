@@ -12,24 +12,34 @@ import { fetchPurchaseOrders, submitInvoice } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
 
-type LineItem = { item_name: string; quantity: number; rate: number };
+type LineItem = {
+  item_name: string;
+  hsn?: string;
+  po_quantity?: number;
+  quantity: number;
+  rate: number;
+};
 
 function LineItemsInput({
   items,
   onChange,
   lockDetails = false,
+  emptyFromPO = false,
 }: {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
-  /** When true, item description + rate are locked (from PO) but qty stays editable. */
+  /** When true, description / HSN / rate / PO Qty are locked (from PO) but Invoice Qty stays editable. */
   lockDetails?: boolean;
+  /** When true, show a hint that the selected PO didn't return any line items. */
+  emptyFromPO?: boolean;
 }) {
   const update = (i: number, field: keyof LineItem, value: any) => {
     const u = [...items];
     u[i] = { ...u[i], [field]: value };
     onChange(u);
   };
-  const add = () => onChange([...items, { item_name: '', quantity: 1, rate: 0 }]);
+  const add = () =>
+    onChange([...items, { item_name: '', hsn: '', po_quantity: 0, quantity: 1, rate: 0 }]);
   const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
 
   return (
@@ -38,20 +48,27 @@ function LineItemsInput({
         <Label>Line Items *</Label>
         {lockDetails && (
           <span className="text-xs text-muted-foreground">
-            Item & rate auto-filled from PO · edit qty as needed
+            Item, HSN & rate auto-filled from PO · edit Invoice Qty as needed
           </span>
         )}
       </div>
+      {emptyFromPO && (
+        <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
+          This PO didn't return any line items from Zoho Books. Please enter them manually.
+        </div>
+      )}
       <div className="grid grid-cols-12 gap-2 px-1 text-xs font-medium text-muted-foreground">
-        <div className="col-span-6">Item description</div>
-        <div className="col-span-2">Qty</div>
-        <div className="col-span-3">Rate (₹)</div>
+        <div className="col-span-4">Item description</div>
+        <div className="col-span-2">HSN/SAC</div>
+        <div className="col-span-2">PO Qty</div>
+        <div className="col-span-2">Invoice Qty</div>
+        <div className="col-span-1">Rate (₹)</div>
         <div className="col-span-1" />
       </div>
       <div className="space-y-3">
         {items.map((item, i) => (
           <div key={i} className="grid grid-cols-12 gap-2">
-            <div className="col-span-6">
+            <div className="col-span-4">
               <Input
                 placeholder="Item description"
                 value={item.item_name}
@@ -62,14 +79,34 @@ function LineItemsInput({
             </div>
             <div className="col-span-2">
               <Input
+                placeholder="HSN"
+                value={item.hsn || ''}
+                onChange={(e) => update(i, 'hsn', e.target.value)}
+                readOnly={lockDetails}
+                disabled={lockDetails}
+              />
+            </div>
+            <div className="col-span-2">
+              <Input
                 type="number"
                 min="0"
-                placeholder="Qty"
+                placeholder="PO Qty"
+                value={item.po_quantity ?? ''}
+                onChange={(e) => update(i, 'po_quantity', parseFloat(e.target.value) || 0)}
+                readOnly={lockDetails}
+                disabled={lockDetails}
+              />
+            </div>
+            <div className="col-span-2">
+              <Input
+                type="number"
+                min="0"
+                placeholder="Invoice Qty"
                 value={item.quantity}
                 onChange={(e) => update(i, 'quantity', parseFloat(e.target.value) || 0)}
               />
             </div>
-            <div className="col-span-3">
+            <div className="col-span-1">
               <Input
                 type="number"
                 min="0"
@@ -209,12 +246,17 @@ export default function InvoiceUpload() {
     if (!po) return;
     if (Array.isArray(po.items) && po.items.length) {
       setLineItems(
-        po.items.map((it: any) => ({
-          item_name:
-            it.item_name || it.name || it.description || it.item_description || '',
-          quantity: Number(it.quantity ?? it.qty ?? 0) || 0,
-          rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) || 0,
-        })),
+        po.items.map((it: any) => {
+          const qty = Number(it.quantity ?? it.qty ?? 0) || 0;
+          return {
+            item_name:
+              it.item_name || it.name || it.description || it.item_description || '',
+            hsn: it.hsn || it.hsn_or_sac || it.hsn_sac || it.sac || '',
+            po_quantity: qty,
+            quantity: qty,
+            rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) || 0,
+          };
+        }),
       );
     }
     if (po.amount != null) setAmount(String(po.amount));
@@ -350,7 +392,18 @@ export default function InvoiceUpload() {
             </div>
 
             <div className="mt-6">
-              <LineItemsInput items={lineItems} onChange={setLineItems} lockDetails={!!selectedPO} />
+              {(() => {
+                const po = purchaseOrders.find((p: any) => p.id === selectedPO);
+                const poHasItems = !!po && Array.isArray(po.items) && po.items.length > 0;
+                return (
+                  <LineItemsInput
+                    items={lineItems}
+                    onChange={setLineItems}
+                    lockDetails={!!selectedPO && poHasItems}
+                    emptyFromPO={!!selectedPO && !poHasItems}
+                  />
+                );
+              })()}
             </div>
           </div>
 
