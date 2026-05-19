@@ -58,17 +58,17 @@ function LineItemsInput({
         </div>
       )}
       <div className="grid grid-cols-12 gap-2 px-1 text-xs font-medium text-muted-foreground">
-        <div className="col-span-4">Item description</div>
+        <div className="col-span-3">Item description</div>
         <div className="col-span-2">HSN/SAC</div>
         <div className="col-span-2">PO Qty</div>
         <div className="col-span-2">Invoice Qty</div>
-        <div className="col-span-1">Rate (₹)</div>
+        <div className="col-span-2">Rate (₹)</div>
         <div className="col-span-1" />
       </div>
       <div className="space-y-3">
         {items.map((item, i) => (
           <div key={i} className="grid grid-cols-12 gap-2">
-            <div className="col-span-4">
+            <div className="col-span-3">
               <Input
                 placeholder="Item description"
                 value={item.item_name}
@@ -82,8 +82,6 @@ function LineItemsInput({
                 placeholder="HSN"
                 value={item.hsn || ''}
                 onChange={(e) => update(i, 'hsn', e.target.value)}
-                readOnly={lockDetails}
-                disabled={lockDetails}
               />
             </div>
             <div className="col-span-2">
@@ -106,7 +104,7 @@ function LineItemsInput({
                 onChange={(e) => update(i, 'quantity', parseFloat(e.target.value) || 0)}
               />
             </div>
-            <div className="col-span-1">
+            <div className="col-span-2">
               <Input
                 type="number"
                 min="0"
