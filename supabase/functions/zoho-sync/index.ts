@@ -164,14 +164,19 @@ Deno.serve(async (req) => {
         const payR = await zoho("get_payments", vendorId);
         const pays = payR.payments || [];
         const payRows = pays.map((p: any) => {
-          const invId = p.invoiceNumber ? invByNumber.get(p.invoiceNumber) : null;
+          const invoiceNumber = p.invoiceNumber || p.invoice_number || p.billNumber || p.bill_number;
+          const paymentNumber = p.paymentNumber || p.payment_number || p.referenceNumber || p.reference_number || p.id || p.payment_id;
+          const invId = invoiceNumber ? invByNumber.get(invoiceNumber) : null;
           if (!invId) return null;
           return {
             invoice_id: invId,
-            amount: Number(p.amount || 0),
-            date: p.date || new Date().toISOString().slice(0, 10),
+            amount: Number(p.amount || p.payment_amount || p.paymentAmount || 0),
+            date: p.date || p.payment_date || p.paymentDate || new Date().toISOString().slice(0, 10),
             status: passthrough(p.status),
-            transaction_id: p.transactionId || p.paymentNumber || p.id,
+            transaction_id: p.transactionId || p.transaction_id || p.referenceNumber || p.reference_number || paymentNumber,
+            payment_number: paymentNumber,
+            payment_mode: p.paymentMode || p.payment_mode || p.mode || null,
+            account: p.account || p.paidThroughAccountName || p.paid_through_account_name || p.accountName || p.account_name || p.paidThrough || p.paid_through || null,
           };
         }).filter((r: any) => r && r.transaction_id);
 
