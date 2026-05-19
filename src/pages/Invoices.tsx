@@ -155,11 +155,11 @@ export default function Invoices() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="partially_paid">Partial Billed</SelectItem>
+                <SelectItem value="paid">Closed</SelectItem>
                 <SelectItem value="overdue">Overdue</SelectItem>
                 <SelectItem value="due_soon">Due Soon</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="partially_paid">Partial</SelectItem>
                 <SelectItem value="void">Void</SelectItem>
               </SelectContent>
             </Select>
