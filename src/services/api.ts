@@ -13,7 +13,65 @@ async function zohoProxy(operation: string, vendorId: string) {
   return res.json();
 }
 
-const mapDbPurchaseOrder = (p: any) => ({
+type SupplierRow = { id: string; company?: string | null; zoho_vendor_id?: string | null };
+
+const unique = (values: Array<string | null | undefined>) =>
+  Array.from(new Set(values.filter(Boolean) as string[]));
+
+const groupBy = <T extends Record<string, any>>(rows: T[], key: keyof T) =>
+  rows.reduce<Record<string, T[]>>((acc, row) => {
+    const value = row[key];
+    if (value) (acc[String(value)] ||= []).push(row);
+    return acc;
+  }, {});
+
+const indexById = <T extends { id: string }>(rows: T[]) =>
+  rows.reduce<Record<string, T>>((acc, row) => {
+    acc[row.id] = row;
+    return acc;
+  }, {});
+
+async function fetchSuppliersByIds(ids: string[]) {
+  if (!ids.length) return {} as Record<string, SupplierRow>;
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('id, company, zoho_vendor_id')
+    .in('id', ids);
+  if (error) throw error;
+  return indexById((data || []) as SupplierRow[]);
+}
+
+async function fetchPoItemsByPoIds(poIds: string[]) {
+  if (!poIds.length) return {} as Record<string, any[]>;
+  const { data, error } = await supabase
+    .from('po_items')
+    .select('id, po_id, description, quantity, unit_price, total')
+    .in('po_id', poIds);
+  if (error) throw error;
+  return groupBy(data || [], 'po_id');
+}
+
+async function fetchPurchaseOrdersByIds(poIds: string[]) {
+  if (!poIds.length) return {} as Record<string, any>;
+  const { data, error } = await supabase
+    .from('purchase_orders')
+    .select('id, zoho_id, po_number, supplier_id')
+    .in('id', poIds);
+  if (error) throw error;
+  return indexById(data || []);
+}
+
+async function fetchInvoicesByIds(invoiceIds: string[]) {
+  if (!invoiceIds.length) return {} as Record<string, any>;
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('id, zoho_id, invoice_number, supplier_id, po_id')
+    .in('id', invoiceIds);
+  if (error) throw error;
+  return indexById(data || []);
+}
+
+const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = []) => ({
   id: p.zoho_id || p.id,
   poNumber: p.po_number,
   date: p.date,
@@ -21,8 +79,8 @@ const mapDbPurchaseOrder = (p: any) => ({
   deliveryAddress: p.delivery_address,
   amount: Number(p.amount || 0),
   status: p.status,
-  supplierName: p.suppliers?.company,
-  items: (p.po_items || []).map((it: any) => ({
+  supplierName: supplier?.company,
+  items: poItems.map((it: any) => ({
     id: it.id,
     item_name: it.description,
     description: it.description,
@@ -33,29 +91,30 @@ const mapDbPurchaseOrder = (p: any) => ({
   })),
 });
 
-async function fetchSupplierIdByZohoVendorId(zohoVendorId: string) {
+async function fetchSupplierByZohoVendorId(zohoVendorId: string) {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError) throw authError;
   const { data, error } = await supabase
     .from('suppliers')
-    .select('id')
+    .select('id, company, zoho_vendor_id')
     .eq('user_id', authData.user?.id || '')
-    .eq('zoho_vendor_id', zohoVendorId)
+    .eq('zoho_vendor_id', zohoVendorId.trim())
     .maybeSingle();
   if (error) throw error;
-  return data?.id as string | undefined;
+  return data as SupplierRow | null;
 }
 
 async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string) {
-  const supplierId = await fetchSupplierIdByZohoVendorId(zohoVendorId);
-  if (!supplierId) return [];
+  const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
+  if (!supplier?.id) return [];
   const { data, error } = await supabase
     .from('purchase_orders')
-    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, suppliers(company), po_items(id, description, quantity, unit_price, total)')
-    .eq('supplier_id', supplierId)
+    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id')
+    .eq('supplier_id', supplier.id)
     .order('date', { ascending: false });
   if (error) throw error;
-  return (data || []).map(mapDbPurchaseOrder);
+  const itemsByPo = await fetchPoItemsByPoIds((data || []).map((p: any) => p.id));
+  return (data || []).map((p: any) => mapDbPurchaseOrder(p, supplier, itemsByPo[p.id] || []));
 }
 
 export async function fetchPurchaseOrders(zohoVendorId: string) {
@@ -72,37 +131,42 @@ export async function fetchPurchaseOrders(zohoVendorId: string) {
 export async function fetchPurchaseOrdersFromDb() {
   const { data, error } = await supabase
     .from('purchase_orders')
-    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, suppliers(company), po_items(id, description, quantity, unit_price, total)')
+    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id')
     .order('date', { ascending: false });
   if (error) throw error;
-  return (data || []).map(mapDbPurchaseOrder);
+  const [suppliersById, itemsByPo] = await Promise.all([
+    fetchSuppliersByIds(unique((data || []).map((p: any) => p.supplier_id))),
+    fetchPoItemsByPoIds((data || []).map((p: any) => p.id)),
+  ]);
+  return (data || []).map((p: any) => mapDbPurchaseOrder(p, suppliersById[p.supplier_id], itemsByPo[p.id] || []));
 }
 
 async function fetchInvoicesFromDbByVendor(zohoVendorId: string) {
-  const supplierId = await fetchSupplierIdByZohoVendorId(zohoVendorId);
-  if (!supplierId) return [];
+  const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
+  if (!supplier?.id) return [];
   const { data, error } = await supabase
     .from('invoices')
-    .select('id, zoho_id, invoice_number, date, due_date, payment_date, amount, balance, has_attachment, attachment_name, status, po_id, supplier_id, suppliers(company, zoho_vendor_id), purchase_orders(po_number)')
-    .eq('supplier_id', supplierId)
+    .select('id, zoho_id, invoice_number, date, due_date, payment_date, amount, balance, has_attachment, attachment_name, status, po_id, supplier_id')
+    .eq('supplier_id', supplier.id)
     .order('date', { ascending: false });
   if (error) throw error;
-  return (data || []).map(mapDbInvoice);
+  const purchaseOrdersById = await fetchPurchaseOrdersByIds(unique((data || []).map((i: any) => i.po_id)));
+  return (data || []).map((i: any) => mapDbInvoice(i, supplier, purchaseOrdersById[i.po_id]));
 }
 
-const mapDbInvoice = (i: any) => ({
+const mapDbInvoice = (i: any, supplier?: SupplierRow, purchaseOrder?: any) => ({
   id: i.zoho_id || i.id,
   invoiceNumber: i.invoice_number,
-  poId: i.purchase_orders?.po_number || i.po_id,
-  poNumber: i.purchase_orders?.po_number || '',
+  poId: purchaseOrder?.po_number || i.po_id,
+  poNumber: purchaseOrder?.po_number || '',
   date: i.date,
   dueDate: i.due_date,
   paymentDate: i.payment_date,
   amount: Number(i.amount || 0),
   balance: i.status === 'paid' ? 0 : Number(i.balance ?? i.amount ?? 0),
   status: i.status,
-  supplierName: i.suppliers?.company,
-  supplierZohoVendorId: i.suppliers?.zoho_vendor_id,
+  supplierName: supplier?.company,
+  supplierZohoVendorId: supplier?.zoho_vendor_id,
   hasAttachment: Boolean(i.has_attachment),
   attachmentName: i.attachment_name,
 });
@@ -110,45 +174,71 @@ const mapDbInvoice = (i: any) => ({
 export async function fetchInvoicesFromDb() {
   const { data, error } = await supabase
     .from('invoices')
-    .select('id, zoho_id, invoice_number, date, due_date, payment_date, amount, balance, has_attachment, attachment_name, status, po_id, supplier_id, suppliers(company, zoho_vendor_id), purchase_orders(po_number)')
+    .select('id, zoho_id, invoice_number, date, due_date, payment_date, amount, balance, has_attachment, attachment_name, status, po_id, supplier_id')
     .order('date', { ascending: false });
   if (error) throw error;
-  return (data || []).map(mapDbInvoice);
+  const [suppliersById, purchaseOrdersById] = await Promise.all([
+    fetchSuppliersByIds(unique((data || []).map((i: any) => i.supplier_id))),
+    fetchPurchaseOrdersByIds(unique((data || []).map((i: any) => i.po_id))),
+  ]);
+  return (data || []).map((i: any) => mapDbInvoice(i, suppliersById[i.supplier_id], purchaseOrdersById[i.po_id]));
 }
 
 export async function fetchPaymentsFromDb() {
   const { data, error } = await supabase
     .from('payments')
-    .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id, invoices(invoice_number, suppliers(company), purchase_orders(po_number))')
+    .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id')
     .order('date', { ascending: false });
   if (error) throw error;
-  return (data || []).map(mapDbPayment);
+  return mapDbPayments(data || []);
 }
 
-const mapDbPayment = (p: any) => ({
+const mapDbPayment = (p: any, invoice?: any, supplier?: SupplierRow, purchaseOrder?: any) => ({
   id: p.id,
   paymentNumber: p.payment_number || p.transaction_id || p.id?.slice(0, 8),
-  poNumber: p.invoices?.purchase_orders?.po_number || '-',
-  invoiceNumber: p.invoices?.invoice_number || '-',
+  poNumber: purchaseOrder?.po_number || '-',
+  invoiceNumber: invoice?.invoice_number || '-',
   date: p.date,
   amount: Number(p.amount || 0),
   paymentMode: p.payment_mode || '-',
   account: p.account || '-',
   status: p.status,
   transactionId: p.transaction_id,
-  supplierName: p.invoices?.suppliers?.company,
+  supplierName: supplier?.company,
 });
 
+async function mapDbPayments(payments: any[], knownInvoices?: any[]) {
+  const invoicesById = knownInvoices
+    ? indexById(knownInvoices)
+    : await fetchInvoicesByIds(unique(payments.map((p: any) => p.invoice_id)));
+  const invoices = Object.values(invoicesById);
+  const [suppliersById, purchaseOrdersById] = await Promise.all([
+    fetchSuppliersByIds(unique(invoices.map((i: any) => i.supplier_id))),
+    fetchPurchaseOrdersByIds(unique(invoices.map((i: any) => i.po_id))),
+  ]);
+  return payments.map((p: any) => {
+    const invoice = invoicesById[p.invoice_id];
+    return mapDbPayment(p, invoice, suppliersById[invoice?.supplier_id], purchaseOrdersById[invoice?.po_id]);
+  });
+}
+
 async function fetchPaymentsFromDbByVendor(zohoVendorId: string) {
-  const supplierId = await fetchSupplierIdByZohoVendorId(zohoVendorId);
-  if (!supplierId) return [];
+  const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
+  if (!supplier?.id) return [];
+  const { data: invoices, error: invoiceError } = await supabase
+    .from('invoices')
+    .select('id, zoho_id, invoice_number, supplier_id, po_id')
+    .eq('supplier_id', supplier.id);
+  if (invoiceError) throw invoiceError;
+  const invoiceIds = (invoices || []).map((i: any) => i.id);
+  if (!invoiceIds.length) return [];
   const { data, error } = await supabase
     .from('payments')
-    .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id, invoices!inner(invoice_number, supplier_id, suppliers(company), purchase_orders(po_number))')
-    .eq('invoices.supplier_id', supplierId)
+    .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id')
+    .in('invoice_id', invoiceIds)
     .order('date', { ascending: false });
   if (error) throw error;
-  return (data || []).map(mapDbPayment);
+  return mapDbPayments(data || [], invoices || []);
 }
 
 export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, poNumber?: string) {
