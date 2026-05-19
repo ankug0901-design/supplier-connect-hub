@@ -124,10 +124,11 @@ export default function PurchaseOrders() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="invoiced">Invoiced</SelectItem>
-                <SelectItem value="partial">Partial</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                {availableStatuses.map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">
+                    {s.replace(/_/g, ' ')}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
