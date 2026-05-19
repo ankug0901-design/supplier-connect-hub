@@ -31,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const profileUserIdRef = useRef<string | null>(null);
+  const initialSessionResolvedRef = useRef(false);
 
   async function fetchSupplierProfile(userId: string) {
     const { data, error } = await supabase
@@ -44,6 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const profile = data as typeof data & { role?: string | null };
+
     setSupplier({
       id: data.id,
       name: data.name,
@@ -54,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       address: data.address || '',
       zoho_vendor_id: data.zoho_vendor_id || '',
     });
-    setIsAdmin((data as any).role === 'admin');
+    setIsAdmin(profile.role === 'admin');
   }
 
   useEffect(() => {
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!session?.user) {
         profileUserIdRef.current = null;
+        initialSessionResolvedRef.current = true;
         setSupplier(null);
         setIsAdmin(false);
         setIsLoading(false);
@@ -74,13 +78,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const userId = session.user.id;
       if (forceProfile || profileUserIdRef.current !== userId) {
-        const isInitialProfileLoad = !user || profileUserIdRef.current !== userId;
-        if (isInitialProfileLoad) setIsLoading(true);
+        if (!initialSessionResolvedRef.current) setIsLoading(true);
         await fetchSupplierProfile(userId);
         profileUserIdRef.current = userId;
       }
 
-      if (!cancelled) setIsLoading(false);
+      if (!cancelled) {
+        initialSessionResolvedRef.current = true;
+        setIsLoading(false);
+      }
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
