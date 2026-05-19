@@ -44,6 +44,29 @@ function loadPdfJs(): Promise<any> {
   });
 }
 
+/** Robustly decode base64 (handles data URI prefix, URL-safe chars, missing padding, whitespace). */
+function base64ToBytes(input: string): Uint8Array {
+  let s = String(input || '');
+  // Strip data URI prefix like "data:application/pdf;base64,"
+  const comma = s.indexOf(',');
+  if (s.startsWith('data:') && comma !== -1) s = s.slice(comma + 1);
+  // Remove all whitespace
+  s = s.replace(/\s+/g, '');
+  // URL-safe → standard
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  // Drop any chars outside the base64 alphabet
+  s = s.replace(/[^A-Za-z0-9+/=]/g, '');
+  // Pad to multiple of 4
+  const pad = s.length % 4;
+  if (pad === 2) s += '==';
+  else if (pad === 3) s += '=';
+  else if (pad === 1) s = s.slice(0, -1); // malformed trailing char
+  const binary = atob(s);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 export function PdfViewer({ base64Data, filename, title = 'Document', onClose }: PdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
@@ -57,13 +80,8 @@ export function PdfViewer({ base64Data, filename, title = 'Document', onClose }:
     (async () => {
       try {
         const pdfjsLib = await loadPdfJs();
-        // Ensure worker is configured before any getDocument call
         pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-        // CRITICAL: strip all whitespace before atob — base64 from API may have newlines
-        const cleanBase64 = base64Data.replace(/\s/g, '');
-        const binary = atob(cleanBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const bytes = base64ToBytes(base64Data);
         const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
         if (cancelled) return;
         setPdfDoc(doc);
@@ -105,9 +123,8 @@ export function PdfViewer({ base64Data, filename, title = 'Document', onClose }:
   }, [pdfDoc, currentPage]);
 
   const handleDownload = () => {
-    const cleanBase64 = base64Data.replace(/\s/g, '');
-    const bytes = Uint8Array.from(atob(cleanBase64), (c) => c.charCodeAt(0));
-    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const bytes = base64ToBytes(base64Data);
+    const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
