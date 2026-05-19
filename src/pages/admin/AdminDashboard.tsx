@@ -418,9 +418,9 @@ export default function AdminDashboard() {
   );
 }
 
-function KpiCard({ label, value, hint, icon, accent, iconClass }: { label: string; value: string; hint?: string; icon: React.ReactNode; accent: string; iconClass: string }) {
-  return (
-    <Card className="relative overflow-hidden">
+function KpiCard({ to, label, value, hint, icon, accent, iconClass }: { to?: string; label: string; value: string; hint?: string; icon: React.ReactNode; accent: string; iconClass: string }) {
+  const card = (
+    <Card className={`relative overflow-hidden ${to ? 'cursor-pointer transition-all hover:shadow-md hover:border-primary/40' : ''}`}>
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accent}`} />
       <CardContent className="relative p-5">
         <div className="flex items-start justify-between">
@@ -434,16 +434,17 @@ function KpiCard({ label, value, hint, icon, accent, iconClass }: { label: strin
       </CardContent>
     </Card>
   );
+  return to ? <Link to={to}>{card}</Link> : card;
 }
 
-function MiniStat({ label, value, icon, tone }: { label: string; value: number; icon: React.ReactNode; tone?: 'orange' | 'blue' | 'green' }) {
+function MiniStat({ to, label, value, icon, tone }: { to?: string; label: string; value: number; icon: React.ReactNode; tone?: 'orange' | 'blue' | 'green' }) {
   const toneClass =
     tone === 'orange' ? 'text-orange-600 bg-orange-500/10' :
     tone === 'blue' ? 'text-blue-600 bg-blue-500/10' :
     tone === 'green' ? 'text-green-600 bg-green-500/10' :
     'text-primary bg-primary/10';
-  return (
-    <Card>
+  const card = (
+    <Card className={to ? 'cursor-pointer transition-all hover:shadow-md hover:border-primary/40' : ''}>
       <CardContent className="flex items-center gap-3 p-4">
         <div className={`rounded-md p-2 ${toneClass}`}>{icon}</div>
         <div className="min-w-0">
@@ -453,6 +454,7 @@ function MiniStat({ label, value, icon, tone }: { label: string; value: number; 
       </CardContent>
     </Card>
   );
+  return to ? <Link to={to}>{card}</Link> : card;
 }
 
 function StatusPill({ status }: { status?: string }) {
