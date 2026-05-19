@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders, submitInvoice } from '@/services/api';
+import { fetchPurchaseOrders, submitInvoice, fetchInvoicedQuantitiesForPo } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -17,6 +17,7 @@ type LineItem = {
   item_name: string;
   hsn?: string;
   po_quantity?: number;
+  invoiced_quantity?: number;
   quantity: number;
   rate: number;
   selected?: boolean;
