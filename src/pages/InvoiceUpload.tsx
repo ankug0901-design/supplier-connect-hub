@@ -220,6 +220,7 @@ export default function InvoiceUpload() {
   ]);
   const [amountTouched, setAmountTouched] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isLoadingPOs, setIsLoadingPOs] = useState(false);
 
   const extractFromInvoiceFile = async (file: File) => {
     setIsExtracting(true);
