@@ -105,14 +105,13 @@ export default function InvoiceUpload() {
   ]);
   const [isExtracting, setIsExtracting] = useState(false);
 
-  const extractFromInvoice = async () => {
-    if (!invoiceFile) return;
+  const extractFromInvoiceFile = async (file: File) => {
     setIsExtracting(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       const form = new FormData();
-      form.append('file', invoiceFile);
+      form.append('file', file);
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invoice-ocr`,
         {
@@ -160,6 +159,11 @@ export default function InvoiceUpload() {
     }
   };
 
+  const extractFromInvoice = async () => {
+    if (!invoiceFile) return;
+    await extractFromInvoiceFile(invoiceFile);
+  };
+
   useEffect(() => {
     if (!supplier?.zoho_vendor_id) return;
     let cancelled = false;
@@ -178,7 +182,9 @@ export default function InvoiceUpload() {
 
   const handleInvoiceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setInvoiceFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setInvoiceFile(file);
+      void extractFromInvoiceFile(file);
     }
   };
 

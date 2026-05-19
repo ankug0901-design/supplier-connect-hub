@@ -1,8 +1,15 @@
 import { Link } from 'react-router-dom';
-import { Upload, Truck, Download, FileText } from 'lucide-react';
+import { Upload, Truck, FileText, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const actions = [
+  {
+    title: 'Scan Invoice with AI',
+    description: 'Auto-extract fields from PDF',
+    icon: Sparkles,
+    href: '/invoices/upload?ocr=1',
+    color: 'bg-accent/10 text-accent hover:bg-accent/20',
+  },
   {
     title: 'Upload Invoice',
     description: 'Submit invoice against PO',
@@ -15,13 +22,6 @@ const actions = [
     description: 'Create delivery challans',
     icon: Truck,
     href: '/delivery-challan',
-    color: 'bg-accent/10 text-accent hover:bg-accent/20',
-  },
-  {
-    title: 'Download AWB',
-    description: 'Get shipment tracking',
-    icon: Download,
-    href: '/awb',
     color: 'bg-success/10 text-success hover:bg-success/20',
   },
   {
