@@ -152,7 +152,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       closing_date: format(closingDate, 'yyyy-MM-dd'),
       closing_time: closingTime,
       response_deadline: format(closingDate, 'yyyy-MM-dd'),
-      suppliers: validSuppliers,
+      suppliers: validSuppliers.map((s) => ({ name: s.company, email: s.email })),
+      submitted_by: submittedByName,
       submitted_by_name: submittedByName,
       submitted_by_email: submittedByEmail,
     };
