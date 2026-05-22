@@ -173,16 +173,21 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
         throw new Error(`Network error reaching RFQ service: ${networkErr?.message || 'unknown'}`);
       }
       const bodyText = await res.text().catch(() => '');
-      if (!res.ok) {
+      let parsed: any = null;
+      try { parsed = bodyText ? JSON.parse(bodyText) : null; } catch { /* non-JSON */ }
+      const isSuccess = res.ok && (parsed?.success === true || parsed?.success === 'true' || (parsed && parsed.success === undefined));
+      if (!isSuccess) {
+        const errMsg = parsed?.error || parsed?.message || bodyText || `HTTP ${res.status}`;
         console.error('RFQ submit failed', res.status, bodyText);
-        throw new Error(`RFQ service responded ${res.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ''}`);
+        throw new Error(typeof errMsg === 'string' ? errMsg.slice(0, 300) : `HTTP ${res.status}`);
       }
-      toast.success('RFQ submitted successfully — suppliers will be notified shortly');
-      reset();
+      toast.success('RFQ submitted — suppliers will be notified ✅');
       onOpenChange(false);
-      onSuccess?.();
+      reset();
+      setTimeout(() => { onSuccess?.(); }, 3000);
     } catch (e: any) {
       toast.error(`Failed to submit RFQ: ${e.message || 'Unknown error'}`);
+      // keep form open and preserve fields on error
     } finally {
       setSubmitting(false);
     }
