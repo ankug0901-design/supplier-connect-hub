@@ -159,12 +159,23 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
 
     setSubmitting(true);
     try {
-      const res = await fetch(N8N_CREATE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let res: Response;
+      try {
+        res = await fetch(N8N_CREATE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          mode: 'cors',
+        });
+      } catch (networkErr: any) {
+        console.error('RFQ submit network error:', networkErr);
+        throw new Error(`Network error reaching RFQ service: ${networkErr?.message || 'unknown'}`);
+      }
+      const bodyText = await res.text().catch(() => '');
+      if (!res.ok) {
+        console.error('RFQ submit failed', res.status, bodyText);
+        throw new Error(`RFQ service responded ${res.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ''}`);
+      }
       toast.success('RFQ submitted successfully — suppliers will be notified shortly');
       reset();
       onOpenChange(false);
