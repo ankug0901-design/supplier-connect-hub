@@ -102,15 +102,20 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     if (!open) return;
     setSubmittedByName(supplier?.name || user?.user_metadata?.name || '');
     setSubmittedByEmail(supplier?.email || user?.email || '');
-    // Load supplier directory for the dropdown
+    // Load supplier directory for the dropdown (only when drawer opens)
+    let cancelled = false;
     (async () => {
       const { data, error } = await supabase
         .from('suppliers')
         .select('id, company, name, email')
         .order('company', { ascending: true });
-      if (!error && data) setDirectory(data as DirectorySupplier[]);
+      if (!cancelled && !error && data) setDirectory(data as DirectorySupplier[]);
     })();
-  }, [open, supplier, user]);
+    return () => { cancelled = true; };
+    // Intentionally exclude supplier/user — they change reference on every auth
+    // token refresh and would cause the form to re-fetch and reset repeatedly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const reset = () => {
     setClientCompany(''); setClientContact(''); setClientEmail(''); setRequiredBy(undefined); setClientBudget('');
