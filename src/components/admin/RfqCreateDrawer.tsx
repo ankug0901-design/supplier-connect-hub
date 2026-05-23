@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Loader2, Plus, Trash2, Zap } from 'lucide-react';
+import { CalendarIcon, Loader2, Plus, Trash2, Zap, Paperclip, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const N8N_CREATE = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-automation-form';
 
@@ -20,24 +21,49 @@ const PRODUCT_CATEGORIES = [
   'Offset Printing', 'Flexographic Printing', 'Digital Printing', 'Screen Printing',
   'Corrugated Packaging', 'Rigid Box / Gift Box', 'Mono Carton / Folding Carton',
   'Flexible Packaging', 'Labels & Stickers', 'POS Display Stand',
-  'Wobbler / Shelf Talker', 'Standee / Banner', 'Brochure / Catalogue', 'Other',
+  'Wobbler / Shelf Talker', 'Standee / Banner', 'Brochure / Catalogue',
+  'CTU', 'Parasite', 'Category Branding', 'Power Wing', 'End cap branding',
+  'Bay Breaker', 'Window Kit', 'Shelf Strips', 'Shelf Talker', 'Clip-on',
+  'Other',
 ];
 const MATERIALS = [
   'Art Paper', 'Kraft Paper', 'Duplex Board', 'Corrugated (3-ply)', 'Corrugated (5-ply)',
   'SBS Board', 'BOPP', 'PVC', 'Vinyl', 'Fabric/Non-woven', 'Foam Board/Sunboard',
-  'Acrylic', 'Not sure / Supplier to suggest',
+  'Acrylic', 'Metal', 'Wood', 'Plastic', 'Combination of material', 'As per specs',
+  'Not sure / Supplier to suggest',
 ];
 const PRINT_PROCESSES = ['Offset CMYK', 'Offset Pantone', 'Digital', 'Flexo', 'Screen Print', 'UV Print', 'Other'];
-const FINISHES = ['Gloss Lamination', 'Matte Lamination', 'Soft Touch', 'UV Spot', 'Foil Stamping', 'None', 'Combination'];
+const FINISHES = [
+  'Gloss Lamination', 'Matte Lamination', 'Soft Touch', 'UV Spot', 'Foil Stamping',
+  'Powder coating', 'Duco Paint', 'PU Paint', 'UV reverse Printing', 'Other as specified',
+  'None', 'Combination',
+];
 const ARTWORK_STATUSES = ['Final artwork ready', 'Draft artwork attached', 'Artwork in progress', 'No artwork'];
 
-type Supplier = { company: string; email: string };
+const MANUAL_SUPPLIER = '__manual__';
+const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB cap for base64 payload
+
+type Supplier = { company: string; email: string; selectedId?: string };
+type DirectorySupplier = { id: string; company: string; name: string; email: string };
+type Attachment = { name: string; type: string; size: number; data: string };
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
 }
+
+const fileToBase64 = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 
 export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const { user, supplier } = useAuth();
@@ -65,15 +91,25 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const [closingTime, setClosingTime] = useState('17:00');
   // Suppliers
   const [suppliers, setSuppliers] = useState<Supplier[]>([{ company: '', email: '' }]);
+  const [directory, setDirectory] = useState<DirectorySupplier[]>([]);
+  // Attachments
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   // Submitted by
   const [submittedByName, setSubmittedByName] = useState('');
   const [submittedByEmail, setSubmittedByEmail] = useState('');
 
   useEffect(() => {
-    if (open) {
-      setSubmittedByName(supplier?.name || user?.user_metadata?.name || '');
-      setSubmittedByEmail(supplier?.email || user?.email || '');
-    }
+    if (!open) return;
+    setSubmittedByName(supplier?.name || user?.user_metadata?.name || '');
+    setSubmittedByEmail(supplier?.email || user?.email || '');
+    // Load supplier directory for the dropdown
+    (async () => {
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('id, company, name, email')
+        .order('company', { ascending: true });
+      if (!error && data) setDirectory(data as DirectorySupplier[]);
+    })();
   }, [open, supplier, user]);
 
   const reset = () => {
@@ -82,6 +118,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     setPrintProcess(''); setFinish(''); setColours(''); setArtworkStatus(''); setExtraSpecs('');
     setClosingDate(undefined); setClosingTime('17:00');
     setSuppliers([{ company: '', email: '' }]);
+    setAttachments([]);
   };
 
   const isUrgent = (() => {
@@ -105,6 +142,35 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     if (i === 0) return;
     setSuppliers((s) => s.filter((_, idx) => idx !== i));
   };
+  const pickDirectorySupplier = (i: number, value: string) => {
+    if (value === MANUAL_SUPPLIER) {
+      updateSupplier(i, { selectedId: MANUAL_SUPPLIER, company: '', email: '' });
+      return;
+    }
+    const found = directory.find((d) => d.id === value);
+    if (found) {
+      updateSupplier(i, { selectedId: found.id, company: found.company || found.name, email: found.email });
+    }
+  };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const accepted: Attachment[] = [];
+    for (const file of Array.from(files)) {
+      if (file.size > MAX_FILE_BYTES) {
+        toast.error(`${file.name} exceeds 8 MB limit`);
+        continue;
+      }
+      try {
+        const data = await fileToBase64(file);
+        accepted.push({ name: file.name, type: file.type || 'application/octet-stream', size: file.size, data });
+      } catch {
+        toast.error(`Failed to read ${file.name}`);
+      }
+    }
+    if (accepted.length) setAttachments((prev) => [...prev, ...accepted]);
+  };
+  const removeAttachment = (i: number) => setAttachments((prev) => prev.filter((_, idx) => idx !== i));
 
   const submit = async () => {
     // Required validation
@@ -153,6 +219,12 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       closing_time: closingTime,
       response_deadline: format(closingDate, 'yyyy-MM-dd'),
       suppliers: validSuppliers.map((s) => ({ name: s.company, email: s.email })),
+      attachments: attachments.map((a) => ({
+        filename: a.name,
+        mime_type: a.type,
+        size: a.size,
+        content_base64: a.data,
+      })),
       submitted_by: submittedByName,
       submitted_by_name: submittedByName,
       submitted_by_email: submittedByEmail,
@@ -187,7 +259,6 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       setTimeout(() => { onSuccess?.(); }, 3000);
     } catch (e: any) {
       toast.error(`Failed to submit RFQ: ${e.message || 'Unknown error'}`);
-      // keep form open and preserve fields on error
     } finally {
       setSubmitting(false);
     }
@@ -297,6 +368,34 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
                 <Label>Additional Specifications</Label>
                 <Textarea value={extraSpecs} onChange={(e) => setExtraSpecs(e.target.value)} rows={3} />
               </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Attachments</Label>
+                <div className="flex items-center gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent">
+                    <Paperclip className="h-4 w-4" />
+                    <span>Choose files</span>
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
+                    />
+                  </label>
+                  <span className="text-xs text-muted-foreground">Max 8 MB per file</span>
+                </div>
+                {attachments.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {attachments.map((a, i) => (
+                      <li key={i} className="flex items-center justify-between rounded border px-2 py-1 text-sm">
+                        <span className="truncate">{a.name} <span className="text-xs text-muted-foreground">({Math.round(a.size / 1024)} KB)</span></span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAttachment(i)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </section>
 
@@ -336,14 +435,49 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Suppliers ({suppliers.length}/10)</h3>
             </div>
-            <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Pick from registered suppliers — or choose "Enter manually" to add an unregistered one.
+            </p>
+            <div className="space-y-3">
               {suppliers.map((s, i) => (
-                <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                  <Input placeholder={`Supplier ${i + 1} company${i === 0 ? ' *' : ''}`} value={s.company} onChange={(e) => updateSupplier(i, { company: e.target.value })} />
-                  <Input type="email" placeholder="Email" value={s.email} onChange={(e) => updateSupplier(i, { email: e.target.value })} />
-                  {i > 0 ? (
-                    <Button variant="ghost" size="icon" onClick={() => removeSupplier(i)}><Trash2 className="h-4 w-4" /></Button>
-                  ) : <div />}
+                <div key={i} className="space-y-2 rounded-md border p-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Supplier {i + 1}{i === 0 ? ' *' : ''}</Label>
+                    {i > 0 && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeSupplier(i)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <Select
+                    value={s.selectedId || ''}
+                    onValueChange={(v) => pickDirectorySupplier(i, v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select registered supplier or enter manually" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={MANUAL_SUPPLIER}>✎ Enter manually</SelectItem>
+                      {directory.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.company || d.name} — {d.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Input
+                      placeholder="Company"
+                      value={s.company}
+                      onChange={(e) => updateSupplier(i, { company: e.target.value, selectedId: MANUAL_SUPPLIER })}
+                    />
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      value={s.email}
+                      onChange={(e) => updateSupplier(i, { email: e.target.value, selectedId: MANUAL_SUPPLIER })}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
