@@ -53,8 +53,32 @@ Deno.serve(async (req) => {
 
   try {
     const expected = Deno.env.get("N8N_ACCESS_CODE");
-    const provided = req.headers.get("x-n8n-key");
-    if (!expected || provided !== expected) {
+    // Accept several header name variants N8N might send
+    const provided =
+      req.headers.get("x-n8n-key") ??
+      req.headers.get("x_n8n_key") ??
+      req.headers.get("X-N8N-Key") ??
+      "";
+    // Trim whitespace + strip surrounding quotes (common N8N expression mistake)
+    const cleaned = provided.trim().replace(/^["']|["']$/g, "");
+
+    if (!expected || cleaned !== expected) {
+      // Diagnostic logging — does NOT leak secret values
+      const allHeaders: Record<string, string> = {};
+      req.headers.forEach((v, k) => {
+        allHeaders[k] = k.toLowerCase().includes("key") || k.toLowerCase().includes("auth")
+          ? `len=${v.length}`
+          : v;
+      });
+      console.log("AUTH FAIL", JSON.stringify({
+        provided_len: provided.length,
+        cleaned_len: cleaned.length,
+        expected_len: expected?.length ?? 0,
+        first2: cleaned.slice(0, 2),
+        last2: cleaned.slice(-2),
+        match_after_clean: cleaned === expected,
+        headers: allHeaders,
+      }));
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
