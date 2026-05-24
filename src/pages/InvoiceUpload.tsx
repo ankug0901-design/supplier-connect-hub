@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, X, CheckCircle, Plus, Trash2, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, X, CheckCircle, Plus, Trash2, Sparkles, Loader2, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, submitInvoice, fetchInvoicedQuantitiesForPo } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
@@ -46,12 +51,23 @@ function LineItemsInput({
     onChange(u);
   };
   const add = () =>
-    onChange([...items, { item_name: '', hsn: '', po_quantity: 0, quantity: 1, rate: 0, actual_delivery_date: '', selected: true }]);
+    onChange([
+      ...items,
+      { item_name: '', hsn: '', po_quantity: 0, quantity: 1, rate: 0, actual_delivery_date: '', selected: true },
+    ]);
   const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
 
   const allSelected = items.length > 0 && items.every((it) => it.selected !== false);
   const toggleAll = (checked: boolean) =>
     onChange(items.map((it) => ({ ...it, selected: checked })));
+
+  const computeVariance = (actualISO?: string) => {
+    if (!actualISO || !expectedDelivery) return null;
+    const actual = new Date(actualISO);
+    const expected = new Date(expectedDelivery);
+    if (isNaN(actual.getTime()) || isNaN(expected.getTime())) return null;
+    return Math.round((actual.getTime() - expected.getTime()) / (1000 * 60 * 60 * 24));
+  };
 
   return (
     <div className="space-y-3">
@@ -68,167 +84,211 @@ function LineItemsInput({
           This PO didn't return any line items from Zoho Books. Please enter them manually.
         </div>
       )}
-      <div className="grid grid-cols-[2rem_repeat(15,minmax(0,1fr))] gap-2 px-1 text-xs font-medium text-muted-foreground">
-        <div className="col-span-1 flex items-center">
-          <Checkbox
-            checked={allSelected}
-            onCheckedChange={(v) => toggleAll(!!v)}
-            aria-label="Select all line items"
-          />
-        </div>
-        <div className="col-span-3">Item description</div>
-        <div className="col-span-2">HSN/SAC</div>
-        <div className="col-span-1">PO Qty</div>
-        <div className="col-span-2">Already Invoiced</div>
-        <div className="col-span-1">Invoice Qty</div>
-        <div className="col-span-2">Rate (₹)</div>
-        <div className="col-span-2">Actual Delivery Date</div>
-        <div className="col-span-2">Variance</div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table className="min-w-[1100px]">
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="w-10 px-2">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={(v) => toggleAll(!!v)}
+                  aria-label="Select all line items"
+                />
+              </TableHead>
+              <TableHead className="min-w-[220px]">Item description</TableHead>
+              <TableHead className="w-28">HSN/SAC</TableHead>
+              <TableHead className="w-20 text-right">PO Qty</TableHead>
+              <TableHead className="w-24 text-right">Already Invoiced</TableHead>
+              <TableHead className="w-24 text-right">Invoice Qty</TableHead>
+              <TableHead className="w-28 text-right">Rate (₹)</TableHead>
+              <TableHead className="w-44">Actual Delivery Date</TableHead>
+              <TableHead className="w-24">Variance</TableHead>
+              {!lockDetails && <TableHead className="w-10" />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item, i) => {
+              const poQty = Number(item.po_quantity || 0);
+              const invoicedQty = Number(item.invoiced_quantity || 0);
+              const remaining = Math.max(poQty - invoicedQty, 0);
+              const fullyInvoiced = poQty > 0 && remaining <= 0;
+              const isSelected = item.selected !== false && !fullyInvoiced;
+              const variance = computeVariance(item.actual_delivery_date);
+              const actualDate = item.actual_delivery_date ? new Date(item.actual_delivery_date) : undefined;
+
+              return (
+                <TableRow key={i} className={cn(fullyInvoiced && 'opacity-60')}>
+                  <TableCell className="px-2 py-3">
+                    <Checkbox
+                      checked={isSelected}
+                      disabled={fullyInvoiced}
+                      onCheckedChange={(v) => update(i, 'selected', !!v)}
+                      aria-label={`Select line ${i + 1}`}
+                    />
+                  </TableCell>
+                  <TableCell className="py-3">
+                    {lockDetails ? (
+                      <div className="text-sm font-medium">{item.item_name || '—'}</div>
+                    ) : (
+                      <Input
+                        placeholder="Item description"
+                        value={item.item_name}
+                        onChange={(e) => update(i, 'item_name', e.target.value)}
+                        disabled={!isSelected}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell className="py-3">
+                    {lockDetails ? (
+                      <div className="text-sm text-muted-foreground">{item.hsn || '—'}</div>
+                    ) : (
+                      <Input
+                        placeholder="HSN"
+                        value={item.hsn || ''}
+                        onChange={(e) => update(i, 'hsn', e.target.value)}
+                        disabled={!isSelected}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell className="py-3 text-right">
+                    {lockDetails ? (
+                      <div className="text-sm font-medium">{poQty || 0}</div>
+                    ) : (
+                      <Input
+                        type="number"
+                        min="0"
+                        className="text-right"
+                        placeholder="0"
+                        value={item.po_quantity ?? ''}
+                        onChange={(e) => update(i, 'po_quantity', parseFloat(e.target.value) || 0)}
+                        disabled={!isSelected}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell className="py-3 text-right text-sm text-muted-foreground">
+                    {invoicedQty}
+                  </TableCell>
+                  <TableCell className="py-3">
+                    <Input
+                      type="number"
+                      min="0"
+                      max={poQty > 0 ? remaining : undefined}
+                      className="text-right"
+                      placeholder={fullyInvoiced ? '—' : '0'}
+                      value={fullyInvoiced ? 0 : item.quantity}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value) || 0;
+                        const capped = poQty > 0 ? Math.min(v, remaining) : v;
+                        update(i, 'quantity', capped);
+                      }}
+                      disabled={!isSelected || fullyInvoiced}
+                    />
+                  </TableCell>
+                  <TableCell className="py-3">
+                    {lockDetails ? (
+                      <div className="text-right text-sm">{Number(item.rate || 0).toFixed(2)}</div>
+                    ) : (
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="text-right"
+                        placeholder="0.00"
+                        value={item.rate}
+                        onChange={(e) => update(i, 'rate', parseFloat(e.target.value) || 0)}
+                        disabled={!isSelected}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell className="py-3">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={!isSelected}
+                          className={cn(
+                            'w-full justify-start gap-2 font-normal',
+                            !actualDate && 'text-muted-foreground',
+                          )}
+                        >
+                          <CalendarIcon className="h-4 w-4 shrink-0" />
+                          {actualDate ? format(actualDate, 'dd MMM yyyy') : 'Pick date'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={actualDate}
+                          onSelect={(d) =>
+                            update(i, 'actual_delivery_date', d ? format(d, 'yyyy-MM-dd') : '')
+                          }
+                          disabled={(d) => d > new Date()}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </TableCell>
+                  <TableCell className="py-3">
+                    {variance === null ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : variance <= 0 ? (
+                      <span className="text-xs font-medium text-success">
+                        On time{variance < 0 ? ` (${Math.abs(variance)}d early)` : ''}
+                      </span>
+                    ) : (
+                      <span className="text-xs font-medium text-destructive">{variance}d late</span>
+                    )}
+                  </TableCell>
+                  {!lockDetails && (
+                    <TableCell className="py-3">
+                      {items.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => remove(i)}
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </div>
-      <div className="space-y-3">
+
+      {/* Per-row hints */}
+      <div className="space-y-1">
         {items.map((item, i) => {
           const poQty = Number(item.po_quantity || 0);
           const invoicedQty = Number(item.invoiced_quantity || 0);
           const remaining = Math.max(poQty - invoicedQty, 0);
           const fullyInvoiced = poQty > 0 && remaining <= 0;
-          const isSelected = item.selected !== false && !fullyInvoiced;
-          return (
-            <div key={i} className="space-y-1">
-              <div className="grid grid-cols-[2rem_repeat(15,minmax(0,1fr))] gap-2">
-                <div className="col-span-1 flex items-center justify-center">
-                  <Checkbox
-                    checked={isSelected}
-                    disabled={fullyInvoiced}
-                    onCheckedChange={(v) => update(i, 'selected', !!v)}
-                    aria-label={`Select line ${i + 1}`}
-                  />
-                </div>
-                <div className="col-span-3">
-                  <Input
-                    placeholder="Item description"
-                    value={item.item_name}
-                    onChange={(e) => update(i, 'item_name', e.target.value)}
-                    readOnly={lockDetails}
-                    disabled={lockDetails || !isSelected}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    placeholder="HSN"
-                    value={item.hsn || ''}
-                    onChange={(e) => update(i, 'hsn', e.target.value)}
-                    disabled={!isSelected}
-                  />
-                </div>
-                <div className="col-span-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="PO Qty"
-                    value={item.po_quantity ?? ''}
-                    onChange={(e) => update(i, 'po_quantity', parseFloat(e.target.value) || 0)}
-                    readOnly={lockDetails}
-                    disabled={lockDetails || !isSelected}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    type="number"
-                    value={invoicedQty}
-                    readOnly
-                    disabled
-                    className="bg-muted/40"
-                  />
-                </div>
-                <div className="col-span-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    max={poQty > 0 ? remaining : undefined}
-                    placeholder={fullyInvoiced ? 'Fully invoiced' : 'Invoice Qty'}
-                    value={fullyInvoiced ? 0 : item.quantity}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value) || 0;
-                      const capped = poQty > 0 ? Math.min(v, remaining) : v;
-                      update(i, 'quantity', capped);
-                    }}
-                    disabled={!isSelected || fullyInvoiced}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="Rate"
-                    value={item.rate}
-                    onChange={(e) => update(i, 'rate', parseFloat(e.target.value) || 0)}
-                    readOnly={lockDetails}
-                    disabled={lockDetails || !isSelected}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    type="date"
-                    value={item.actual_delivery_date || ''}
-                    onChange={(e) => update(i, 'actual_delivery_date', e.target.value)}
-                    disabled={!isSelected}
-                    max={new Date().toISOString().slice(0, 10)}
-                  />
-                </div>
-                <div className="col-span-2 flex items-center">
-                  {(() => {
-                    if (!item.actual_delivery_date || !expectedDelivery) {
-                      return <span className="text-xs text-muted-foreground">—</span>;
-                    }
-                    const actual = new Date(item.actual_delivery_date);
-                    const expected = new Date(expectedDelivery);
-                    const diff = Math.round(
-                      (actual.getTime() - expected.getTime()) / (1000 * 60 * 60 * 24),
-                    );
-                    if (diff <= 0) {
-                      return (
-                        <span className="text-xs font-medium text-success">
-                          On time{diff < 0 ? ` (${Math.abs(diff)}d early)` : ''}
-                        </span>
-                      );
-                    }
-                    return (
-                      <span className="text-xs font-medium text-destructive">
-                        {diff}d late
-                      </span>
-                    );
-                  })()}
-                </div>
-              </div>
-              {fullyInvoiced && (
-                <p className="pl-10 text-xs text-success">
-                  Fully invoiced — PO quantity has already been billed.
-                </p>
-              )}
-              {!fullyInvoiced && invoicedQty > 0 && (
-                <p className="pl-10 text-xs text-muted-foreground">
-                  {remaining} of {poQty} remaining to invoice.
-                </p>
-              )}
-              {!lockDetails && items.length > 1 && (
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => remove(i)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="mr-1 h-4 w-4" />
-                    Remove
-                  </Button>
-                </div>
-              )}
-            </div>
-          );
+          if (fullyInvoiced) {
+            return (
+              <p key={i} className="text-xs text-success">
+                Line {i + 1}: Fully invoiced — PO quantity has already been billed.
+              </p>
+            );
+          }
+          if (invoicedQty > 0) {
+            return (
+              <p key={i} className="text-xs text-muted-foreground">
+                Line {i + 1}: {remaining} of {poQty} remaining to invoice.
+              </p>
+            );
+          }
+          return null;
         })}
       </div>
+
       {!lockDetails && (
         <Button type="button" variant="outline" size="sm" onClick={add} className="gap-1">
           <Plus className="h-4 w-4" />
@@ -470,6 +530,15 @@ export default function InvoiceUpload() {
     if (!supplier) return;
     const selectedPOData = purchaseOrders.find((po: any) => po.id === selectedPO);
     if (!selectedPOData) return;
+    if (materialReceipts.length === 0) {
+      toast({
+        title: 'Proof of Delivery required',
+        description:
+          'Please upload at least one material receiving copy (proof of delivery) before submitting the invoice.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsSubmitting(true);
     try {
       await submitInvoice({
@@ -509,7 +578,7 @@ export default function InvoiceUpload() {
 
   return (
     <DashboardLayout title="Upload Invoice" subtitle="Submit invoice against a purchase order">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <Link to="/invoices">
           <Button variant="ghost" className="mb-6 gap-2">
             <ArrowLeft className="h-4 w-4" />
@@ -678,10 +747,30 @@ export default function InvoiceUpload() {
 
             {/* Material Receipts */}
             <div className="space-y-2">
-              <Label>Material Receiving Copies (Optional)</Label>
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 transition-colors hover:border-primary hover:bg-muted/50">
-                <FileText className="mb-2 h-6 w-6 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">Upload material receipts</span>
+              <Label>Material Receiving Copy / Proof of Delivery *</Label>
+              <p className="text-xs text-muted-foreground">
+                Required — invoice cannot be submitted without proof of delivery. Upload one or more files
+                (PDF / JPG / PNG).
+              </p>
+              <label
+                className={cn(
+                  'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors hover:border-primary hover:bg-muted/50',
+                  materialReceipts.length === 0
+                    ? 'border-destructive/40 bg-destructive/5'
+                    : 'border-border bg-muted/30',
+                )}
+              >
+                <FileText
+                  className={cn(
+                    'mb-2 h-6 w-6',
+                    materialReceipts.length === 0 ? 'text-destructive' : 'text-muted-foreground',
+                  )}
+                />
+                <span className="text-sm font-medium text-foreground">
+                  {materialReceipts.length === 0
+                    ? 'Upload proof of delivery (required)'
+                    : 'Add more proof of delivery files'}
+                </span>
                 <span className="text-xs text-muted-foreground">Multiple files allowed</span>
                 <input
                   type="file"
@@ -730,7 +819,7 @@ export default function InvoiceUpload() {
               type="submit"
               variant="accent"
               size="lg"
-              disabled={!selectedPO || !invoiceNumber || !invoiceDate || !amount || !invoiceFile || isSubmitting || !lineItems.some((li) => li.selected !== false && li.item_name)}
+              disabled={!selectedPO || !invoiceNumber || !invoiceDate || !amount || !invoiceFile || materialReceipts.length === 0 || isSubmitting || !lineItems.some((li) => li.selected !== false && li.item_name)}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Invoice'}
             </Button>
