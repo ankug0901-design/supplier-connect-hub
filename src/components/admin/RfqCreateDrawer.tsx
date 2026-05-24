@@ -80,7 +80,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([{ company: '', email: '' }]);
   const [directory, setDirectory] = useState<DirectorySupplier[]>([]);
   // Attachments
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentName, setAttachmentName] = useState('');
   // Submitted by
   const [submittedByName, setSubmittedByName] = useState('');
   const [submittedByEmail, setSubmittedByEmail] = useState('');
