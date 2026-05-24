@@ -819,7 +819,7 @@ export default function InvoiceUpload() {
               type="submit"
               variant="accent"
               size="lg"
-              disabled={!selectedPO || !invoiceNumber || !invoiceDate || !amount || !invoiceFile || isSubmitting || !lineItems.some((li) => li.selected !== false && li.item_name)}
+              disabled={!selectedPO || !invoiceNumber || !invoiceDate || !amount || !invoiceFile || materialReceipts.length === 0 || isSubmitting || !lineItems.some((li) => li.selected !== false && li.item_name)}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Invoice'}
             </Button>
