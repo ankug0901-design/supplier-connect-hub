@@ -50,17 +50,7 @@ interface Props {
   onSuccess?: () => void;
 }
 
-const fileToBase64 = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.includes(',') ? result.split(',')[1] : result;
-      resolve(base64);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
+const isDriveUrl = (url: string) => url.includes('drive.google.com');
 
 export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const { user, supplier } = useAuth();
