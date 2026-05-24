@@ -23,7 +23,7 @@ export default function PODetail() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!supplier?.zoho_vendor_id) {
+    if (!isAdmin && !supplier?.zoho_vendor_id) {
       setIsLoading(false);
       return;
     }
@@ -31,9 +31,18 @@ export default function PODetail() {
     (async () => {
       setIsLoading(true);
       try {
-        const data = await fetchPurchaseOrders(supplier.zoho_vendor_id!);
+        const data = isAdmin
+          ? await fetchPurchaseOrdersFromDb()
+          : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
         if (!cancelled) {
-          const found = data.find((po: any) => po.id === id) || null;
+          const target = String(id);
+          const found =
+            data.find(
+              (po: any) =>
+                String(po.id) === target ||
+                String(po.zoho_id ?? '') === target ||
+                String(po.poNumber ?? '') === target,
+            ) || null;
           setOrder(found);
         }
       } catch (err) {
@@ -45,7 +54,7 @@ export default function PODetail() {
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id, id]);
+  }, [supplier?.zoho_vendor_id, isAdmin, id]);
 
   if (!isAdmin && !supplier?.zoho_vendor_id) {
     return (
