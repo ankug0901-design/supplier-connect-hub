@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Loader2, Plus, Trash2, Zap, Paperclip, X } from 'lucide-react';
+import { CalendarIcon, Loader2, Plus, Trash2, Zap, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -40,11 +40,9 @@ const FINISHES = [
 const ARTWORK_STATUSES = ['Final artwork ready', 'Draft artwork attached', 'Artwork in progress', 'No artwork'];
 
 const MANUAL_SUPPLIER = '__manual__';
-const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB cap for base64 payload
 
 type Supplier = { company: string; email: string; selectedId?: string };
 type DirectorySupplier = { id: string; company: string; name: string; email: string };
-type Attachment = { name: string; type: string; size: number; data: string };
 
 interface Props {
   open: boolean;
@@ -52,17 +50,7 @@ interface Props {
   onSuccess?: () => void;
 }
 
-const fileToBase64 = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.includes(',') ? result.split(',')[1] : result;
-      resolve(base64);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
+const isDriveUrl = (url: string) => url.includes('drive.google.com');
 
 export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const { user, supplier } = useAuth();
@@ -92,7 +80,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([{ company: '', email: '' }]);
   const [directory, setDirectory] = useState<DirectorySupplier[]>([]);
   // Attachments
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentName, setAttachmentName] = useState('');
   // Submitted by
   const [submittedByName, setSubmittedByName] = useState('');
   const [submittedByEmail, setSubmittedByEmail] = useState('');
@@ -122,7 +111,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     setPrintProcess(''); setFinish(''); setColours(''); setArtworkStatus(''); setExtraSpecs('');
     setClosingDate(undefined); setClosingTime('17:00');
     setSuppliers([{ company: '', email: '' }]);
-    setAttachments([]);
+    setAttachmentUrl(''); setAttachmentName('');
   };
 
   const isUrgent = (() => {
@@ -157,24 +146,19 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     }
   };
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const accepted: Attachment[] = [];
-    for (const file of Array.from(files)) {
-      if (file.size > MAX_FILE_BYTES) {
-        toast.error(`${file.name} exceeds 8 MB limit`);
-        continue;
+  const validateAttachment = () => {
+    if (attachmentUrl.trim()) {
+      if (!isDriveUrl(attachmentUrl)) {
+        toast.error("⚠️ Link doesn't look like a Google Drive URL. Please check and re-paste.");
+        return false;
       }
-      try {
-        const data = await fileToBase64(file);
-        accepted.push({ name: file.name, type: file.type || 'application/octet-stream', size: file.size, data });
-      } catch {
-        toast.error(`Failed to read ${file.name}`);
+      if (!attachmentName.trim()) {
+        toast.error('Please enter a filename so suppliers know what the document is');
+        return false;
       }
     }
-    if (accepted.length) setAttachments((prev) => [...prev, ...accepted]);
+    return true;
   };
-  const removeAttachment = (i: number) => setAttachments((prev) => prev.filter((_, idx) => idx !== i));
 
   const submit = async () => {
     // Required validation
@@ -202,6 +186,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       toast.error('At least one supplier (with company and email) is required');
       return;
     }
+    if (!validateAttachment()) return;
 
     const payload = {
       client_name: clientContact,
@@ -223,12 +208,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       closing_time: closingTime,
       response_deadline: format(closingDate, 'yyyy-MM-dd'),
       suppliers: validSuppliers.map((s) => ({ name: s.company, email: s.email })),
-      attachments: attachments.map((a) => ({
-        filename: a.name,
-        mime_type: a.type,
-        size: a.size,
-        content_base64: a.data,
-      })),
+      attachment_url: attachmentUrl.trim(),
+      attachment_name: attachmentName.trim(),
       submitted_by: submittedByName,
       submitted_by_name: submittedByName,
       submitted_by_email: submittedByEmail,
@@ -367,32 +348,36 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
                 <Textarea value={extraSpecs} onChange={(e) => setExtraSpecs(e.target.value)} rows={3} />
               </div>
               <div className="space-y-1 sm:col-span-2">
-                <Label>Attachments</Label>
-                <div className="flex items-center gap-2">
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent">
-                    <Paperclip className="h-4 w-4" />
-                    <span>Choose files</span>
-                    <input
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
-                    />
-                  </label>
-                  <span className="text-xs text-muted-foreground">Max 8 MB per file</span>
-                </div>
-                {attachments.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {attachments.map((a, i) => (
-                      <li key={i} className="flex items-center justify-between rounded border px-2 py-1 text-sm">
-                        <span className="truncate">{a.name} <span className="text-xs text-muted-foreground">({Math.round(a.size / 1024)} KB)</span></span>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAttachment(i)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
+                <Label>Attachment — Google Drive Link (optional)</Label>
+                <Input
+                  value={attachmentUrl}
+                  onChange={(e) => setAttachmentUrl(e.target.value)}
+                  placeholder="https://drive.google.com/file/d/..."
+                />
+                <p className="text-xs text-muted-foreground">
+                  Share file on Google Drive → click Share → "Anyone with the link can view" → Copy link → Paste here
+                </p>
+                {attachmentUrl.trim() && isDriveUrl(attachmentUrl) && (
+                  <p className="text-xs text-green-600">
+                    ✅ Drive link added — suppliers will receive a download button in their email
+                  </p>
                 )}
+                {attachmentUrl.trim() && !isDriveUrl(attachmentUrl) && (
+                  <p className="text-xs text-amber-600">
+                    ⚠️ Link doesn't look like a Google Drive URL. Please check and re-paste.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Attachment Filename</Label>
+                <Input
+                  value={attachmentName}
+                  onChange={(e) => setAttachmentName(e.target.value)}
+                  placeholder="e.g. Quantity_Sheet.xlsx or Reference_Brief.pdf"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This name will be shown to suppliers in the email
+                </p>
               </div>
             </div>
           </section>
