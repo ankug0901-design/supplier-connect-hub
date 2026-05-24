@@ -747,10 +747,30 @@ export default function InvoiceUpload() {
 
             {/* Material Receipts */}
             <div className="space-y-2">
-              <Label>Material Receiving Copies (Optional)</Label>
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 transition-colors hover:border-primary hover:bg-muted/50">
-                <FileText className="mb-2 h-6 w-6 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">Upload material receipts</span>
+              <Label>Material Receiving Copy / Proof of Delivery *</Label>
+              <p className="text-xs text-muted-foreground">
+                Required — invoice cannot be submitted without proof of delivery. Upload one or more files
+                (PDF / JPG / PNG).
+              </p>
+              <label
+                className={cn(
+                  'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors hover:border-primary hover:bg-muted/50',
+                  materialReceipts.length === 0
+                    ? 'border-destructive/40 bg-destructive/5'
+                    : 'border-border bg-muted/30',
+                )}
+              >
+                <FileText
+                  className={cn(
+                    'mb-2 h-6 w-6',
+                    materialReceipts.length === 0 ? 'text-destructive' : 'text-muted-foreground',
+                  )}
+                />
+                <span className="text-sm font-medium text-foreground">
+                  {materialReceipts.length === 0
+                    ? 'Upload proof of delivery (required)'
+                    : 'Add more proof of delivery files'}
+                </span>
                 <span className="text-xs text-muted-foreground">Multiple files allowed</span>
                 <input
                   type="file"
