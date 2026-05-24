@@ -29,6 +29,7 @@ function LineItemsInput({
   onChange,
   lockDetails = false,
   emptyFromPO = false,
+  expectedDelivery,
 }: {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
@@ -36,6 +37,8 @@ function LineItemsInput({
   lockDetails?: boolean;
   /** When true, show a hint that the selected PO didn't return any line items. */
   emptyFromPO?: boolean;
+  /** PO expected delivery date (YYYY-MM-DD) for variance display. */
+  expectedDelivery?: string;
 }) {
   const update = (i: number, field: keyof LineItem, value: any) => {
     const u = [...items];
