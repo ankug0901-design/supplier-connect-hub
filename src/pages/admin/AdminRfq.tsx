@@ -128,6 +128,8 @@ export default function AdminRfq() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryRfqId, setSummaryRfqId] = useState<string | null>(null);
   const [summaryMarkdown, setSummaryMarkdown] = useState<string>('');
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const summaryRef = useRef<HTMLDivElement>(null);
 
   const generateSummary = async (rfq_id: string) => {
     setSummaryRfqId(rfq_id);
@@ -156,14 +158,42 @@ export default function AdminRfq() {
     catch { toast.error('Copy failed'); }
   };
 
-  const downloadSummary = () => {
-    const blob = new Blob([summaryMarkdown], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${summaryRfqId || 'rfq'}-client-summary.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadSummary = async () => {
+    if (!summaryRef.current) return;
+    setPdfBusy(true);
+    try {
+      const canvas = await html2canvas(summaryRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 12;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = margin;
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= (pageHeight - margin * 2);
+
+      while (heightLeft > 0) {
+        pdf.addPage();
+        position = margin - (imgHeight - heightLeft);
+        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+        heightLeft -= (pageHeight - margin * 2);
+      }
+
+      pdf.save(`${summaryRfqId || 'rfq'}-client-summary.pdf`);
+    } catch (e: any) {
+      toast.error(`PDF export failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   const load = async () => {
