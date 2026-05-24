@@ -23,6 +23,22 @@ const extractItems = (po: any): any[] => {
   return [];
 };
 
+const formatAddress = (addr: any): string => {
+  if (!addr) return '';
+  if (typeof addr === 'string') return addr;
+  if (typeof addr !== 'object') return String(addr);
+  const parts = [
+    addr.attention,
+    addr.address || addr.street1,
+    addr.street2,
+    [addr.city, addr.state, addr.zip].filter(Boolean).join(', '),
+    addr.country,
+    addr.phone ? `Phone: ${addr.phone}` : '',
+  ].filter(Boolean);
+  return parts.join('\n');
+};
+
+
 export default function PODetail() {
   const { id } = useParams();
   const { supplier, isAdmin } = useAuth();
