@@ -186,6 +186,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       toast.error('At least one supplier (with company and email) is required');
       return;
     }
+    if (!validateAttachment()) return;
 
     const payload = {
       client_name: clientContact,
