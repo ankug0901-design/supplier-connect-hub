@@ -32,6 +32,42 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   void: { label: 'Void', className: 'bg-muted text-muted-foreground border-border' },
 };
 
+const PAID = new Set(['paid', 'closed']);
+const TERMINAL = new Set(['paid', 'closed', 'void', 'partially_paid', 'partial']);
+
+function deriveStatusAndDays(inv: any): { status: string; daysInfo: string } {
+  const raw = (inv.status || 'pending').toString().toLowerCase();
+  const dueDate = inv.dueDate || inv.due_date;
+  const paymentDate = inv.paymentDate || inv.payment_date;
+  const dayMs = 1000 * 60 * 60 * 24;
+  if (PAID.has(raw)) {
+    if (paymentDate) {
+      const days = Math.round((Date.now() - new Date(paymentDate).getTime()) / dayMs);
+      return { status: raw, daysInfo: days <= 0 ? 'Paid today' : `Paid ${days} day${days === 1 ? '' : 's'} ago` };
+    }
+    return { status: raw, daysInfo: 'Paid' };
+  }
+  if (!dueDate) return { status: raw, daysInfo: '' };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate); due.setHours(0, 0, 0, 0);
+  const diff = Math.round((due.getTime() - today.getTime()) / dayMs);
+  let status = raw;
+  let daysInfo = '';
+  if (diff < 0) {
+    daysInfo = `${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'} overdue`;
+    if (!TERMINAL.has(raw)) status = 'overdue';
+  } else if (diff === 0) {
+    daysInfo = 'Due today';
+    if (!TERMINAL.has(raw)) status = 'due_soon';
+  } else if (diff <= 7) {
+    daysInfo = `Due in ${diff} day${diff === 1 ? '' : 's'}`;
+    if (!TERMINAL.has(raw)) status = 'due_soon';
+  } else {
+    daysInfo = `Due in ${diff} days`;
+  }
+  return { status, daysInfo };
+}
+
 export default function Invoices() {
   const { supplier, isAdmin } = useAuth();
   const { toast } = useToast();
