@@ -65,7 +65,7 @@ function LineItemsInput({
           This PO didn't return any line items from Zoho Books. Please enter them manually.
         </div>
       )}
-      <div className="grid grid-cols-[2rem_repeat(13,minmax(0,1fr))] gap-2 px-1 text-xs font-medium text-muted-foreground">
+      <div className="grid grid-cols-[2rem_repeat(15,minmax(0,1fr))] gap-2 px-1 text-xs font-medium text-muted-foreground">
         <div className="col-span-1 flex items-center">
           <Checkbox
             checked={allSelected}
@@ -75,10 +75,12 @@ function LineItemsInput({
         </div>
         <div className="col-span-3">Item description</div>
         <div className="col-span-2">HSN/SAC</div>
-        <div className="col-span-2">PO Qty</div>
+        <div className="col-span-1">PO Qty</div>
         <div className="col-span-2">Already Invoiced</div>
-        <div className="col-span-2">Invoice Qty</div>
+        <div className="col-span-1">Invoice Qty</div>
         <div className="col-span-2">Rate (₹)</div>
+        <div className="col-span-2">Actual Delivery Date</div>
+        <div className="col-span-2">Variance</div>
       </div>
       <div className="space-y-3">
         {items.map((item, i) => {
