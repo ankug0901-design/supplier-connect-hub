@@ -16,10 +16,18 @@ const statusStyles: Record<string, string> = {
   completed: 'bg-success/10 text-success border-success/20',
 };
 
+const extractItems = (po: any): any[] => {
+  if (!po) return [];
+  const candidates = [po.items, po.line_items, po.lineItems, po.purchaseorder_items, po.purchaseOrderItems];
+  for (const c of candidates) if (Array.isArray(c) && c.length) return c;
+  return [];
+};
+
 export default function PODetail() {
   const { id } = useParams();
   const { supplier, isAdmin } = useAuth();
   const [order, setOrder] = useState<any | null>(null);
+  const [invoicedMap, setInvoicedMap] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -34,17 +42,60 @@ export default function PODetail() {
         const data = isAdmin
           ? await fetchPurchaseOrdersFromDb()
           : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
-        if (!cancelled) {
-          const target = String(id);
-          const found =
-            data.find(
-              (po: any) =>
-                String(po.id) === target ||
-                String(po.zoho_id ?? '') === target ||
-                String(po.poNumber ?? '') === target,
-            ) || null;
-          setOrder(found);
+        const target = String(id);
+        let found =
+          data.find(
+            (po: any) =>
+              String(po.id) === target ||
+              String(po.zoho_id ?? '') === target ||
+              String(po.poNumber ?? '') === target,
+          ) || null;
+
+        // If items / delivery address are missing, fetch the live PO list
+        // from Zoho for this supplier's vendor and merge richer fields.
+        if (found) {
+          const needsEnrichment = !extractItems(found).length || !found.deliveryAddress;
+          const vendorId = found.supplierZohoVendorId || supplier?.zoho_vendor_id;
+          if (needsEnrichment && vendorId) {
+            try {
+              const livePos = await fetchPurchaseOrders(vendorId);
+              const match = (livePos || []).find(
+                (p: any) =>
+                  String(p.id) === String(found!.id) ||
+                  p.poNumber === found!.poNumber ||
+                  p.purchaseorder_number === found!.poNumber,
+              );
+              if (match) {
+                const liveItems = extractItems(match);
+                found = {
+                  ...found,
+                  items: liveItems.length ? liveItems : found.items,
+                  deliveryAddress:
+                    found.deliveryAddress ||
+                    match.deliveryAddress ||
+                    match.delivery_address ||
+                    match.delivery_customer_address ||
+                    '',
+                };
+              }
+            } catch (err) {
+              console.warn('Live PO enrichment failed', err);
+            }
+          }
+
+          // Pull invoiced quantities for this PO
+          const supplierIdForLookup = isAdmin ? found.supplier_id || supplier?.id : supplier?.id;
+          if (supplierIdForLookup && found.poNumber) {
+            try {
+              const map = await fetchInvoicedQuantitiesForPo(supplierIdForLookup, found.poNumber);
+              if (!cancelled) setInvoicedMap(map);
+            } catch (err) {
+              console.warn('Failed to load invoiced quantities', err);
+            }
+          }
         }
+
+        if (!cancelled) setOrder(found);
       } catch (err) {
         console.error('Failed to load purchase order', err);
       } finally {
@@ -54,7 +105,7 @@ export default function PODetail() {
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id, isAdmin, id]);
+  }, [supplier?.zoho_vendor_id, supplier?.id, isAdmin, id]);
 
   if (!isAdmin && !supplier?.zoho_vendor_id) {
     return (
