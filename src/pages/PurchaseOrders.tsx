@@ -32,14 +32,15 @@ export default function PurchaseOrders() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const handleDownloadPO = async (poId: string, poNumber: string) => {
-    if (!supplier?.zoho_vendor_id) {
-      toast.error('Vendor ID not found on your profile.');
+  const handleDownloadPO = async (poId: string, poNumber: string, rowVendorId?: string) => {
+    const vendorId = supplier?.zoho_vendor_id || rowVendorId;
+    if (!vendorId) {
+      toast.error('Vendor ID not found for this purchase order.');
       return;
     }
     setDownloadingId(poId);
     try {
-      await downloadPurchaseOrder(supplier.zoho_vendor_id, poId, poNumber);
+      await downloadPurchaseOrder(vendorId, poId, poNumber);
     } catch (err: any) {
       console.error('Download PO failed', err);
       toast.error(err?.message || 'Failed to download purchase order.');
