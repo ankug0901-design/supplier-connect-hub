@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -125,6 +128,8 @@ export default function AdminRfq() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryRfqId, setSummaryRfqId] = useState<string | null>(null);
   const [summaryMarkdown, setSummaryMarkdown] = useState<string>('');
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const summaryRef = useRef<HTMLDivElement>(null);
 
   const generateSummary = async (rfq_id: string) => {
     setSummaryRfqId(rfq_id);
@@ -153,14 +158,42 @@ export default function AdminRfq() {
     catch { toast.error('Copy failed'); }
   };
 
-  const downloadSummary = () => {
-    const blob = new Blob([summaryMarkdown], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${summaryRfqId || 'rfq'}-client-summary.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadSummary = async () => {
+    if (!summaryRef.current) return;
+    setPdfBusy(true);
+    try {
+      const canvas = await html2canvas(summaryRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 12;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = margin;
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= (pageHeight - margin * 2);
+
+      while (heightLeft > 0) {
+        pdf.addPage();
+        position = margin - (imgHeight - heightLeft);
+        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+        heightLeft -= (pageHeight - margin * 2);
+      }
+
+      pdf.save(`${summaryRfqId || 'rfq'}-client-summary.pdf`);
+    } catch (e: any) {
+      toast.error(`PDF export failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   const load = async () => {
@@ -790,32 +823,61 @@ export default function AdminRfq() {
       </Dialog>
 
       <Dialog open={summaryOpen} onOpenChange={setSummaryOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-3 border-b">
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-600" />
               Client Summary — {summaryRfqId}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto rounded-md border bg-card p-5">
+          <div className="flex-1 overflow-y-auto bg-slate-100 p-6">
             {summaryLoading ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-16 text-sm text-muted-foreground">
+              <div className="flex flex-col items-center justify-center gap-3 py-24 text-sm text-muted-foreground">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 Analyzing quotes and drafting client-ready summary...
               </div>
             ) : (
-              <div className="prose prose-sm max-w-none prose-headings:mt-4 prose-headings:mb-2 prose-table:text-xs prose-th:bg-muted prose-th:p-2 prose-td:p-2">
-                <ReactMarkdown>{summaryMarkdown}</ReactMarkdown>
+              <div
+                ref={summaryRef}
+                className="mx-auto bg-white shadow-sm"
+                style={{ width: '794px', minHeight: '1123px', padding: '56px 64px', color: '#0f172a', fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}
+              >
+                <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Emboss Marketing · Procurement</div>
+                    <div className="text-xs text-slate-500 mt-1">RFQ {summaryRfqId}</div>
+                  </div>
+                  <div className="text-[10px] text-slate-500 text-right">
+                    Generated {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </div>
+                </div>
+                <article
+                  className="prose prose-slate prose-sm max-w-none
+                    prose-headings:font-semibold prose-headings:text-slate-900
+                    prose-h1:text-2xl prose-h1:mb-2 prose-h1:mt-0 prose-h1:border-b prose-h1:border-slate-200 prose-h1:pb-3
+                    prose-h2:text-base prose-h2:uppercase prose-h2:tracking-wider prose-h2:text-slate-700 prose-h2:mt-7 prose-h2:mb-3
+                    prose-h3:text-sm prose-h3:text-slate-800
+                    prose-p:leading-relaxed prose-p:text-slate-700
+                    prose-strong:text-slate-900
+                    prose-ul:my-2 prose-li:my-0.5 prose-li:text-slate-700
+                    prose-table:my-3 prose-table:text-[12px] prose-table:border prose-table:border-slate-300
+                    prose-thead:bg-slate-100
+                    prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-slate-700 prose-th:border prose-th:border-slate-300
+                    prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-slate-200 prose-td:align-top"
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaryMarkdown}</ReactMarkdown>
+                </article>
               </div>
             )}
           </div>
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="gap-2 sm:gap-2 px-6 py-4 border-t bg-background">
             <Button variant="outline" onClick={() => setSummaryOpen(false)}>Close</Button>
             <Button variant="outline" disabled={!summaryMarkdown} onClick={copySummary}>
               <Copy className="mr-1 h-4 w-4" /> Copy
             </Button>
-            <Button disabled={!summaryMarkdown} onClick={downloadSummary} className="bg-purple-600 hover:bg-purple-700 text-white">
-              <Download className="mr-1 h-4 w-4" /> Download .md
+            <Button disabled={!summaryMarkdown || pdfBusy} onClick={downloadSummary} className="bg-purple-600 hover:bg-purple-700 text-white">
+              {pdfBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
+              {pdfBusy ? 'Preparing…' : 'Download PDF'}
             </Button>
           </DialogFooter>
         </DialogContent>
