@@ -502,6 +502,16 @@ export default function AdminRfq() {
                       <Badge variant="outline">
                         {submitted.length} of {items.length} suppliers responded
                       </Badge>
+                      {submitted.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100"
+                          onClick={() => generateSummary(rfq_id)}
+                        >
+                          <Sparkles className="mr-1 h-3.5 w-3.5" /> AI Client Summary
+                        </Button>
+                      )}
                       {!decided && !isClosed && (
                         <Button size="sm" variant="destructive" disabled={!!busyId} onClick={() => setForceCloseTarget(rfq_id)}>
                           Force Close
@@ -774,6 +784,38 @@ export default function AdminRfq() {
               onClick={confirmJustifiedAccept}
             >
               Confirm Award with Justification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={summaryOpen} onOpenChange={setSummaryOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-600" />
+              Client Summary — {summaryRfqId}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto rounded-md border bg-card p-5">
+            {summaryLoading ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-16 text-sm text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                Analyzing quotes and drafting client-ready summary...
+              </div>
+            ) : (
+              <div className="prose prose-sm max-w-none prose-headings:mt-4 prose-headings:mb-2 prose-table:text-xs prose-th:bg-muted prose-th:p-2 prose-td:p-2">
+                <ReactMarkdown>{summaryMarkdown}</ReactMarkdown>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setSummaryOpen(false)}>Close</Button>
+            <Button variant="outline" disabled={!summaryMarkdown} onClick={copySummary}>
+              <Copy className="mr-1 h-4 w-4" /> Copy
+            </Button>
+            <Button disabled={!summaryMarkdown} onClick={downloadSummary} className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Download className="mr-1 h-4 w-4" /> Download .md
             </Button>
           </DialogFooter>
         </DialogContent>
