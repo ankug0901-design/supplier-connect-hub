@@ -277,7 +277,7 @@ export default function AdminThreeWayMatch() {
                     <div><span className="text-muted-foreground">Status:</span> <PayBadge value={selected.supplier_payment_status} /></div>
                     <div><span className="text-muted-foreground">Eligible:</span> <BoolIcon v={selected.supplier_payment_eligible} /></div>
                     <div><span className="text-muted-foreground">Match:</span> <StatusBadge value={selected.match_status} /></div>
-                    <div><span className="text-muted-foreground">Qty Match:</span> <BoolIcon v={selected.quantity_match} /> &nbsp; <span className="text-muted-foreground">Amt Match:</span> <BoolIcon v={selected.amount_match} /></div>
+                    <div><span className="text-muted-foreground">Qty Match:</span> <BoolIcon v={selected.quantity_match} /></div>
                   </CardContent>
                 </Card>
               </div>
