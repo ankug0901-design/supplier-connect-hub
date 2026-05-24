@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -120,6 +121,47 @@ export default function AdminRfq() {
   const { supplier, user } = useAuth();
   const [justifyTarget, setJustifyTarget] = useState<{ row: Rfq; rank: number; l1: Rfq | null } | null>(null);
   const [justifyText, setJustifyText] = useState('');
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryRfqId, setSummaryRfqId] = useState<string | null>(null);
+  const [summaryMarkdown, setSummaryMarkdown] = useState<string>('');
+
+  const generateSummary = async (rfq_id: string) => {
+    setSummaryRfqId(rfq_id);
+    setSummaryOpen(true);
+    setSummaryMarkdown('');
+    setSummaryLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('rfq-client-summary', { body: { rfq_id } });
+      if (error) {
+        const ctx: any = (error as any).context;
+        let msg = error.message || 'Failed';
+        try { if (ctx?.body) { const t = typeof ctx.body === 'string' ? ctx.body : await new Response(ctx.body).text(); const j = JSON.parse(t); if (j.error) msg = j.error; } } catch {}
+        throw new Error(msg);
+      }
+      setSummaryMarkdown(data?.markdown || '');
+    } catch (e: any) {
+      toast.error(`Summary failed: ${e.message || 'Unknown error'}`);
+      setSummaryOpen(false);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const copySummary = async () => {
+    try { await navigator.clipboard.writeText(summaryMarkdown); toast.success('Copied to clipboard'); }
+    catch { toast.error('Copy failed'); }
+  };
+
+  const downloadSummary = () => {
+    const blob = new Blob([summaryMarkdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${summaryRfqId || 'rfq'}-client-summary.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const load = async () => {
     const { data } = await supabase
