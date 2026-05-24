@@ -252,6 +252,7 @@ export type Database = {
       }
       invoice_line_items: {
         Row: {
+          actual_delivery_date: string | null
           created_at: string
           id: string
           invoice_number: string
@@ -262,6 +263,7 @@ export type Database = {
           supplier_id: string
         }
         Insert: {
+          actual_delivery_date?: string | null
           created_at?: string
           id?: string
           invoice_number: string
@@ -272,6 +274,7 @@ export type Database = {
           supplier_id: string
         }
         Update: {
+          actual_delivery_date?: string | null
           created_at?: string
           id?: string
           invoice_number?: string
@@ -823,7 +826,28 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      supplier_delivery_performance: {
+        Row: {
+          actual_delivery_date: string | null
+          days_variance: number | null
+          expected_delivery: string | null
+          invoice_number: string | null
+          item_name: string | null
+          on_time: boolean | null
+          po_number: string | null
+          quantity: number | null
+          supplier_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       delete_email: {
