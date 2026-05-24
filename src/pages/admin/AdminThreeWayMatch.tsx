@@ -195,9 +195,9 @@ export default function AdminThreeWayMatch() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     No matching records yet. N8N workflow will populate this list.
                   </TableCell></TableRow>
                 ) : filtered.map((r) => (
@@ -206,17 +206,16 @@ export default function AdminThreeWayMatch() {
                       <div className="font-medium">{r.client_invoice_number || '—'}</div>
                       <div className="text-xs text-muted-foreground">{fmtDate(r.client_invoice_date)}</div>
                     </TableCell>
-                    <TableCell className="max-w-[150px] truncate">{r.client_name || '—'}</TableCell>
+                    <TableCell className="whitespace-normal break-words min-w-[180px]">{r.client_name || '—'}</TableCell>
                     <TableCell className="text-right">{fmtMoney(r.client_invoice_amount)}</TableCell>
                     <TableCell>
                       <div className="font-medium">{r.supplier_invoice_number || '—'}</div>
                       <div className="text-xs text-muted-foreground">{fmtDate(r.supplier_invoice_date)}</div>
                     </TableCell>
-                    <TableCell className="max-w-[150px] truncate">{r.supplier_company || r.supplier_name || '—'}</TableCell>
+                    <TableCell className="whitespace-normal break-words min-w-[180px]">{r.supplier_company || r.supplier_name || '—'}</TableCell>
                     <TableCell className="text-right">{fmtMoney(r.supplier_invoice_amount)}</TableCell>
                     <TableCell className="font-mono text-xs">{r.po_number || '—'}</TableCell>
                     <TableCell className="text-center"><BoolIcon v={r.quantity_match} /></TableCell>
-                    <TableCell className="text-center"><BoolIcon v={r.amount_match} /></TableCell>
                     <TableCell className="text-center"><BoolIcon v={r.client_payment_received} /></TableCell>
                     <TableCell><StatusBadge value={r.match_status} /></TableCell>
                     <TableCell><PayBadge value={r.supplier_payment_status} /></TableCell>
