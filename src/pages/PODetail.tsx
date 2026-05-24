@@ -273,11 +273,13 @@ export default function PODetail() {
                   <div>
                     <p className="text-xs text-muted-foreground">Expected Delivery</p>
                     <p className="text-sm font-medium">
-                      {new Date(order.expectedDelivery).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
+                      {order.expectedDelivery
+                        ? new Date(order.expectedDelivery).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric',
+                          })
+                        : '—'}
                     </p>
                   </div>
                 </div>
@@ -285,7 +287,9 @@ export default function PODetail() {
                   <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Delivery Address</p>
-                    <p className="text-sm font-medium">{order.deliveryAddress}</p>
+                    <p className="whitespace-pre-line text-sm font-medium">
+                      {order.deliveryAddress || '—'}
+                    </p>
                   </div>
                 </div>
               </div>
