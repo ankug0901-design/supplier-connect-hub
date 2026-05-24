@@ -158,22 +158,64 @@ async function fetchInvoicesFromDbByVendor(zohoVendorId: string) {
   return (data || []).map((i: any) => mapDbInvoice(i, supplier, purchaseOrdersById[i.po_id]));
 }
 
-const mapDbInvoice = (i: any, supplier?: SupplierRow, purchaseOrder?: any) => ({
-  id: i.zoho_id || i.id,
-  invoiceNumber: i.invoice_number,
-  poId: purchaseOrder?.po_number || i.po_id,
-  poNumber: purchaseOrder?.po_number || '',
-  date: i.date,
-  dueDate: i.due_date,
-  paymentDate: i.payment_date,
-  amount: Number(i.amount || 0),
-  balance: i.status === 'paid' ? 0 : Number(i.balance ?? i.amount ?? 0),
-  status: i.status,
-  supplierName: supplier?.company,
-  supplierZohoVendorId: supplier?.zoho_vendor_id,
-  hasAttachment: Boolean(i.has_attachment),
-  attachmentName: i.attachment_name,
-});
+const PAID_STATUSES = new Set(['paid', 'closed']);
+const TERMINAL_STATUSES = new Set(['paid', 'closed', 'void', 'partially_paid', 'partial']);
+
+const daysBetween = (a: Date, b: Date) =>
+  Math.round((a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24));
+
+const deriveInvoiceStatusAndDays = (rawStatus: string, dueDate?: string | null, paymentDate?: string | null) => {
+  const status = (rawStatus || 'pending').toLowerCase();
+  if (PAID_STATUSES.has(status)) {
+    if (paymentDate) {
+      const days = daysBetween(new Date(), new Date(paymentDate));
+      return { status, daysInfo: days <= 0 ? 'Paid today' : `Paid ${days} day${days === 1 ? '' : 's'} ago` };
+    }
+    return { status, daysInfo: 'Paid' };
+  }
+  if (!dueDate) return { status, daysInfo: '' };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  const diff = daysBetween(due, today);
+  let daysInfo = '';
+  let derived = status;
+  if (diff < 0) {
+    daysInfo = `${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'} overdue`;
+    if (!TERMINAL_STATUSES.has(status)) derived = 'overdue';
+  } else if (diff === 0) {
+    daysInfo = 'Due today';
+    if (!TERMINAL_STATUSES.has(status)) derived = 'due_soon';
+  } else if (diff <= 7) {
+    daysInfo = `Due in ${diff} day${diff === 1 ? '' : 's'}`;
+    if (!TERMINAL_STATUSES.has(status)) derived = 'due_soon';
+  } else {
+    daysInfo = `Due in ${diff} days`;
+  }
+  return { status: derived, daysInfo };
+};
+
+const mapDbInvoice = (i: any, supplier?: SupplierRow, purchaseOrder?: any) => {
+  const { status, daysInfo } = deriveInvoiceStatusAndDays(i.status, i.due_date, i.payment_date);
+  return {
+    id: i.zoho_id || i.id,
+    invoiceNumber: i.invoice_number,
+    poId: purchaseOrder?.po_number || i.po_id,
+    poNumber: purchaseOrder?.po_number || '',
+    date: i.date,
+    dueDate: i.due_date,
+    paymentDate: i.payment_date,
+    amount: Number(i.amount || 0),
+    balance: PAID_STATUSES.has(status) ? 0 : Number(i.balance ?? i.amount ?? 0),
+    status,
+    daysInfo,
+    supplierName: supplier?.company,
+    supplierZohoVendorId: supplier?.zoho_vendor_id,
+    hasAttachment: Boolean(i.has_attachment),
+    attachmentName: i.attachment_name,
+  };
+};
 
 export async function fetchInvoicesFromDb() {
   const { data, error } = await supabase
