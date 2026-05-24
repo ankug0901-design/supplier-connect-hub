@@ -146,24 +146,19 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     }
   };
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const accepted: Attachment[] = [];
-    for (const file of Array.from(files)) {
-      if (file.size > MAX_FILE_BYTES) {
-        toast.error(`${file.name} exceeds 8 MB limit`);
-        continue;
+  const validateAttachment = () => {
+    if (attachmentUrl.trim()) {
+      if (!isDriveUrl(attachmentUrl)) {
+        toast.error("⚠️ Link doesn't look like a Google Drive URL. Please check and re-paste.");
+        return false;
       }
-      try {
-        const data = await fileToBase64(file);
-        accepted.push({ name: file.name, type: file.type || 'application/octet-stream', size: file.size, data });
-      } catch {
-        toast.error(`Failed to read ${file.name}`);
+      if (!attachmentName.trim()) {
+        toast.error('Please enter a filename so suppliers know what the document is');
+        return false;
       }
     }
-    if (accepted.length) setAttachments((prev) => [...prev, ...accepted]);
+    return true;
   };
-  const removeAttachment = (i: number) => setAttachments((prev) => prev.filter((_, idx) => idx !== i));
 
   const submit = async () => {
     // Required validation
