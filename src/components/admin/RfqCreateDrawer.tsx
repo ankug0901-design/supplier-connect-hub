@@ -43,7 +43,6 @@ const MANUAL_SUPPLIER = '__manual__';
 
 type Supplier = { company: string; email: string; selectedId?: string };
 type DirectorySupplier = { id: string; company: string; name: string; email: string };
-type Attachment = { name: string; type: string; size: number; data: string };
 
 interface Props {
   open: boolean;
