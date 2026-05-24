@@ -602,6 +602,7 @@ export default function InvoiceUpload() {
                     onChange={setLineItems}
                     lockDetails={!!selectedPO && poHasItems}
                     emptyFromPO={!!selectedPO && !poHasItems}
+                    expectedDelivery={po?.expectedDelivery || po?.expected_delivery}
                   />
                 );
               })()}
