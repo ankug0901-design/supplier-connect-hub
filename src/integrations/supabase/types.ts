@@ -782,6 +782,102 @@ export type Database = {
         }
         Relationships: []
       }
+      three_way_matches: {
+        Row: {
+          amount_match: boolean | null
+          client_invoice_amount: number | null
+          client_invoice_date: string | null
+          client_invoice_number: string | null
+          client_invoice_status: string | null
+          client_name: string | null
+          client_payment_amount: number | null
+          client_payment_date: string | null
+          client_payment_received: boolean | null
+          client_payment_reference: string | null
+          client_quantity: number | null
+          created_at: string
+          id: string
+          match_status: string | null
+          matched_at: string | null
+          notes: string | null
+          po_number: string | null
+          quantity_match: boolean | null
+          raw_payload: Json | null
+          supplier_company: string | null
+          supplier_id: string | null
+          supplier_invoice_amount: number | null
+          supplier_invoice_date: string | null
+          supplier_invoice_number: string | null
+          supplier_name: string | null
+          supplier_payment_eligible: boolean | null
+          supplier_payment_status: string | null
+          supplier_quantity: number | null
+          updated_at: string
+        }
+        Insert: {
+          amount_match?: boolean | null
+          client_invoice_amount?: number | null
+          client_invoice_date?: string | null
+          client_invoice_number?: string | null
+          client_invoice_status?: string | null
+          client_name?: string | null
+          client_payment_amount?: number | null
+          client_payment_date?: string | null
+          client_payment_received?: boolean | null
+          client_payment_reference?: string | null
+          client_quantity?: number | null
+          created_at?: string
+          id?: string
+          match_status?: string | null
+          matched_at?: string | null
+          notes?: string | null
+          po_number?: string | null
+          quantity_match?: boolean | null
+          raw_payload?: Json | null
+          supplier_company?: string | null
+          supplier_id?: string | null
+          supplier_invoice_amount?: number | null
+          supplier_invoice_date?: string | null
+          supplier_invoice_number?: string | null
+          supplier_name?: string | null
+          supplier_payment_eligible?: boolean | null
+          supplier_payment_status?: string | null
+          supplier_quantity?: number | null
+          updated_at?: string
+        }
+        Update: {
+          amount_match?: boolean | null
+          client_invoice_amount?: number | null
+          client_invoice_date?: string | null
+          client_invoice_number?: string | null
+          client_invoice_status?: string | null
+          client_name?: string | null
+          client_payment_amount?: number | null
+          client_payment_date?: string | null
+          client_payment_received?: boolean | null
+          client_payment_reference?: string | null
+          client_quantity?: number | null
+          created_at?: string
+          id?: string
+          match_status?: string | null
+          matched_at?: string | null
+          notes?: string | null
+          po_number?: string | null
+          quantity_match?: boolean | null
+          raw_payload?: Json | null
+          supplier_company?: string | null
+          supplier_id?: string | null
+          supplier_invoice_amount?: number | null
+          supplier_invoice_date?: string | null
+          supplier_invoice_number?: string | null
+          supplier_name?: string | null
+          supplier_payment_eligible?: boolean | null
+          supplier_payment_status?: string | null
+          supplier_quantity?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       vendor_scores: {
         Row: {
           company: string

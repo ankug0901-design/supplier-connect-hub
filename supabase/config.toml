@@ -1,7 +1,10 @@
 project_id = "agrhkarauqxkgyvfthvc"
 
-[functions]
-  [functions.auth-email-hook]
-    verify_jwt = false
-  [functions.process-email-queue]
-    verify_jwt = true
+[functions.three-way-match-upsert]
+verify_jwt = false
+
+[functions.n8n-proxy]
+verify_jwt = true
+
+[functions.zoho-sync]
+verify_jwt = true

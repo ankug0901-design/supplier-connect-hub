@@ -13,6 +13,7 @@ import {
   ClipboardList,
   FileQuestion,
   Sparkles,
+  GitCompareArrows,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +42,7 @@ const adminNavigation: NavItem[] = [
   { name: 'All Suppliers', href: '/admin/suppliers', icon: Users },
   { name: 'Registrations', href: '/admin/registrations', icon: ClipboardList, badgeKey: 'pending_regs' },
   { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all' },
+  { name: '3-Way Matching', href: '/admin/three-way-match', icon: GitCompareArrows },
   { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles },
 ];
 
