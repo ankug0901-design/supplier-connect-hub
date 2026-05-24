@@ -12,6 +12,13 @@ const N8N_BASE = 'https://n8n.srv1141999.hstgr.cloud/webhook';
 const ALLOWED_PATHS = new Set([
   'zoho-supplier-data',
   'supplier-bill-upload',
+  'rfq-automation-form',
+  'rfq-quote-received',
+  'rfq-quote-accepted',
+  'rfq-manage',
+  'rfq-send-attachment',
+  'rfq-issue-po',
+  'bulk-register-suppliers',
 ]);
 
 Deno.serve(async (req) => {
