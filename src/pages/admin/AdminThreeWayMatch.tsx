@@ -186,8 +186,7 @@ export default function AdminThreeWayMatch() {
                   <TableHead>Supplier</TableHead>
                   <TableHead className="text-right">Sup. Amt</TableHead>
                   <TableHead>PO</TableHead>
-                  <TableHead className="text-center">Qty</TableHead>
-                  <TableHead className="text-center">Amt</TableHead>
+                  <TableHead className="text-center">Qty Match</TableHead>
                   <TableHead className="text-center">Client Paid</TableHead>
                   <TableHead>Match</TableHead>
                   <TableHead>Sup. Payment</TableHead>
