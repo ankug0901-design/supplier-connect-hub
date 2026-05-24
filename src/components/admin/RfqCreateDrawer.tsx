@@ -111,7 +111,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     setPrintProcess(''); setFinish(''); setColours(''); setArtworkStatus(''); setExtraSpecs('');
     setClosingDate(undefined); setClosingTime('17:00');
     setSuppliers([{ company: '', email: '' }]);
-    setAttachments([]);
+    setAttachmentUrl(''); setAttachmentName('');
   };
 
   const isUrgent = (() => {
