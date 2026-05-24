@@ -556,7 +556,7 @@ export default function InvoiceUpload() {
             <div className="mt-6">
               {(() => {
                 const po = purchaseOrders.find((p: any) => p.id === selectedPO);
-                const poHasItems = !!po && Array.isArray(po.items) && po.items.length > 0;
+                const poHasItems = extractItems(po).length > 0;
                 return (
                   <LineItemsInput
                     items={lineItems}
