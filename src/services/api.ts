@@ -1,16 +1,19 @@
 import { supabase } from '@/integrations/supabase/client';
 
 const N8N_BASE = 'https://n8n.srv1141999.hstgr.cloud/webhook';
-const ACCESS_CODE = 'Embmkt@2026';
+
+// Routes through the authenticated n8n-proxy edge function which injects the
+// N8N access code server-side. Never put the access code in the client bundle.
+async function n8nProxy(path: 'zoho-supplier-data' | 'supplier-bill-upload', payload: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('n8n-proxy', {
+    body: { path, payload },
+  });
+  if (error) throw error;
+  return data;
+}
 
 async function zohoProxy(operation: string, vendorId: string) {
-  const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ access_code: ACCESS_CODE, operation, vendor_id: vendorId }),
-  });
-  if (!res.ok) throw new Error(`API error ${res.status}`);
-  return res.json();
+  return n8nProxy('zoho-supplier-data', { operation, vendor_id: vendorId });
 }
 
 type SupplierRow = { id: string; company?: string | null; zoho_vendor_id?: string | null };
@@ -242,41 +245,25 @@ async function fetchPaymentsFromDbByVendor(zohoVendorId: string) {
 }
 
 export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, poNumber?: string) {
-  const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      access_code: ACCESS_CODE,
-      operation: 'download_po',
-      vendor_id: zohoVendorId,
-      po_id: poId,
-      po_number: poNumber,
-    }),
+  const data = await n8nProxy('zoho-supplier-data', {
+    operation: 'download_po',
+    vendor_id: zohoVendorId,
+    po_id: poId,
+    po_number: poNumber,
   });
-  if (!res.ok) throw new Error(`Download failed (${res.status})`);
-  const data = await res.json();
-  if (!data.success || !data.pdf_base64) {
-    throw new Error(data.error || 'Could not fetch PDF');
+  if (!data?.success || !data?.pdf_base64) {
+    throw new Error(data?.error || 'Could not fetch PDF');
   }
 
   const byteCharacters = Uint8Array.from(atob(data.pdf_base64), c => c.charCodeAt(0));
-
   const blob = new Blob([byteCharacters], { type: 'application/pdf' });
-
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement('a');
-
   a.href = url;
-
   a.download = data.filename || `PO_${poNumber || poId}.pdf`;
-
   document.body.appendChild(a);
-
   a.click();
-
   document.body.removeChild(a);
-
   URL.revokeObjectURL(url);
 }
 
@@ -302,21 +289,14 @@ export async function downloadBillAttachment(
   billId: string,
   billNumber?: string
 ): Promise<BillAttachment> {
-  const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      access_code: ACCESS_CODE,
-      operation: 'download_bill_attachment',
-      vendor_id: zohoVendorId,
-      bill_id: billId,
-      bill_number: billNumber,
-    }),
+  const data = await n8nProxy('zoho-supplier-data', {
+    operation: 'download_bill_attachment',
+    vendor_id: zohoVendorId,
+    bill_id: billId,
+    bill_number: billNumber,
   });
-  if (!res.ok) throw new Error(`Download failed (${res.status})`);
-  const data = await res.json();
-  if (!data.success || !data.file_base64) {
-    throw new Error(data.error || 'Could not fetch attachment');
+  if (!data?.success || !data?.file_base64) {
+    throw new Error(data?.error || 'Could not fetch attachment');
   }
   return {
     base64: data.file_base64,
@@ -395,23 +375,18 @@ export async function submitInvoice(payload: {
       reader.readAsDataURL(payload.pdf_file!);
     });
   }
-  const res = await fetch(`${N8N_BASE}/supplier-bill-upload`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      access_code: ACCESS_CODE,
-      po_number: payload.po_number,
-      bill_number: payload.invoice_number,
-      bill_date: payload.invoice_date,
-      supplier_name: payload.supplier_name,
-      contact_email: payload.contact_email,
-      line_items: JSON.stringify(payload.line_items),
-      pdf_base64,
-      notes: payload.notes || '',
-    }),
+  const data = await n8nProxy('supplier-bill-upload', {
+    po_number: payload.po_number,
+    bill_number: payload.invoice_number,
+    bill_date: payload.invoice_date,
+    supplier_name: payload.supplier_name,
+    contact_email: payload.contact_email,
+    line_items: JSON.stringify(payload.line_items),
+    pdf_base64,
+    notes: payload.notes || '',
   });
-  const text = await res.text();
-  if (!res.ok || text.startsWith('❌')) throw new Error(text);
+  const text = typeof data === 'string' ? data : JSON.stringify(data);
+  if (text.startsWith('❌')) throw new Error(text);
 
   // Persist invoiced quantities locally so future invoices can enforce PO Qty limits.
   if (payload.supplier_id && payload.line_items.length) {

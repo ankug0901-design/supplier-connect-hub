@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 const N8N_BASE = "https://n8n.srv1141999.hstgr.cloud/webhook";
-const ACCESS_CODE = "Embmkt@2026";
+const ACCESS_CODE = Deno.env.get("N8N_ACCESS_CODE") ?? "";
 
 async function zoho(operation: string, vendorId: string) {
   const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
