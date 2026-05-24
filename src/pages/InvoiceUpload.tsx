@@ -94,7 +94,7 @@ function LineItemsInput({
           const isSelected = item.selected !== false && !fullyInvoiced;
           return (
             <div key={i} className="space-y-1">
-              <div className="grid grid-cols-[2rem_repeat(13,minmax(0,1fr))] gap-2">
+              <div className="grid grid-cols-[2rem_repeat(15,minmax(0,1fr))] gap-2">
                 <div className="col-span-1 flex items-center justify-center">
                   <Checkbox
                     checked={isSelected}
@@ -120,7 +120,7 @@ function LineItemsInput({
                     disabled={!isSelected}
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <Input
                     type="number"
                     min="0"
@@ -140,7 +140,7 @@ function LineItemsInput({
                     className="bg-muted/40"
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <Input
                     type="number"
                     min="0"
@@ -166,6 +166,39 @@ function LineItemsInput({
                     readOnly={lockDetails}
                     disabled={lockDetails || !isSelected}
                   />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    type="date"
+                    value={item.actual_delivery_date || ''}
+                    onChange={(e) => update(i, 'actual_delivery_date', e.target.value)}
+                    disabled={!isSelected}
+                    max={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+                <div className="col-span-2 flex items-center">
+                  {(() => {
+                    if (!item.actual_delivery_date || !expectedDelivery) {
+                      return <span className="text-xs text-muted-foreground">—</span>;
+                    }
+                    const actual = new Date(item.actual_delivery_date);
+                    const expected = new Date(expectedDelivery);
+                    const diff = Math.round(
+                      (actual.getTime() - expected.getTime()) / (1000 * 60 * 60 * 24),
+                    );
+                    if (diff <= 0) {
+                      return (
+                        <span className="text-xs font-medium text-success">
+                          On time{diff < 0 ? ` (${Math.abs(diff)}d early)` : ''}
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="text-xs font-medium text-destructive">
+                        {diff}d late
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
               {fullyInvoiced && (
