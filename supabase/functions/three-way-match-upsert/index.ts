@@ -87,7 +87,30 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const records: any[] = Array.isArray(body) ? body : Array.isArray(body?.records) ? body.records : [body];
-    const rows = records.map(sanitize).filter((r) => Object.keys(r).length > 0);
+    const rows = records.map(sanitize).map((r) => {
+      // Buy vs sell rates always differ — ignore amount comparison entirely.
+      // Match is driven by quantity match + PO link + client payment.
+      const qtyOk =
+        r.client_quantity != null && r.supplier_quantity != null
+          ? Number(r.client_quantity) === Number(r.supplier_quantity)
+          : (r.quantity_match ?? null);
+      r.quantity_match = qtyOk;
+      r.amount_match = null; // deprecated — do not compare amounts
+      const paid = r.client_payment_received === true ||
+        (typeof r.client_invoice_status === "string" &&
+          r.client_invoice_status.toLowerCase() === "paid");
+      r.client_payment_received = paid;
+      // Derive match_status from quantity + PO presence (ignore amounts)
+      if (qtyOk === true && r.po_number) r.match_status = "matched";
+      else if (qtyOk === false) r.match_status = "mismatch";
+      else if (!r.match_status) r.match_status = "partial";
+      // Supplier payment eligibility: client paid + qty matched
+      r.supplier_payment_eligible = paid && qtyOk === true;
+      if (!r.supplier_payment_status) {
+        r.supplier_payment_status = r.supplier_payment_eligible ? "eligible" : "pending";
+      }
+      return r;
+    }).filter((r) => Object.keys(r).length > 0);
 
     if (rows.length === 0) {
       return new Response(JSON.stringify({ error: "No valid rows" }), {
