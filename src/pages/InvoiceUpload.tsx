@@ -303,6 +303,15 @@ export default function InvoiceUpload() {
     };
   }, [supplier?.zoho_vendor_id, isAdmin]);
 
+  // Helper: extract a line-items array from a PO object regardless of which
+  // field name Zoho/n8n returned (items / line_items / lineItems / purchaseorder_items).
+  const extractItems = (po: any): any[] => {
+    if (!po) return [];
+    const candidates = [po.items, po.line_items, po.lineItems, po.purchaseorder_items, po.purchaseOrderItems];
+    for (const c of candidates) if (Array.isArray(c) && c.length) return c;
+    return [];
+  };
+
   // Prepopulate line items from the selected PO (from Zoho Books), then subtract
   // any previously-invoiced quantities for the same PO/items.
   useEffect(() => {
@@ -312,22 +321,33 @@ export default function InvoiceUpload() {
     let cancelled = false;
 
     (async () => {
-      // If admin opened a PO that has no synced line items, fetch the live PO
-      // list from Zoho for that vendor and pick up its items.
-      let items: any[] = Array.isArray(po.items) ? po.items : [];
-      if (!items.length && isAdmin && po.supplierZohoVendorId) {
+      let items: any[] = extractItems(po);
+
+      // If the selected PO has no synced line items, fetch the live PO list
+      // from Zoho for that supplier's vendor and pick up its items. Works for
+      // both admins (no vendor id on their own profile) and suppliers whose
+      // DB row wasn't synced with items.
+      const vendorIdForLive = po.supplierZohoVendorId || supplier?.zoho_vendor_id;
+      if (!items.length && vendorIdForLive) {
         try {
-          const livePos = await fetchPurchaseOrders(po.supplierZohoVendorId);
+          const livePos = await fetchPurchaseOrders(vendorIdForLive);
           const match = (livePos || []).find(
-            (p: any) => p.id === po.id || p.poNumber === po.poNumber,
+            (p: any) =>
+              p.id === po.id ||
+              String(p.id) === String(po.id) ||
+              p.poNumber === po.poNumber ||
+              p.purchaseorder_number === po.poNumber,
           );
-          if (match && Array.isArray(match.items) && match.items.length) {
-            items = match.items;
-            // Cache on the local PO so LineItemsInput sees poHasItems=true.
-            po.items = items;
+          const liveItems = extractItems(match);
+          if (liveItems.length && !cancelled) {
+            items = liveItems;
+            // Cache + force re-render so poHasItems flips true.
+            setPurchaseOrders((prev) =>
+              prev.map((p: any) => (p.id === po.id ? { ...p, items: liveItems } : p)),
+            );
           }
         } catch (err) {
-          console.warn('Failed to fetch live PO items for admin', err);
+          console.warn('Failed to fetch live PO items', err);
         }
       }
       if (cancelled) return;
@@ -347,7 +367,13 @@ export default function InvoiceUpload() {
         setLineItems(
           items.map((it: any) => {
             const qty = Number(it.quantity ?? it.qty ?? 0) || 0;
-            const name = it.item_name || it.name || it.description || it.item_description || '';
+            const name =
+              it.item_name ||
+              it.name ||
+              it.description ||
+              it.item_description ||
+              it.item ||
+              '';
             const invoiced = invoicedMap[name.trim().toLowerCase()] || 0;
             const remaining = Math.max(qty - invoiced, 0);
             return {
@@ -368,7 +394,7 @@ export default function InvoiceUpload() {
     return () => {
       cancelled = true;
     };
-  }, [selectedPO, purchaseOrders, supplier?.id, isAdmin]);
+  }, [selectedPO, purchaseOrders, supplier?.id, supplier?.zoho_vendor_id, isAdmin]);
 
   // Auto-compute invoice amount from selected line items (qty × rate),
   // unless the user has manually edited the amount.
