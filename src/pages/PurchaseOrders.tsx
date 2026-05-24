@@ -226,7 +226,7 @@ export default function PurchaseOrders() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => handleDownloadPO(order.id, order.poNumber)}
+                            onClick={() => handleDownloadPO(order.id, order.poNumber, order.supplierZohoVendorId)}
                             disabled={downloadingId === order.id}
                             title="Download PO"
                           >
