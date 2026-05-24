@@ -386,7 +386,7 @@ export async function submitInvoice(payload: {
   supplier_name: string;
   contact_email: string;
   supplier_id?: string;
-  line_items: Array<{ item_name: string; quantity: number; rate: number }>;
+  line_items: Array<{ item_name: string; quantity: number; rate: number; actual_delivery_date?: string }>;
   pdf_file?: File;
   notes?: string;
 }) {
@@ -420,6 +420,7 @@ export async function submitInvoice(payload: {
         item_name: li.item_name,
         quantity: Number(li.quantity) || 0,
         rate: Number(li.rate) || 0,
+        actual_delivery_date: li.actual_delivery_date || null,
       }));
     if (items.length) {
       const { error } = await supabase.rpc('record_invoice_line_items', {

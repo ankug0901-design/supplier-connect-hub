@@ -20,6 +20,7 @@ type LineItem = {
   invoiced_quantity?: number;
   quantity: number;
   rate: number;
+  actual_delivery_date?: string;
   selected?: boolean;
 };
 
@@ -28,6 +29,7 @@ function LineItemsInput({
   onChange,
   lockDetails = false,
   emptyFromPO = false,
+  expectedDelivery,
 }: {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
@@ -35,6 +37,8 @@ function LineItemsInput({
   lockDetails?: boolean;
   /** When true, show a hint that the selected PO didn't return any line items. */
   emptyFromPO?: boolean;
+  /** PO expected delivery date (YYYY-MM-DD) for variance display. */
+  expectedDelivery?: string;
 }) {
   const update = (i: number, field: keyof LineItem, value: any) => {
     const u = [...items];
@@ -42,7 +46,7 @@ function LineItemsInput({
     onChange(u);
   };
   const add = () =>
-    onChange([...items, { item_name: '', hsn: '', po_quantity: 0, quantity: 1, rate: 0, selected: true }]);
+    onChange([...items, { item_name: '', hsn: '', po_quantity: 0, quantity: 1, rate: 0, actual_delivery_date: '', selected: true }]);
   const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
 
   const allSelected = items.length > 0 && items.every((it) => it.selected !== false);
@@ -64,7 +68,7 @@ function LineItemsInput({
           This PO didn't return any line items from Zoho Books. Please enter them manually.
         </div>
       )}
-      <div className="grid grid-cols-[2rem_repeat(13,minmax(0,1fr))] gap-2 px-1 text-xs font-medium text-muted-foreground">
+      <div className="grid grid-cols-[2rem_repeat(15,minmax(0,1fr))] gap-2 px-1 text-xs font-medium text-muted-foreground">
         <div className="col-span-1 flex items-center">
           <Checkbox
             checked={allSelected}
@@ -74,10 +78,12 @@ function LineItemsInput({
         </div>
         <div className="col-span-3">Item description</div>
         <div className="col-span-2">HSN/SAC</div>
-        <div className="col-span-2">PO Qty</div>
+        <div className="col-span-1">PO Qty</div>
         <div className="col-span-2">Already Invoiced</div>
-        <div className="col-span-2">Invoice Qty</div>
+        <div className="col-span-1">Invoice Qty</div>
         <div className="col-span-2">Rate (₹)</div>
+        <div className="col-span-2">Actual Delivery Date</div>
+        <div className="col-span-2">Variance</div>
       </div>
       <div className="space-y-3">
         {items.map((item, i) => {
@@ -88,7 +94,7 @@ function LineItemsInput({
           const isSelected = item.selected !== false && !fullyInvoiced;
           return (
             <div key={i} className="space-y-1">
-              <div className="grid grid-cols-[2rem_repeat(13,minmax(0,1fr))] gap-2">
+              <div className="grid grid-cols-[2rem_repeat(15,minmax(0,1fr))] gap-2">
                 <div className="col-span-1 flex items-center justify-center">
                   <Checkbox
                     checked={isSelected}
@@ -114,7 +120,7 @@ function LineItemsInput({
                     disabled={!isSelected}
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <Input
                     type="number"
                     min="0"
@@ -134,7 +140,7 @@ function LineItemsInput({
                     className="bg-muted/40"
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <Input
                     type="number"
                     min="0"
@@ -160,6 +166,39 @@ function LineItemsInput({
                     readOnly={lockDetails}
                     disabled={lockDetails || !isSelected}
                   />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    type="date"
+                    value={item.actual_delivery_date || ''}
+                    onChange={(e) => update(i, 'actual_delivery_date', e.target.value)}
+                    disabled={!isSelected}
+                    max={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+                <div className="col-span-2 flex items-center">
+                  {(() => {
+                    if (!item.actual_delivery_date || !expectedDelivery) {
+                      return <span className="text-xs text-muted-foreground">—</span>;
+                    }
+                    const actual = new Date(item.actual_delivery_date);
+                    const expected = new Date(expectedDelivery);
+                    const diff = Math.round(
+                      (actual.getTime() - expected.getTime()) / (1000 * 60 * 60 * 24),
+                    );
+                    if (diff <= 0) {
+                      return (
+                        <span className="text-xs font-medium text-success">
+                          On time{diff < 0 ? ` (${Math.abs(diff)}d early)` : ''}
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="text-xs font-medium text-destructive">
+                        {diff}d late
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
               {fullyInvoiced && (
@@ -563,6 +602,7 @@ export default function InvoiceUpload() {
                     onChange={setLineItems}
                     lockDetails={!!selectedPO && poHasItems}
                     emptyFromPO={!!selectedPO && !poHasItems}
+                    expectedDelivery={po?.expectedDelivery || po?.expected_delivery}
                   />
                 );
               })()}
