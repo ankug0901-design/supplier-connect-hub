@@ -789,6 +789,7 @@ export type Database = {
           client_invoice_date: string | null
           client_invoice_number: string | null
           client_invoice_status: string | null
+          client_invoices: Json
           client_name: string | null
           client_payment_amount: number | null
           client_payment_date: string | null
@@ -801,13 +802,16 @@ export type Database = {
           matched_at: string | null
           notes: string | null
           po_number: string | null
+          po_numbers: string[]
           quantity_match: boolean | null
           raw_payload: Json | null
+          so_number: string | null
           supplier_company: string | null
           supplier_id: string | null
           supplier_invoice_amount: number | null
           supplier_invoice_date: string | null
           supplier_invoice_number: string | null
+          supplier_invoices: Json
           supplier_name: string | null
           supplier_payment_eligible: boolean | null
           supplier_payment_status: string | null
@@ -820,6 +824,7 @@ export type Database = {
           client_invoice_date?: string | null
           client_invoice_number?: string | null
           client_invoice_status?: string | null
+          client_invoices?: Json
           client_name?: string | null
           client_payment_amount?: number | null
           client_payment_date?: string | null
@@ -832,13 +837,16 @@ export type Database = {
           matched_at?: string | null
           notes?: string | null
           po_number?: string | null
+          po_numbers?: string[]
           quantity_match?: boolean | null
           raw_payload?: Json | null
+          so_number?: string | null
           supplier_company?: string | null
           supplier_id?: string | null
           supplier_invoice_amount?: number | null
           supplier_invoice_date?: string | null
           supplier_invoice_number?: string | null
+          supplier_invoices?: Json
           supplier_name?: string | null
           supplier_payment_eligible?: boolean | null
           supplier_payment_status?: string | null
@@ -851,6 +859,7 @@ export type Database = {
           client_invoice_date?: string | null
           client_invoice_number?: string | null
           client_invoice_status?: string | null
+          client_invoices?: Json
           client_name?: string | null
           client_payment_amount?: number | null
           client_payment_date?: string | null
@@ -863,13 +872,16 @@ export type Database = {
           matched_at?: string | null
           notes?: string | null
           po_number?: string | null
+          po_numbers?: string[]
           quantity_match?: boolean | null
           raw_payload?: Json | null
+          so_number?: string | null
           supplier_company?: string | null
           supplier_id?: string | null
           supplier_invoice_amount?: number | null
           supplier_invoice_date?: string | null
           supplier_invoice_number?: string | null
+          supplier_invoices?: Json
           supplier_name?: string | null
           supplier_payment_eligible?: boolean | null
           supplier_payment_status?: string | null
