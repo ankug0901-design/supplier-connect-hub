@@ -165,12 +165,12 @@ export default function PODetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {order.items.map((item) => (
-                      <tr key={item.id}>
-                        <td className="px-4 py-4 text-sm">{item.description}</td>
+                    {(order.items || []).map((item: any, idx: number) => (
+                      <tr key={item.id ?? idx}>
+                        <td className="px-4 py-4 text-sm">{item.description || item.item_name}</td>
                         <td className="px-4 py-4 text-right text-sm">{item.quantity}</td>
-                        <td className="px-4 py-4 text-right text-sm">{formatCurrency(item.unitPrice)}</td>
-                        <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(item.total)}</td>
+                        <td className="px-4 py-4 text-right text-sm">{formatCurrency(item.unitPrice ?? item.rate ?? 0)}</td>
+                        <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(item.total ?? (Number(item.quantity || 0) * Number(item.unitPrice ?? item.rate ?? 0)))}</td>
                       </tr>
                     ))}
                   </tbody>
