@@ -20,6 +20,7 @@ type LineItem = {
   invoiced_quantity?: number;
   quantity: number;
   rate: number;
+  actual_delivery_date?: string;
   selected?: boolean;
 };
 
