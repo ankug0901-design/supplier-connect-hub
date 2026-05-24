@@ -40,7 +40,6 @@ const FINISHES = [
 const ARTWORK_STATUSES = ['Final artwork ready', 'Draft artwork attached', 'Artwork in progress', 'No artwork'];
 
 const MANUAL_SUPPLIER = '__manual__';
-const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB cap for base64 payload
 
 type Supplier = { company: string; email: string; selectedId?: string };
 type DirectorySupplier = { id: string; company: string; name: string; email: string };
