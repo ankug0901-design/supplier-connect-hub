@@ -312,19 +312,40 @@ export default function InvoiceUpload() {
     let cancelled = false;
 
     (async () => {
-      let invoicedMap: Record<string, number> = {};
-      if (supplier?.id && po.poNumber) {
+      // If admin opened a PO that has no synced line items, fetch the live PO
+      // list from Zoho for that vendor and pick up its items.
+      let items: any[] = Array.isArray(po.items) ? po.items : [];
+      if (!items.length && isAdmin && po.supplierZohoVendorId) {
         try {
-          invoicedMap = await fetchInvoicedQuantitiesForPo(supplier.id, po.poNumber);
+          const livePos = await fetchPurchaseOrders(po.supplierZohoVendorId);
+          const match = (livePos || []).find(
+            (p: any) => p.id === po.id || p.poNumber === po.poNumber,
+          );
+          if (match && Array.isArray(match.items) && match.items.length) {
+            items = match.items;
+            // Cache on the local PO so LineItemsInput sees poHasItems=true.
+            po.items = items;
+          }
+        } catch (err) {
+          console.warn('Failed to fetch live PO items for admin', err);
+        }
+      }
+      if (cancelled) return;
+
+      let invoicedMap: Record<string, number> = {};
+      const supplierIdForLookup = isAdmin ? po.supplier_id || supplier?.id : supplier?.id;
+      if (supplierIdForLookup && po.poNumber) {
+        try {
+          invoicedMap = await fetchInvoicedQuantitiesForPo(supplierIdForLookup, po.poNumber);
         } catch (err) {
           console.warn('Failed to load prior invoiced qty', err);
         }
       }
       if (cancelled) return;
 
-      if (Array.isArray(po.items) && po.items.length) {
+      if (items.length) {
         setLineItems(
-          po.items.map((it: any) => {
+          items.map((it: any) => {
             const qty = Number(it.quantity ?? it.qty ?? 0) || 0;
             const name = it.item_name || it.name || it.description || it.item_description || '';
             const invoiced = invoicedMap[name.trim().toLowerCase()] || 0;
@@ -347,7 +368,7 @@ export default function InvoiceUpload() {
     return () => {
       cancelled = true;
     };
-  }, [selectedPO, purchaseOrders, supplier?.id]);
+  }, [selectedPO, purchaseOrders, supplier?.id, isAdmin]);
 
   // Auto-compute invoice amount from selected line items (qty × rate),
   // unless the user has manually edited the amount.

@@ -83,6 +83,7 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [])
   amount: Number(p.amount || 0),
   status: p.status,
   supplierName: supplier?.company,
+  supplierZohoVendorId: supplier?.zoho_vendor_id,
   items: poItems.map((it: any) => ({
     id: it.id,
     item_name: it.description,
