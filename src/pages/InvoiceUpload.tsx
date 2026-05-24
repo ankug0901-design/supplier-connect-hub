@@ -43,7 +43,7 @@ function LineItemsInput({
     onChange(u);
   };
   const add = () =>
-    onChange([...items, { item_name: '', hsn: '', po_quantity: 0, quantity: 1, rate: 0, selected: true }]);
+    onChange([...items, { item_name: '', hsn: '', po_quantity: 0, quantity: 1, rate: 0, actual_delivery_date: '', selected: true }]);
   const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
 
   const allSelected = items.length > 0 && items.every((it) => it.selected !== false);
