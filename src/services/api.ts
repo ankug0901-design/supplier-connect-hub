@@ -280,7 +280,7 @@ export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, 
     throw new Error('The purchase order PDF returned by the server is malformed.');
   }
 
-  const blob = new Blob([bytes], { type: data?.mimeType || 'application/pdf' });
+  const blob = new Blob([bytes.buffer as ArrayBuffer], { type: data?.mimeType || 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
