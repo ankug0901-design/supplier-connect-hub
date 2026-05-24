@@ -251,7 +251,9 @@ export default function PODetail() {
                       const hsn = item.hsn || item.hsn_or_sac || item.hsn_sac || item.sac || '—';
                       const qty = Number(item.quantity ?? item.qty ?? 0) || 0;
                       const rate = Number(item.unitPrice ?? item.rate ?? item.unit_price ?? item.price ?? 0) || 0;
-                      const invoiced = invoicedMap[String(name).trim().toLowerCase()] || 0;
+                      const isFullyBilled = ['closed', 'billed', 'completed'].includes(String(order.status || '').toLowerCase());
+                      const tracked = invoicedMap[String(name).trim().toLowerCase()] || 0;
+                      const invoiced = isFullyBilled ? qty : tracked;
                       const pending = Math.max(qty - invoiced, 0);
                       const total = Number(item.total ?? qty * rate);
                       return (
