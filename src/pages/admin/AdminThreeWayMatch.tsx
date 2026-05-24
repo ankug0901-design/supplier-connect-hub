@@ -14,33 +14,39 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 
+type InvoiceItem = {
+  invoice_number?: string;
+  date?: string | null;
+  amount?: number | null;
+  quantity?: number | null;
+  status?: string | null;
+  po_number?: string | null;
+  payment_date?: string | null;
+  payment_amount?: number | null;
+  payment_reference?: string | null;
+};
+
 type Match = {
   id: string;
-  client_invoice_number: string | null;
-  client_invoice_date: string | null;
-  client_invoice_amount: number | null;
+  so_number: string | null;
   client_name: string | null;
-  client_invoice_status: string | null;
-  supplier_invoice_number: string | null;
-  supplier_invoice_date: string | null;
-  supplier_invoice_amount: number | null;
   supplier_name: string | null;
   supplier_company: string | null;
-  po_number: string | null;
+  po_numbers: string[] | null;
+  client_invoices: InvoiceItem[] | null;
+  supplier_invoices: InvoiceItem[] | null;
+  client_invoice_amount: number | null;
+  supplier_invoice_amount: number | null;
   client_quantity: number | null;
   supplier_quantity: number | null;
   quantity_match: boolean | null;
-  amount_match: boolean | null;
   client_payment_received: boolean | null;
-  client_payment_date: string | null;
-  client_payment_amount: number | null;
-  client_payment_reference: string | null;
+  client_invoice_status: string | null;
+  match_status: string | null;
   supplier_payment_status: string | null;
   supplier_payment_eligible: boolean | null;
-  match_status: string | null;
   notes: string | null;
   raw_payload: any;
-  matched_at: string | null;
   updated_at: string;
 };
 
@@ -49,6 +55,8 @@ const fmtMoney = (n: number | null | undefined) =>
     ? '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : '—';
 const fmtDate = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('en-IN') : '—');
+const fmtQty = (n: number | null | undefined) =>
+  typeof n === 'number' ? n.toLocaleString('en-IN') : '—';
 
 function StatusBadge({ value }: { value: string | null }) {
   const v = (value || '').toLowerCase();
@@ -70,6 +78,36 @@ function BoolIcon({ v }: { v: boolean | null }) {
   if (v === true) return <CheckCircle2 className="h-4 w-4 text-success inline" />;
   if (v === false) return <XCircle className="h-4 w-4 text-destructive inline" />;
   return <AlertCircle className="h-4 w-4 text-muted-foreground inline" />;
+}
+
+function InvoiceList({ items }: { items: InvoiceItem[] }) {
+  if (!items?.length) return <span className="text-muted-foreground text-xs">—</span>;
+  return (
+    <div className="rounded-md border overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-xs">Invoice #</TableHead>
+            <TableHead className="text-xs">Date</TableHead>
+            <TableHead className="text-xs text-right">Qty</TableHead>
+            <TableHead className="text-xs text-right">Amount</TableHead>
+            <TableHead className="text-xs">Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((it, idx) => (
+            <TableRow key={idx}>
+              <TableCell className="text-xs font-medium">{it.invoice_number || '—'}</TableCell>
+              <TableCell className="text-xs">{fmtDate(it.date)}</TableCell>
+              <TableCell className="text-xs text-right">{fmtQty(it.quantity ?? null)}</TableCell>
+              <TableCell className="text-xs text-right">{fmtMoney(it.amount ?? null)}</TableCell>
+              <TableCell className="text-xs capitalize">{it.status || '—'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
 }
 
 export default function AdminThreeWayMatch() {
@@ -107,10 +145,14 @@ export default function AdminThreeWayMatch() {
       if (tab === 'mismatch' && (r.match_status || '').toLowerCase() !== 'mismatch') return false;
       if (tab === 'release' && !r.supplier_payment_eligible) return false;
       if (!q) return true;
+      const inv = [
+        ...(r.client_invoices || []).map((i) => i.invoice_number || ''),
+        ...(r.supplier_invoices || []).map((i) => i.invoice_number || ''),
+      ].join(' ').toLowerCase();
       return [
-        r.client_invoice_number, r.supplier_invoice_number, r.po_number,
-        r.client_name, r.supplier_name, r.supplier_company,
-      ].some((v) => (v || '').toLowerCase().includes(q));
+        r.so_number, r.client_name, r.supplier_name, r.supplier_company,
+        ...(r.po_numbers || []),
+      ].some((v) => (v || '').toLowerCase().includes(q)) || inv.includes(q);
     });
   }, [rows, search, tab]);
 
@@ -125,7 +167,7 @@ export default function AdminThreeWayMatch() {
   return (
     <DashboardLayout
       title="3-Way Matching"
-      subtitle="Client invoices ↔ Supplier invoices ↔ Client payments (from N8N workflow)"
+      subtitle="Sales Order ↔ Client Invoices ↔ Supplier Invoices ↔ Payments (from N8N workflow)"
       actions={
         <Button variant="outline" size="sm" onClick={load} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
@@ -134,7 +176,7 @@ export default function AdminThreeWayMatch() {
     >
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         {[
-          { label: 'Total Records', value: stats.total, tone: 'bg-muted' },
+          { label: 'Total SOs', value: stats.total, tone: 'bg-muted' },
           { label: 'Matched', value: stats.matched, tone: 'bg-success/10 text-success' },
           { label: 'Partial', value: stats.partial, tone: 'bg-warning/10 text-warning' },
           { label: 'Mismatch', value: stats.mismatch, tone: 'bg-destructive/10 text-destructive' },
@@ -151,14 +193,14 @@ export default function AdminThreeWayMatch() {
 
       <Card>
         <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <CardTitle className="text-base">Matched Records</CardTitle>
+          <CardTitle className="text-base">Sales Orders</CardTitle>
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search invoice, PO, supplier..."
+                placeholder="Search SO, PO, invoice, supplier..."
                 className="pl-8 w-72"
               />
             </div>
@@ -179,13 +221,14 @@ export default function AdminThreeWayMatch() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client Invoice</TableHead>
+                  <TableHead>SO #</TableHead>
                   <TableHead>Client</TableHead>
-                  <TableHead className="text-right">Client Amt</TableHead>
-                  <TableHead>Supplier Invoice</TableHead>
                   <TableHead>Supplier</TableHead>
-                  <TableHead className="text-right">Sup. Amt</TableHead>
-                  <TableHead>PO</TableHead>
+                  <TableHead>PO(s)</TableHead>
+                  <TableHead className="text-center">Client Inv</TableHead>
+                  <TableHead className="text-right">Client Total</TableHead>
+                  <TableHead className="text-center">Sup. Inv</TableHead>
+                  <TableHead className="text-right">Sup. Total</TableHead>
                   <TableHead className="text-center">Qty Match</TableHead>
                   <TableHead className="text-center">Client Paid</TableHead>
                   <TableHead>Match</TableHead>
@@ -195,27 +238,29 @@ export default function AdminThreeWayMatch() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
-                    No matching records yet. N8N workflow will populate this list.
+                  <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                    No matched SOs yet. N8N workflow will populate this list.
                   </TableCell></TableRow>
                 ) : filtered.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell>
-                      <div className="font-medium">{r.client_invoice_number || '—'}</div>
-                      <div className="text-xs text-muted-foreground">{fmtDate(r.client_invoice_date)}</div>
-                    </TableCell>
+                    <TableCell className="font-mono font-medium">{r.so_number || '—'}</TableCell>
                     <TableCell className="whitespace-normal break-words min-w-[180px]">{r.client_name || '—'}</TableCell>
-                    <TableCell className="text-right">{fmtMoney(r.client_invoice_amount)}</TableCell>
-                    <TableCell>
-                      <div className="font-medium">{r.supplier_invoice_number || '—'}</div>
-                      <div className="text-xs text-muted-foreground">{fmtDate(r.supplier_invoice_date)}</div>
-                    </TableCell>
                     <TableCell className="whitespace-normal break-words min-w-[180px]">{r.supplier_company || r.supplier_name || '—'}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {(r.po_numbers && r.po_numbers.length) ? r.po_numbers.join(', ') : '—'}
+                    </TableCell>
+                    <TableCell className="text-center">{r.client_invoices?.length ?? 0}</TableCell>
+                    <TableCell className="text-right">{fmtMoney(r.client_invoice_amount)}</TableCell>
+                    <TableCell className="text-center">{r.supplier_invoices?.length ?? 0}</TableCell>
                     <TableCell className="text-right">{fmtMoney(r.supplier_invoice_amount)}</TableCell>
-                    <TableCell className="font-mono text-xs">{r.po_number || '—'}</TableCell>
-                    <TableCell className="text-center"><BoolIcon v={r.quantity_match} /></TableCell>
+                    <TableCell className="text-center">
+                      <div><BoolIcon v={r.quantity_match} /></div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {fmtQty(r.client_quantity)} / {fmtQty(r.supplier_quantity)}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-center"><BoolIcon v={r.client_payment_received} /></TableCell>
                     <TableCell><StatusBadge value={r.match_status} /></TableCell>
                     <TableCell><PayBadge value={r.supplier_payment_status} /></TableCell>
@@ -233,54 +278,38 @@ export default function AdminThreeWayMatch() {
       </Card>
 
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Match Details</DialogTitle>
+            <DialogTitle>
+              SO {selected?.so_number} — <StatusBadge value={selected?.match_status ?? null} />
+            </DialogTitle>
           </DialogHeader>
           {selected && (
             <div className="space-y-5 text-sm">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-sm">Client Invoice</CardTitle></CardHeader>
-                  <CardContent className="space-y-1 text-xs">
-                    <div><span className="text-muted-foreground">Number:</span> <b>{selected.client_invoice_number || '—'}</b></div>
-                    <div><span className="text-muted-foreground">Date:</span> {fmtDate(selected.client_invoice_date)}</div>
-                    <div><span className="text-muted-foreground">Amount:</span> {fmtMoney(selected.client_invoice_amount)}</div>
-                    <div><span className="text-muted-foreground">Client:</span> {selected.client_name || '—'}</div>
-                    <div><span className="text-muted-foreground">Qty:</span> {selected.client_quantity ?? '—'}</div>
-                    <div><span className="text-muted-foreground">Status:</span> {selected.client_invoice_status || '—'}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-sm">Supplier Invoice</CardTitle></CardHeader>
-                  <CardContent className="space-y-1 text-xs">
-                    <div><span className="text-muted-foreground">Number:</span> <b>{selected.supplier_invoice_number || '—'}</b></div>
-                    <div><span className="text-muted-foreground">Date:</span> {fmtDate(selected.supplier_invoice_date)}</div>
-                    <div><span className="text-muted-foreground">Amount:</span> {fmtMoney(selected.supplier_invoice_amount)}</div>
-                    <div><span className="text-muted-foreground">Supplier:</span> {selected.supplier_company || selected.supplier_name || '—'}</div>
-                    <div><span className="text-muted-foreground">Qty:</span> {selected.supplier_quantity ?? '—'}</div>
-                    <div><span className="text-muted-foreground">PO:</span> {selected.po_number || '—'}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-sm">Client Payment</CardTitle></CardHeader>
-                  <CardContent className="space-y-1 text-xs">
-                    <div><span className="text-muted-foreground">Received:</span> <BoolIcon v={selected.client_payment_received} /></div>
-                    <div><span className="text-muted-foreground">Date:</span> {fmtDate(selected.client_payment_date)}</div>
-                    <div><span className="text-muted-foreground">Amount:</span> {fmtMoney(selected.client_payment_amount)}</div>
-                    <div><span className="text-muted-foreground">Reference:</span> {selected.client_payment_reference || '—'}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-sm">Supplier Payment</CardTitle></CardHeader>
-                  <CardContent className="space-y-1 text-xs">
-                    <div><span className="text-muted-foreground">Status:</span> <PayBadge value={selected.supplier_payment_status} /></div>
-                    <div><span className="text-muted-foreground">Eligible:</span> <BoolIcon v={selected.supplier_payment_eligible} /></div>
-                    <div><span className="text-muted-foreground">Match:</span> <StatusBadge value={selected.match_status} /></div>
-                    <div><span className="text-muted-foreground">Qty Match:</span> <BoolIcon v={selected.quantity_match} /></div>
-                  </CardContent>
-                </Card>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-md border space-y-1">
+                  <div><span className="text-muted-foreground">Client:</span> <b>{selected.client_name || '—'}</b></div>
+                  <div><span className="text-muted-foreground">Client total:</span> {fmtMoney(selected.client_invoice_amount)}</div>
+                  <div><span className="text-muted-foreground">Client qty:</span> {fmtQty(selected.client_quantity)}</div>
+                  <div><span className="text-muted-foreground">Client paid:</span> <BoolIcon v={selected.client_payment_received} /></div>
+                </div>
+                <div className="p-3 rounded-md border space-y-1">
+                  <div><span className="text-muted-foreground">Supplier:</span> <b>{selected.supplier_company || selected.supplier_name || '—'}</b></div>
+                  <div><span className="text-muted-foreground">Supplier total:</span> {fmtMoney(selected.supplier_invoice_amount)}</div>
+                  <div><span className="text-muted-foreground">Supplier qty:</span> {fmtQty(selected.supplier_quantity)}</div>
+                  <div><span className="text-muted-foreground">Supplier payment:</span> <PayBadge value={selected.supplier_payment_status} /></div>
+                </div>
               </div>
+
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground mb-2">Client Invoices</div>
+                <InvoiceList items={selected.client_invoices || []} />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground mb-2">Supplier Invoices</div>
+                <InvoiceList items={selected.supplier_invoices || []} />
+              </div>
+
               {selected.notes && (
                 <div>
                   <div className="text-xs font-semibold text-muted-foreground mb-1">Notes</div>
