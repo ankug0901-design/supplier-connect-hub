@@ -201,33 +201,47 @@ export default function PODetail() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Description
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Quantity
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Unit Price
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Total
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">HSN/SAC</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">PO Qty</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Invoiced</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Pending</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Unit Price</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {(order.items || []).map((item: any, idx: number) => (
-                      <tr key={item.id ?? idx}>
-                        <td className="px-4 py-4 text-sm">{item.description || item.item_name}</td>
-                        <td className="px-4 py-4 text-right text-sm">{item.quantity}</td>
-                        <td className="px-4 py-4 text-right text-sm">{formatCurrency(item.unitPrice ?? item.rate ?? 0)}</td>
-                        <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(item.total ?? (Number(item.quantity || 0) * Number(item.unitPrice ?? item.rate ?? 0)))}</td>
+                    {(order.items || []).length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                          No line items available for this purchase order.
+                        </td>
                       </tr>
-                    ))}
+                    )}
+                    {(order.items || []).map((item: any, idx: number) => {
+                      const name = item.item_name || item.name || item.description || item.item_description || '';
+                      const hsn = item.hsn || item.hsn_or_sac || item.hsn_sac || item.sac || '—';
+                      const qty = Number(item.quantity ?? item.qty ?? 0) || 0;
+                      const rate = Number(item.unitPrice ?? item.rate ?? item.unit_price ?? item.price ?? 0) || 0;
+                      const invoiced = invoicedMap[String(name).trim().toLowerCase()] || 0;
+                      const pending = Math.max(qty - invoiced, 0);
+                      const total = Number(item.total ?? qty * rate);
+                      return (
+                        <tr key={item.id ?? idx}>
+                          <td className="px-4 py-4 text-sm">{name || '—'}</td>
+                          <td className="px-4 py-4 text-sm text-muted-foreground">{hsn}</td>
+                          <td className="px-4 py-4 text-right text-sm">{qty}</td>
+                          <td className="px-4 py-4 text-right text-sm">{invoiced}</td>
+                          <td className="px-4 py-4 text-right text-sm font-medium">{pending}</td>
+                          <td className="px-4 py-4 text-right text-sm">{formatCurrency(rate)}</td>
+                          <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(total)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot>
                     <tr className="bg-muted/50">
-                      <td colSpan={3} className="px-4 py-4 text-right font-semibold">Grand Total</td>
+                      <td colSpan={6} className="px-4 py-4 text-right font-semibold">Grand Total</td>
                       <td className="px-4 py-4 text-right font-bold text-primary">{formatCurrency(order.amount)}</td>
                     </tr>
                   </tfoot>
