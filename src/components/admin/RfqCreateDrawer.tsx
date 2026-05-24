@@ -14,8 +14,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-
-const N8N_CREATE = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-automation-form';
+import { n8nPost } from '@/lib/n8n';
 
 const PRODUCT_CATEGORIES = [
   'Offset Printing', 'Flexographic Printing', 'Digital Printing', 'Screen Printing',
@@ -237,21 +236,15 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
 
     setSubmitting(true);
     try {
-      let res: Response;
+      let res: Awaited<ReturnType<typeof n8nPost>>;
       try {
-        res = await fetch(N8N_CREATE, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          mode: 'cors',
-        });
+        res = await n8nPost('rfq-automation-form', payload);
       } catch (networkErr: any) {
         console.error('RFQ submit network error:', networkErr);
         throw new Error(`Network error reaching RFQ service: ${networkErr?.message || 'unknown'}`);
       }
-      const bodyText = await res.text().catch(() => '');
-      let parsed: any = null;
-      try { parsed = bodyText ? JSON.parse(bodyText) : null; } catch { /* non-JSON */ }
+      const bodyText = res.text || '';
+      const parsed = res.data;
       const isSuccess = res.ok && (parsed?.success === true || parsed?.success === 'true' || (parsed && parsed.success === undefined));
       if (!isSuccess) {
         const errMsg = parsed?.error || parsed?.message || bodyText || `HTTP ${res.status}`;

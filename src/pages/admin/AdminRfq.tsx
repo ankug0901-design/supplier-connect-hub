@@ -18,9 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { RfqCreateDrawer } from '@/components/admin/RfqCreateDrawer';
 import { useAuth } from '@/contexts/AuthContext';
-
-const N8N_QUOTE_ACCEPTED = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-quote-accepted';
-const N8N_RFQ_MANAGE = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-manage';
+import { n8nPost } from '@/lib/n8n';
 
 type Rfq = any;
 
@@ -191,22 +189,18 @@ export default function AdminRfq() {
     patchLocal(r.id, { status: 'accepted', emboss_decision: 'accepted', decided_at: decidedAt, emboss_notes: mergedNotes });
     const supplierName = r.supplier_company || r.supplier_email;
     try {
-      const res = await fetch(N8N_QUOTE_ACCEPTED, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rfq_id: r.rfq_id,
-          supplier_email: r.supplier_email,
-          supplier_name: supplierName,
-          product_name: r.product_name,
-          quantity: r.quantity,
-          quoted_unit_price: Number(r.quoted_unit_price) || 0,
-          quoted_gst_percent: Number(r.quoted_gst_percent) || 0,
-          lead_time_days: Number(r.lead_time_days) || 0,
-          payment_terms: r.payment_terms || '',
-          emboss_notes: mergedNotes,
-          price_rank: r.__effectiveRank ?? r.price_rank ?? 1,
-        }),
+      const res = await n8nPost('rfq-quote-accepted', {
+        rfq_id: r.rfq_id,
+        supplier_email: r.supplier_email,
+        supplier_name: supplierName,
+        product_name: r.product_name,
+        quantity: r.quantity,
+        quoted_unit_price: Number(r.quoted_unit_price) || 0,
+        quoted_gst_percent: Number(r.quoted_gst_percent) || 0,
+        lead_time_days: Number(r.lead_time_days) || 0,
+        payment_terms: r.payment_terms || '',
+        emboss_notes: mergedNotes,
+        price_rank: r.__effectiveRank ?? r.price_rank ?? 1,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       // Persist decision + justification to DB
@@ -305,15 +299,11 @@ export default function AdminRfq() {
     setForceCloseReason('');
     toast.success('RFQ closed successfully');
     try {
-      const res = await fetch(N8N_RFQ_MANAGE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rfq_id: targetId,
-          action: 'force_close',
-          reason,
-          actioned_by: 'Ankur Gupta',
-        }),
+      const res = await n8nPost('rfq-manage', {
+        rfq_id: targetId,
+        action: 'force_close',
+        reason,
+        actioned_by: 'Ankur Gupta',
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch (e: any) {
@@ -361,17 +351,13 @@ export default function AdminRfq() {
     setReopenTime('17:00');
     toast.success(action === 'extend' ? 'RFQ deadline extended — suppliers have been notified' : 'RFQ reopened successfully');
     try {
-      const res = await fetch(N8N_RFQ_MANAGE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rfq_id: targetId,
-          action,
-          new_deadline: newDeadline,
-          new_deadline_time: newDeadlineTime,
-          reason,
-          actioned_by: supplier?.name || user?.email || 'Admin',
-        }),
+      const res = await n8nPost('rfq-manage', {
+        rfq_id: targetId,
+        action,
+        new_deadline: newDeadline,
+        new_deadline_time: newDeadlineTime,
+        reason,
+        actioned_by: supplier?.name || user?.email || 'Admin',
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch (e: any) {

@@ -17,8 +17,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-
-const N8N_QUOTE_RECEIVED = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-quote-received';
+import { n8nPost } from '@/lib/n8n';
 
 type RfqRow = any;
 
@@ -287,24 +286,20 @@ function RfqDetailSheet({
         .eq('id', rfq.id);
       if (error) throw error;
 
-      await fetch(N8N_QUOTE_RECEIVED, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rfq_id: rfq.rfq_id,
-          supplier_email: rfq.supplier_email,
-          supplier_name: supplierName || rfq.supplier_email,
-          submitted_by_name: rfq.submitted_by_name,
-          submitted_by_email: rfq.submitted_by_email,
-          is_revision: isRevision,
-          quoted_unit_price: up,
-          quoted_gst_percent: gstPct,
-          lead_time_days: Number(leadTime),
-          payment_terms: paymentTerms,
-          validity_days: Number(validity) || 30,
-          setup_charges: Number(setupCharges) || 0,
-          supplier_notes: notes,
-        }),
+      n8nPost('rfq-quote-received', {
+        rfq_id: rfq.rfq_id,
+        supplier_email: rfq.supplier_email,
+        supplier_name: supplierName || rfq.supplier_email,
+        submitted_by_name: rfq.submitted_by_name,
+        submitted_by_email: rfq.submitted_by_email,
+        is_revision: isRevision,
+        quoted_unit_price: up,
+        quoted_gst_percent: gstPct,
+        lead_time_days: Number(leadTime),
+        payment_terms: paymentTerms,
+        validity_days: Number(validity) || 30,
+        setup_charges: Number(setupCharges) || 0,
+        supplier_notes: notes,
       }).catch(() => {});
 
       toast.success(isRevision ? 'Quote revised successfully!' : 'Quote submitted! Emboss Marketing will review and get back to you.');
