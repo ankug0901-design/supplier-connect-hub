@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb } from '@/services/api';
+import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, fetchInvoicedQuantitiesForPo } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
@@ -16,10 +16,18 @@ const statusStyles: Record<string, string> = {
   completed: 'bg-success/10 text-success border-success/20',
 };
 
+const extractItems = (po: any): any[] => {
+  if (!po) return [];
+  const candidates = [po.items, po.line_items, po.lineItems, po.purchaseorder_items, po.purchaseOrderItems];
+  for (const c of candidates) if (Array.isArray(c) && c.length) return c;
+  return [];
+};
+
 export default function PODetail() {
   const { id } = useParams();
   const { supplier, isAdmin } = useAuth();
   const [order, setOrder] = useState<any | null>(null);
+  const [invoicedMap, setInvoicedMap] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -34,17 +42,60 @@ export default function PODetail() {
         const data = isAdmin
           ? await fetchPurchaseOrdersFromDb()
           : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
-        if (!cancelled) {
-          const target = String(id);
-          const found =
-            data.find(
-              (po: any) =>
-                String(po.id) === target ||
-                String(po.zoho_id ?? '') === target ||
-                String(po.poNumber ?? '') === target,
-            ) || null;
-          setOrder(found);
+        const target = String(id);
+        let found =
+          data.find(
+            (po: any) =>
+              String(po.id) === target ||
+              String(po.zoho_id ?? '') === target ||
+              String(po.poNumber ?? '') === target,
+          ) || null;
+
+        // If items / delivery address are missing, fetch the live PO list
+        // from Zoho for this supplier's vendor and merge richer fields.
+        if (found) {
+          const needsEnrichment = !extractItems(found).length || !found.deliveryAddress;
+          const vendorId = found.supplierZohoVendorId || supplier?.zoho_vendor_id;
+          if (needsEnrichment && vendorId) {
+            try {
+              const livePos = await fetchPurchaseOrders(vendorId);
+              const match = (livePos || []).find(
+                (p: any) =>
+                  String(p.id) === String(found!.id) ||
+                  p.poNumber === found!.poNumber ||
+                  p.purchaseorder_number === found!.poNumber,
+              );
+              if (match) {
+                const liveItems = extractItems(match);
+                found = {
+                  ...found,
+                  items: liveItems.length ? liveItems : found.items,
+                  deliveryAddress:
+                    found.deliveryAddress ||
+                    match.deliveryAddress ||
+                    match.delivery_address ||
+                    match.delivery_customer_address ||
+                    '',
+                };
+              }
+            } catch (err) {
+              console.warn('Live PO enrichment failed', err);
+            }
+          }
+
+          // Pull invoiced quantities for this PO
+          const supplierIdForLookup = isAdmin ? found.supplier_id || supplier?.id : supplier?.id;
+          if (supplierIdForLookup && found.poNumber) {
+            try {
+              const map = await fetchInvoicedQuantitiesForPo(supplierIdForLookup, found.poNumber);
+              if (!cancelled) setInvoicedMap(map);
+            } catch (err) {
+              console.warn('Failed to load invoiced quantities', err);
+            }
+          }
         }
+
+        if (!cancelled) setOrder(found);
       } catch (err) {
         console.error('Failed to load purchase order', err);
       } finally {
@@ -54,7 +105,7 @@ export default function PODetail() {
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id, isAdmin, id]);
+  }, [supplier?.zoho_vendor_id, supplier?.id, isAdmin, id]);
 
   if (!isAdmin && !supplier?.zoho_vendor_id) {
     return (
@@ -150,33 +201,47 @@ export default function PODetail() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Description
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Quantity
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Unit Price
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Total
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">HSN/SAC</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">PO Qty</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Invoiced</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Pending</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Unit Price</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {(order.items || []).map((item: any, idx: number) => (
-                      <tr key={item.id ?? idx}>
-                        <td className="px-4 py-4 text-sm">{item.description || item.item_name}</td>
-                        <td className="px-4 py-4 text-right text-sm">{item.quantity}</td>
-                        <td className="px-4 py-4 text-right text-sm">{formatCurrency(item.unitPrice ?? item.rate ?? 0)}</td>
-                        <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(item.total ?? (Number(item.quantity || 0) * Number(item.unitPrice ?? item.rate ?? 0)))}</td>
+                    {(order.items || []).length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                          No line items available for this purchase order.
+                        </td>
                       </tr>
-                    ))}
+                    )}
+                    {(order.items || []).map((item: any, idx: number) => {
+                      const name = item.item_name || item.name || item.description || item.item_description || '';
+                      const hsn = item.hsn || item.hsn_or_sac || item.hsn_sac || item.sac || '—';
+                      const qty = Number(item.quantity ?? item.qty ?? 0) || 0;
+                      const rate = Number(item.unitPrice ?? item.rate ?? item.unit_price ?? item.price ?? 0) || 0;
+                      const invoiced = invoicedMap[String(name).trim().toLowerCase()] || 0;
+                      const pending = Math.max(qty - invoiced, 0);
+                      const total = Number(item.total ?? qty * rate);
+                      return (
+                        <tr key={item.id ?? idx}>
+                          <td className="px-4 py-4 text-sm">{name || '—'}</td>
+                          <td className="px-4 py-4 text-sm text-muted-foreground">{hsn}</td>
+                          <td className="px-4 py-4 text-right text-sm">{qty}</td>
+                          <td className="px-4 py-4 text-right text-sm">{invoiced}</td>
+                          <td className="px-4 py-4 text-right text-sm font-medium">{pending}</td>
+                          <td className="px-4 py-4 text-right text-sm">{formatCurrency(rate)}</td>
+                          <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(total)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot>
                     <tr className="bg-muted/50">
-                      <td colSpan={3} className="px-4 py-4 text-right font-semibold">Grand Total</td>
+                      <td colSpan={6} className="px-4 py-4 text-right font-semibold">Grand Total</td>
                       <td className="px-4 py-4 text-right font-bold text-primary">{formatCurrency(order.amount)}</td>
                     </tr>
                   </tfoot>
@@ -208,11 +273,13 @@ export default function PODetail() {
                   <div>
                     <p className="text-xs text-muted-foreground">Expected Delivery</p>
                     <p className="text-sm font-medium">
-                      {new Date(order.expectedDelivery).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
+                      {order.expectedDelivery
+                        ? new Date(order.expectedDelivery).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric',
+                          })
+                        : '—'}
                     </p>
                   </div>
                 </div>
@@ -220,7 +287,9 @@ export default function PODetail() {
                   <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Delivery Address</p>
-                    <p className="text-sm font-medium">{order.deliveryAddress}</p>
+                    <p className="whitespace-pre-line text-sm font-medium">
+                      {order.deliveryAddress || '—'}
+                    </p>
                   </div>
                 </div>
               </div>
