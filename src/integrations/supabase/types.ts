@@ -805,7 +805,7 @@ export type Database = {
           po_numbers: string[]
           quantity_match: boolean | null
           raw_payload: Json | null
-          so_number: string | null
+          so_number: string
           supplier_company: string | null
           supplier_id: string | null
           supplier_invoice_amount: number | null
@@ -840,7 +840,7 @@ export type Database = {
           po_numbers?: string[]
           quantity_match?: boolean | null
           raw_payload?: Json | null
-          so_number?: string | null
+          so_number: string
           supplier_company?: string | null
           supplier_id?: string | null
           supplier_invoice_amount?: number | null
@@ -875,7 +875,7 @@ export type Database = {
           po_numbers?: string[]
           quantity_match?: boolean | null
           raw_payload?: Json | null
-          so_number?: string | null
+          so_number?: string
           supplier_company?: string | null
           supplier_id?: string | null
           supplier_invoice_amount?: number | null
