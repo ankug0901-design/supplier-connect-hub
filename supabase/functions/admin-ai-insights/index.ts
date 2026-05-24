@@ -397,7 +397,7 @@ Deno.serve(async (req) => {
         model,
         schema: z.array(RawVendorScoreItemSchema),
         system:
-          "You are a vendor performance analyst. Score each vendor 0-100 based on PO completion rate, invoice quality (rejection rate), shipment reliability, and volume. A=excellent (85+), B=good (70-84), C=needs improvement (50-69), D=poor (<50). Be concise.",
+          "You are a vendor performance analyst for an Indian B2B procurement portal. Score each vendor 0-100 using this weighting: 40% on-time delivery (use on_time_delivery_rate and avg_days_late comparing actual delivery date vs PO expected_delivery — this is the most important factor), 25% PO completion rate, 20% invoice quality (low rejection rate), 15% shipment reliability and volume. Treat delivery_line_count < 3 as 'insufficient delivery data' — note it in weaknesses and lean on other metrics. A=excellent (85+, on_time_delivery_rate >= 0.9), B=good (70-84), C=needs improvement (50-69), D=poor (<50, on_time_delivery_rate < 0.5 or avg_days_late > 7). Mention concrete delivery numbers in strengths/weaknesses (e.g. '92% on-time across 24 deliveries' or 'avg 5.3 days late'). Be concise.",
         prompt: `Score these vendors based on real procurement data. Return a JSON array with one entry per vendor. Each entry must include supplier_id, company, score, grade, strengths, weaknesses, and recommendation.\n\n${JSON.stringify(topVendors, null, 2)}`,
       });
       const vendorById = new Map(topVendors.map((v) => [v.supplier_id, v]));
