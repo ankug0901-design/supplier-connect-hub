@@ -245,6 +245,18 @@ async function fetchPaymentsFromDbByVendor(zohoVendorId: string) {
   return mapDbPayments(data || [], invoices || []);
 }
 
+function sanitizeBase64(input: string): string {
+  // Strip data-URL prefix, whitespace/newlines, and any non-base64 chars; fix padding.
+  let s = String(input).trim();
+  const comma = s.indexOf(',');
+  if (s.startsWith('data:') && comma !== -1) s = s.slice(comma + 1);
+  s = s.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+  s = s.replace(/[^A-Za-z0-9+/=]/g, '');
+  const pad = s.length % 4;
+  if (pad) s += '='.repeat(4 - pad);
+  return s;
+}
+
 export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, poNumber?: string) {
   const data = await n8nProxy('zoho-supplier-data', {
     operation: 'download_po',
@@ -252,12 +264,23 @@ export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, 
     po_id: poId,
     po_number: poNumber,
   });
-  if (!data?.success || !data?.pdf_base64) {
-    throw new Error(data?.error || 'Could not fetch PDF');
+  const rawBase64 = data?.pdf_base64 || data?.pdfBase64 || data?.file_base64 || data?.fileBase64 || data?.base64;
+  if (!rawBase64) {
+    throw new Error(data?.error || 'Could not fetch PDF for this purchase order.');
   }
 
-  const byteCharacters = Uint8Array.from(atob(data.pdf_base64), c => c.charCodeAt(0));
-  const blob = new Blob([byteCharacters], { type: 'application/pdf' });
+  let bytes: Uint8Array;
+  try {
+    const clean = sanitizeBase64(rawBase64);
+    const bin = atob(clean);
+    bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  } catch (e) {
+    console.error('PO PDF base64 decode failed', e);
+    throw new Error('The purchase order PDF returned by the server is malformed.');
+  }
+
+  const blob = new Blob([bytes.buffer as ArrayBuffer], { type: data?.mimeType || 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

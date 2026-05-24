@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders } from '@/services/api';
+import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +23,7 @@ export default function PODetail() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!supplier?.zoho_vendor_id) {
+    if (!isAdmin && !supplier?.zoho_vendor_id) {
       setIsLoading(false);
       return;
     }
@@ -31,9 +31,18 @@ export default function PODetail() {
     (async () => {
       setIsLoading(true);
       try {
-        const data = await fetchPurchaseOrders(supplier.zoho_vendor_id!);
+        const data = isAdmin
+          ? await fetchPurchaseOrdersFromDb()
+          : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
         if (!cancelled) {
-          const found = data.find((po: any) => po.id === id) || null;
+          const target = String(id);
+          const found =
+            data.find(
+              (po: any) =>
+                String(po.id) === target ||
+                String(po.zoho_id ?? '') === target ||
+                String(po.poNumber ?? '') === target,
+            ) || null;
           setOrder(found);
         }
       } catch (err) {
@@ -45,7 +54,7 @@ export default function PODetail() {
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id, id]);
+  }, [supplier?.zoho_vendor_id, isAdmin, id]);
 
   if (!isAdmin && !supplier?.zoho_vendor_id) {
     return (
@@ -156,12 +165,12 @@ export default function PODetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {order.items.map((item) => (
-                      <tr key={item.id}>
-                        <td className="px-4 py-4 text-sm">{item.description}</td>
+                    {(order.items || []).map((item: any, idx: number) => (
+                      <tr key={item.id ?? idx}>
+                        <td className="px-4 py-4 text-sm">{item.description || item.item_name}</td>
                         <td className="px-4 py-4 text-right text-sm">{item.quantity}</td>
-                        <td className="px-4 py-4 text-right text-sm">{formatCurrency(item.unitPrice)}</td>
-                        <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(item.total)}</td>
+                        <td className="px-4 py-4 text-right text-sm">{formatCurrency(item.unitPrice ?? item.rate ?? 0)}</td>
+                        <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(item.total ?? (Number(item.quantity || 0) * Number(item.unitPrice ?? item.rate ?? 0)))}</td>
                       </tr>
                     ))}
                   </tbody>
