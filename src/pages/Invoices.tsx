@@ -112,10 +112,15 @@ export default function Invoices() {
             }
           });
         }
-        const enriched = (data || []).map((i: any) => ({
-          ...i,
-          submittedAt: submissionByNumber[i.invoiceNumber] || null,
-        }));
+        const enriched = (data || []).map((i: any) => {
+          const derived = deriveStatusAndDays(i);
+          return {
+            ...i,
+            status: derived.status,
+            daysInfo: i.daysInfo || derived.daysInfo,
+            submittedAt: submissionByNumber[i.invoiceNumber] || null,
+          };
+        });
         if (!cancelled) setInvoices(enriched);
       } catch (err) {
         console.error('Failed to load invoices', err);
