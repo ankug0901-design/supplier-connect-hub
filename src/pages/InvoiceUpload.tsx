@@ -578,7 +578,7 @@ export default function InvoiceUpload() {
 
   return (
     <DashboardLayout title="Upload Invoice" subtitle="Submit invoice against a purchase order">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <Link to="/invoices">
           <Button variant="ghost" className="mb-6 gap-2">
             <ArrowLeft className="h-4 w-4" />
