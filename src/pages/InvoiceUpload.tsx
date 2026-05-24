@@ -530,6 +530,15 @@ export default function InvoiceUpload() {
     if (!supplier) return;
     const selectedPOData = purchaseOrders.find((po: any) => po.id === selectedPO);
     if (!selectedPOData) return;
+    if (materialReceipts.length === 0) {
+      toast({
+        title: 'Proof of Delivery required',
+        description:
+          'Please upload at least one material receiving copy (proof of delivery) before submitting the invoice.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsSubmitting(true);
     try {
       await submitInvoice({
