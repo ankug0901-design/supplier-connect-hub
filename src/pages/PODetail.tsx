@@ -25,13 +25,23 @@ const extractItems = (po: any): any[] => {
 
 const formatAddress = (addr: any): string => {
   if (!addr) return '';
-  if (typeof addr === 'string') return addr;
+  if (typeof addr === 'string') {
+    const trimmed = addr.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        return formatAddress(JSON.parse(trimmed));
+      } catch {
+        return addr;
+      }
+    }
+    return addr;
+  }
   if (typeof addr !== 'object') return String(addr);
   const parts = [
     addr.attention,
-    addr.address || addr.street1,
+    addr.address || addr.street1 || addr.street,
     addr.street2,
-    [addr.city, addr.state, addr.zip].filter(Boolean).join(', '),
+    [addr.city, addr.state, addr.zip || addr.zipcode || addr.postal_code].filter(Boolean).join(', '),
     addr.country,
     addr.phone ? `Phone: ${addr.phone}` : '',
   ].filter(Boolean);
@@ -241,7 +251,9 @@ export default function PODetail() {
                       const hsn = item.hsn || item.hsn_or_sac || item.hsn_sac || item.sac || '—';
                       const qty = Number(item.quantity ?? item.qty ?? 0) || 0;
                       const rate = Number(item.unitPrice ?? item.rate ?? item.unit_price ?? item.price ?? 0) || 0;
-                      const invoiced = invoicedMap[String(name).trim().toLowerCase()] || 0;
+                      const isFullyBilled = ['closed', 'billed', 'completed'].includes(String(order.status || '').toLowerCase());
+                      const tracked = invoicedMap[String(name).trim().toLowerCase()] || 0;
+                      const invoiced = isFullyBilled ? qty : tracked;
                       const pending = Math.max(qty - invoiced, 0);
                       const total = Number(item.total ?? qty * rate);
                       return (
