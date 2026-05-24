@@ -348,32 +348,36 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
                 <Textarea value={extraSpecs} onChange={(e) => setExtraSpecs(e.target.value)} rows={3} />
               </div>
               <div className="space-y-1 sm:col-span-2">
-                <Label>Attachments</Label>
-                <div className="flex items-center gap-2">
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent">
-                    <Paperclip className="h-4 w-4" />
-                    <span>Choose files</span>
-                    <input
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
-                    />
-                  </label>
-                  <span className="text-xs text-muted-foreground">Max 8 MB per file</span>
-                </div>
-                {attachments.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {attachments.map((a, i) => (
-                      <li key={i} className="flex items-center justify-between rounded border px-2 py-1 text-sm">
-                        <span className="truncate">{a.name} <span className="text-xs text-muted-foreground">({Math.round(a.size / 1024)} KB)</span></span>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAttachment(i)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
+                <Label>Attachment — Google Drive Link (optional)</Label>
+                <Input
+                  value={attachmentUrl}
+                  onChange={(e) => setAttachmentUrl(e.target.value)}
+                  placeholder="https://drive.google.com/file/d/..."
+                />
+                <p className="text-xs text-muted-foreground">
+                  Share file on Google Drive → click Share → "Anyone with the link can view" → Copy link → Paste here
+                </p>
+                {attachmentUrl.trim() && isDriveUrl(attachmentUrl) && (
+                  <p className="text-xs text-green-600">
+                    ✅ Drive link added — suppliers will receive a download button in their email
+                  </p>
                 )}
+                {attachmentUrl.trim() && !isDriveUrl(attachmentUrl) && (
+                  <p className="text-xs text-amber-600">
+                    ⚠️ Link doesn't look like a Google Drive URL. Please check and re-paste.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Attachment Filename</Label>
+                <Input
+                  value={attachmentName}
+                  onChange={(e) => setAttachmentName(e.target.value)}
+                  placeholder="e.g. Quantity_Sheet.xlsx or Reference_Brief.pdf"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This name will be shown to suppliers in the email
+                </p>
               </div>
             </div>
           </section>
