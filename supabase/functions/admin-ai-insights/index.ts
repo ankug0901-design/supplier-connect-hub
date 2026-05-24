@@ -300,19 +300,35 @@ Deno.serve(async (req) => {
         syncErrors.push(`Zoho sync failed: ${String(e?.message || e)}`);
       }
 
-      const [{ data: suppliers }, { data: pos }, { data: invoices }, { data: payments }, { data: challans }] =
+      const [{ data: suppliers }, { data: pos }, { data: invoices }, { data: payments }, { data: challans }, { data: deliveryPerf }] =
         await Promise.all([
           admin.from("suppliers").select("id, company, created_at").eq("role", "supplier").limit(200),
           admin.from("purchase_orders").select("supplier_id, amount, status, date, expected_delivery"),
           admin.from("invoices").select("supplier_id, amount, status, date"),
           admin.from("payments").select("invoice_id, amount, status, date"),
           admin.from("delivery_challans").select("supplier_id, date, manifest_status"),
+          admin
+            .from("supplier_delivery_performance")
+            .select("supplier_id, days_variance, on_time")
+            .not("days_variance", "is", null),
         ]);
 
       const invBySup = new Map<string, any[]>();
       (invoices || []).forEach((i) => {
         if (!invBySup.has(i.supplier_id)) invBySup.set(i.supplier_id, []);
         invBySup.get(i.supplier_id)!.push(i);
+      });
+
+      const deliveryBySup = new Map<string, { variances: number[]; onTime: number; total: number }>();
+      (deliveryPerf || []).forEach((d: any) => {
+        if (!d.supplier_id || d.days_variance === null) return;
+        if (!deliveryBySup.has(d.supplier_id)) {
+          deliveryBySup.set(d.supplier_id, { variances: [], onTime: 0, total: 0 });
+        }
+        const entry = deliveryBySup.get(d.supplier_id)!;
+        entry.variances.push(Number(d.days_variance));
+        entry.total += 1;
+        if (d.on_time) entry.onTime += 1;
       });
 
       const aggregated = (suppliers || []).map((s) => {
@@ -324,6 +340,24 @@ Deno.serve(async (req) => {
         const onTimeShipments = supChal.filter((c) => String(c.manifest_status) === "delivered").length;
         const rejectedInvoices = supInvs.filter((i) => String(i.status) === "rejected").length;
         const paidInvoices = supInvs.filter((i) => String(i.status) === "paid").length;
+        const delivery = deliveryBySup.get(s.id);
+        const deliveryLineCount = delivery?.total || 0;
+        const onTimeDeliveryRate = deliveryLineCount
+          ? +(delivery!.onTime / deliveryLineCount).toFixed(2)
+          : null;
+        const avgDaysLate = deliveryLineCount
+          ? +(
+              delivery!.variances
+                .map((v) => Math.max(v, 0))
+                .reduce((s, v) => s + v, 0) / deliveryLineCount
+            ).toFixed(1)
+          : null;
+        const avgDaysVariance = deliveryLineCount
+          ? +(delivery!.variances.reduce((s, v) => s + v, 0) / deliveryLineCount).toFixed(1)
+          : null;
+        const lateDeliveries = deliveryLineCount
+          ? delivery!.variances.filter((v) => v > 0).length
+          : 0;
         return {
           supplier_id: s.id,
           company: s.company,
@@ -340,6 +374,12 @@ Deno.serve(async (req) => {
           rejected_invoice_count: rejectedInvoices,
           shipment_count: supChal.length,
           on_time_shipment_count: onTimeShipments,
+          // Delivery performance: actual delivery date (per invoice line item) vs PO expected_delivery
+          delivery_line_count: deliveryLineCount,
+          on_time_delivery_rate: onTimeDeliveryRate,
+          avg_days_late: avgDaysLate,
+          avg_days_variance: avgDaysVariance,
+          late_delivery_count: lateDeliveries,
         };
       }).filter((v) => v.po_count > 0 || v.invoice_count > 0);
 
@@ -357,7 +397,7 @@ Deno.serve(async (req) => {
         model,
         schema: z.array(RawVendorScoreItemSchema),
         system:
-          "You are a vendor performance analyst. Score each vendor 0-100 based on PO completion rate, invoice quality (rejection rate), shipment reliability, and volume. A=excellent (85+), B=good (70-84), C=needs improvement (50-69), D=poor (<50). Be concise.",
+          "You are a vendor performance analyst for an Indian B2B procurement portal. Score each vendor 0-100 using this weighting: 40% on-time delivery (use on_time_delivery_rate and avg_days_late comparing actual delivery date vs PO expected_delivery — this is the most important factor), 25% PO completion rate, 20% invoice quality (low rejection rate), 15% shipment reliability and volume. Treat delivery_line_count < 3 as 'insufficient delivery data' — note it in weaknesses and lean on other metrics. A=excellent (85+, on_time_delivery_rate >= 0.9), B=good (70-84), C=needs improvement (50-69), D=poor (<50, on_time_delivery_rate < 0.5 or avg_days_late > 7). Mention concrete delivery numbers in strengths/weaknesses (e.g. '92% on-time across 24 deliveries' or 'avg 5.3 days late'). Be concise.",
         prompt: `Score these vendors based on real procurement data. Return a JSON array with one entry per vendor. Each entry must include supplier_id, company, score, grade, strengths, weaknesses, and recommendation.\n\n${JSON.stringify(topVendors, null, 2)}`,
       });
       const vendorById = new Map(topVendors.map((v) => [v.supplier_id, v]));
