@@ -288,7 +288,7 @@ export default function PODetail() {
                   <div>
                     <p className="text-xs text-muted-foreground">Delivery Address</p>
                     <p className="whitespace-pre-line text-sm font-medium">
-                      {order.deliveryAddress || '—'}
+                      {formatAddress(order.deliveryAddress) || '—'}
                     </p>
                   </div>
                 </div>
