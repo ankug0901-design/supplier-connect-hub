@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Loader2, Plus, Trash2, Zap, Paperclip, X } from 'lucide-react';
+import { CalendarIcon, Loader2, Plus, Trash2, Zap, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
