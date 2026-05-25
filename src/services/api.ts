@@ -428,7 +428,7 @@ export async function submitInvoice(payload: {
   supplier_name: string;
   contact_email: string;
   supplier_id?: string;
-  line_items: Array<{ item_name: string; quantity: number; rate: number; actual_delivery_date?: string }>;
+  line_items: Array<{ line_item_id?: string; item_name: string; quantity: number; rate: number; actual_delivery_date?: string }>;
   pdf_file?: File;
   notes?: string;
 }) {
