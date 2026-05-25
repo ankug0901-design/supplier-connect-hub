@@ -218,7 +218,7 @@ function LineItemsInput({
                           {actualDate ? format(actualDate, 'dd MMM yyyy') : 'Pick date'}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className="w-auto p-0 z-50 pointer-events-auto" align="start">
                         <Calendar
                           mode="single"
                           selected={actualDate}
@@ -227,6 +227,7 @@ function LineItemsInput({
                           }
                           disabled={(d) => d > new Date()}
                           initialFocus
+                          className="p-3 pointer-events-auto"
                         />
                       </PopoverContent>
                     </Popover>
