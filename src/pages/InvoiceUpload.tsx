@@ -347,14 +347,54 @@ export default function InvoiceUpload() {
       if (d.invoice_date) setInvoiceDate(d.invoice_date);
       if (d.total_amount) setAmount(String(d.total_amount));
       if (Array.isArray(d.line_items) && d.line_items.length) {
-        setLineItems(
-          d.line_items.map((li: any) => ({
-            item_name: li.item_name || '',
+        // Only keep OCR rows with a valid quantity & rate (filters out tax/footer rows).
+        const ocrRows = d.line_items
+          .map((li: any) => ({
+            item_name: String(li.item_name || '').trim(),
             quantity: Number(li.quantity) || 0,
             rate: Number(li.rate) || 0,
-            selected: true,
-          })),
-        );
+          }))
+          .filter((li: any) => li.quantity > 0 && li.rate > 0);
+
+        // Merge OCR values INTO the PO-prepopulated rows so item_name / hsn /
+        // po_quantity / invoiced_quantity stay aligned with the PO. We match by
+        // normalised name first, then fall back to positional mapping.
+        setLineItems((prev) => {
+          const hasPoContext = prev.some(
+            (p) => (p.po_quantity ?? 0) > 0 || (p.invoiced_quantity ?? 0) > 0,
+          );
+          if (!hasPoContext) {
+            // No PO context yet — just load OCR rows as-is (manual entry mode).
+            return ocrRows.map((r) => ({ ...r, selected: true }));
+          }
+
+          const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+          const usedOcr = new Set<number>();
+          return prev.map((row, idx) => {
+            // 1. Try fuzzy name match (either side contains the other).
+            let matchIdx = ocrRows.findIndex((o, i) => {
+              if (usedOcr.has(i)) return false;
+              const a = norm(o.item_name);
+              const b = norm(row.item_name || '');
+              return a && b && (a.includes(b) || b.includes(a));
+            });
+            // 2. Fall back to same positional index.
+            if (matchIdx === -1 && ocrRows[idx] && !usedOcr.has(idx)) matchIdx = idx;
+            if (matchIdx === -1) return row;
+            usedOcr.add(matchIdx);
+            const ocr = ocrRows[matchIdx];
+            const poQty = Number(row.po_quantity || 0);
+            const invoicedQty = Number(row.invoiced_quantity || 0);
+            const remaining = Math.max(poQty - invoicedQty, 0);
+            const cappedQty = poQty > 0 ? Math.min(ocr.quantity, remaining) : ocr.quantity;
+            return {
+              ...row,
+              quantity: cappedQty,
+              rate: ocr.rate || row.rate,
+              selected: cappedQty > 0,
+            };
+          });
+        });
       }
       if (d.po_number) {
         const match = purchaseOrders.find(
