@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 
 type LineItem = {
+  line_item_id?: string;
   item_name: string;
   hsn?: string;
   po_quantity?: number;
