@@ -518,7 +518,7 @@ export default function InvoiceUpload() {
             const invoiced = invoicedMap[name.trim().toLowerCase()] || 0;
             const remaining = Math.max(qty - invoiced, 0);
             return {
-              line_item_id: it.line_item_id || '',
+              line_item_id: String(it.line_item_id ?? it.lineItemId ?? it.id ?? it.item_id ?? it.itemId ?? ''),
               item_name: name,
               hsn: it.hsn || it.hsn_or_sac || it.hsn_sac || it.sac || '',
               po_quantity: qty,
