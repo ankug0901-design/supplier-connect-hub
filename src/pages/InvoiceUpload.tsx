@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, submitInvoice, fetchInvoicedQuantitiesForPo } from '@/services/api';
+import { preparePodFiles } from '@/lib/pod-files';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -613,6 +614,7 @@ export default function InvoiceUpload() {
 
     setIsSubmitting(true);
     try {
+      const pod_files = await preparePodFiles(materialReceipts);
       await submitInvoice({
         po_number: selectedPOData.poNumber,
         invoice_number: invoiceNumber,
@@ -622,6 +624,7 @@ export default function InvoiceUpload() {
         supplier_id: supplier.id,
         line_items: cleanedLineItems,
         pdf_file: invoiceFile || undefined,
+        pod_files,
         notes: '',
       });
       toast({
