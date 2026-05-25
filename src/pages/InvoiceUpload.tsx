@@ -549,6 +549,26 @@ export default function InvoiceUpload() {
       });
       return;
     }
+    const cleanedLineItems = lineItems
+      .filter((li) => li.selected !== false && li.item_name)
+      .map((li) => ({
+        ...li,
+        item_name: String(li.item_name).trim(),
+        quantity: Number(li.quantity) || 0,
+        rate: Number(li.rate) || 0,
+      }))
+      .filter((li) => li.item_name && li.quantity > 0 && li.rate > 0);
+
+    if (cleanedLineItems.length === 0) {
+      toast({
+        title: 'Line items required',
+        description:
+          'Each selected line item needs an item name, quantity > 0, and a rate > 0 before submitting.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await submitInvoice({
@@ -558,7 +578,7 @@ export default function InvoiceUpload() {
         supplier_name: supplier.company,
         contact_email: supplier.email,
         supplier_id: supplier.id,
-        line_items: lineItems.filter((li) => li.selected !== false && li.item_name && Number(li.quantity) > 0),
+        line_items: cleanedLineItems,
         pdf_file: invoiceFile || undefined,
         notes: '',
       });
