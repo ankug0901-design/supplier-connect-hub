@@ -171,14 +171,14 @@ function LineItemsInput({
                   </TableCell>
                   <TableCell className="py-3">
                     <Input
-                      type="number"
-                      min="0"
-                      max={poQty > 0 ? remaining : undefined}
-                      className="text-right"
+                      type="text"
+                      inputMode="decimal"
+                      className="text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder={fullyInvoiced ? '—' : '0'}
                       value={fullyInvoiced ? 0 : item.quantity}
                       onChange={(e) => {
-                        const v = parseFloat(e.target.value) || 0;
+                        const raw = e.target.value.replace(/[^0-9.]/g, '');
+                        const v = parseFloat(raw) || 0;
                         const capped = poQty > 0 ? Math.min(v, remaining) : v;
                         update(i, 'quantity', capped);
                       }}
