@@ -100,7 +100,7 @@ function LineItemsInput({
               <TableHead className="w-28">HSN/SAC</TableHead>
               <TableHead className="w-20 text-right">PO Qty</TableHead>
               <TableHead className="w-24 text-right">Already Invoiced</TableHead>
-              <TableHead className="w-24 text-right">Invoice Qty</TableHead>
+              <TableHead className="w-36 text-right">Invoice Qty</TableHead>
               <TableHead className="w-28 text-right">Rate (₹)</TableHead>
               <TableHead className="w-44">Actual Delivery Date</TableHead>
               <TableHead className="w-24">Variance</TableHead>
