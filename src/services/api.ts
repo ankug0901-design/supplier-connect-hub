@@ -430,6 +430,7 @@ export async function submitInvoice(payload: {
   supplier_id?: string;
   line_items: Array<{ line_item_id?: string; item_name: string; quantity: number; rate: number; actual_delivery_date?: string }>;
   pdf_file?: File;
+  pod_files?: Array<{ filename: string; mimeType: string; base64: string }>;
   notes?: string;
 }) {
   let pdf_base64 = '';
@@ -449,6 +450,7 @@ export async function submitInvoice(payload: {
     contact_email: payload.contact_email,
     line_items: JSON.stringify(payload.line_items),
     pdf_base64,
+    pod_files: Array.isArray(payload.pod_files) ? payload.pod_files : [],
     notes: payload.notes || '',
   });
   const text = typeof data === 'string' ? data : JSON.stringify(data);
