@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 
 type LineItem = {
+  line_item_id?: string;
   item_name: string;
   hsn?: string;
   po_quantity?: number;
@@ -517,6 +518,7 @@ export default function InvoiceUpload() {
             const invoiced = invoicedMap[name.trim().toLowerCase()] || 0;
             const remaining = Math.max(qty - invoiced, 0);
             return {
+              line_item_id: it.line_item_id || '',
               item_name: name,
               hsn: it.hsn || it.hsn_or_sac || it.hsn_sac || it.sac || '',
               po_quantity: qty,
