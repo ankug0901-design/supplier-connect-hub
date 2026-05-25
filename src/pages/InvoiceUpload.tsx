@@ -514,8 +514,17 @@ export default function InvoiceUpload() {
   };
 
   const handleMaterialReceiptsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setMaterialReceipts(Array.from(e.target.files));
+    if (e.target.files && e.target.files.length) {
+      const incoming = Array.from(e.target.files);
+      setMaterialReceipts((prev) => {
+        const key = (f: File) => `${f.name}-${f.size}-${f.lastModified}`;
+        const existing = new Set(prev.map(key));
+        const merged = [...prev];
+        for (const f of incoming) if (!existing.has(key(f))) merged.push(f);
+        return merged;
+      });
+      // Reset the input so selecting the same file again still triggers change
+      e.target.value = '';
     }
   };
 
