@@ -818,21 +818,37 @@ export default function InvoiceUpload() {
           </div>
 
           {/* Submit Button */}
-          <div className="flex justify-end gap-4">
-            <Link to="/invoices">
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </Link>
-            <Button
-              type="submit"
-              variant="accent"
-              size="lg"
-              disabled={!selectedPO || !invoiceNumber || !invoiceDate || !amount || !invoiceFile || materialReceipts.length === 0 || isSubmitting || !lineItems.some((li) => li.selected !== false && li.item_name)}
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Invoice'}
-            </Button>
-          </div>
+          {(() => {
+            const hasLine = lineItems.some((li) => li.selected !== false && li.item_name);
+            const missing: string[] = [];
+            if (!selectedPO) missing.push('Purchase Order');
+            if (!invoiceNumber) missing.push('Invoice Number');
+            if (!invoiceDate) missing.push('Invoice Date');
+            if (!amount || Number(amount) <= 0) missing.push('Invoice Amount');
+            if (!invoiceFile) missing.push('Invoice Document');
+            if (materialReceipts.length === 0) missing.push('Proof of Delivery');
+            if (!hasLine) missing.push('At least one selected line item');
+            const disabled = missing.length > 0 || isSubmitting;
+            return (
+              <div className="flex flex-col items-end gap-3">
+                {missing.length > 0 && (
+                  <p className="text-xs text-destructive">
+                    Missing: {missing.join(', ')}
+                  </p>
+                )}
+                <div className="flex justify-end gap-4">
+                  <Link to="/invoices">
+                    <Button type="button" variant="outline">
+                      Cancel
+                    </Button>
+                  </Link>
+                  <Button type="submit" variant="accent" size="lg" disabled={disabled}>
+                    {isSubmitting ? 'Submitting...' : 'Submit Invoice'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </form>
       </div>
     </DashboardLayout>
