@@ -477,6 +477,45 @@ export async function submitInvoice(payload: {
     }
   }
 
+  // Optimistically insert the invoice locally so it shows on the portal immediately,
+  // without waiting for the next Zoho sync. The next sync will upsert by
+  // (supplier_id, invoice_number) and backfill zoho_id, balance, due_date, etc.
+  if (payload.supplier_id) {
+    try {
+      const { data: poRow } = await supabase
+        .from('purchase_orders')
+        .select('id')
+        .eq('supplier_id', payload.supplier_id)
+        .eq('po_number', payload.po_number)
+        .maybeSingle();
+      if (poRow?.id) {
+        const amount = payload.line_items.reduce(
+          (sum, li) => sum + (Number(li.quantity) || 0) * (Number(li.rate) || 0),
+          0,
+        );
+        const { error: invErr } = await supabase
+          .from('invoices')
+          .upsert(
+            {
+              supplier_id: payload.supplier_id,
+              po_id: poRow.id,
+              invoice_number: payload.invoice_number,
+              date: payload.invoice_date,
+              amount,
+              balance: amount,
+              status: 'pending',
+              has_attachment: Boolean(payload.pdf_file),
+              attachment_name: payload.pdf_file?.name || null,
+            },
+            { onConflict: 'supplier_id,invoice_number', ignoreDuplicates: true },
+          );
+        if (invErr) console.warn('Failed to optimistically insert invoice', invErr);
+      }
+    } catch (e) {
+      console.warn('Optimistic invoice insert skipped', e);
+    }
+  }
+
   return text;
 }
 
