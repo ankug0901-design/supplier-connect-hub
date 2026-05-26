@@ -9,25 +9,26 @@ const corsHeaders = {
 };
 
 const InvoiceSchema = z.object({
-  invoice_number: z.string().describe("Invoice number / bill number as printed").nullable(),
-  invoice_date: z.string().describe("Invoice date in YYYY-MM-DD format").nullable(),
-  po_number: z.string().describe("Referenced purchase order number if any").nullable(),
-  supplier_name: z.string().describe("Supplier/vendor company name").nullable(),
-  gst_number: z.string().describe("Supplier GST/GSTIN number").nullable(),
-  subtotal: z.number().describe("Pre-tax total").nullable(),
-  tax_amount: z.number().describe("Total tax (GST/VAT)").nullable(),
-  total_amount: z.number().describe("Final invoice amount including taxes").nullable(),
-  currency: z.string().describe("Currency code, e.g. INR, USD").nullable(),
+  invoice_number: z.string().nullish(),
+  invoice_date: z.string().nullish(),
+  po_number: z.string().nullish(),
+  supplier_name: z.string().nullish(),
+  gst_number: z.string().nullish(),
+  subtotal: z.number().nullish(),
+  tax_amount: z.number().nullish(),
+  total_amount: z.number().nullish(),
+  currency: z.string().nullish(),
   line_items: z
     .array(
       z.object({
-        item_name: z.string().describe("Item or service description"),
-        quantity: z.number().describe("Quantity"),
-        rate: z.number().describe("Unit price / rate"),
-        amount: z.number().describe("Line total").nullable(),
+        item_name: z.string().nullish(),
+        quantity: z.number().nullish(),
+        rate: z.number().nullish(),
+        amount: z.number().nullish(),
       }),
     )
-    .describe("Line items in the invoice"),
+    .nullish()
+    .default([]),
 });
 
 Deno.serve(async (req) => {
