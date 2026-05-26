@@ -124,7 +124,40 @@ export default function AdminThreeWayMatch() {
       .select('*')
       .order('updated_at', { ascending: false })
       .limit(1000);
-    if (!error && data) setRows(data as any);
+    if (!error && data) {
+      // Collect all invoice numbers to enrich missing date/status from invoices table
+      const invNums = new Set<string>();
+      (data as any[]).forEach((r) => {
+        (r.client_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
+        (r.supplier_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
+      });
+      const enrichMap = new Map<string, { date?: string | null; status?: string | null }>();
+      if (invNums.size) {
+        const { data: invRows } = await supabase
+          .from('invoices')
+          .select('invoice_number, date, status')
+          .in('invoice_number', Array.from(invNums));
+        (invRows || []).forEach((iv: any) => {
+          enrichMap.set(iv.invoice_number, { date: iv.date, status: iv.status });
+        });
+      }
+      const enrichItem = (i: any) => {
+        if (!i?.invoice_number) return i;
+        const extra = enrichMap.get(i.invoice_number);
+        if (!extra) return i;
+        return {
+          ...i,
+          date: i.date ?? extra.date ?? null,
+          status: i.status ?? extra.status ?? null,
+        };
+      };
+      const enriched = (data as any[]).map((r) => ({
+        ...r,
+        client_invoices: (r.client_invoices || []).map(enrichItem),
+        supplier_invoices: (r.supplier_invoices || []).map(enrichItem),
+      }));
+      setRows(enriched as any);
+    }
     setLoading(false);
   };
 
