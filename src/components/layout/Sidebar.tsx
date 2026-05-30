@@ -27,16 +27,17 @@ type NavItem = {
   href: string;
   icon: any;
   badgeKey?: 'pending_regs' | 'pending_rfqs' | 'pending_rfqs_all' | null;
+  sectionKey?: SupplierSectionKey;
 };
 
 const supplierNavigation: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'RFQ Requests', href: '/rfq-requests', icon: FileQuestion, badgeKey: 'pending_rfqs' },
-  { name: 'Purchase Orders', href: '/purchase-orders', icon: FileText },
-  { name: 'Invoices', href: '/invoices', icon: Receipt },
-  { name: 'Payments', href: '/payments', icon: CreditCard },
-  { name: 'Delivery Challan', href: '/delivery-challan', icon: Truck },
-  { name: 'Shipments', href: '/shipments', icon: Truck },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, sectionKey: 'dashboard' },
+  { name: 'RFQ Requests', href: '/rfq-requests', icon: FileQuestion, badgeKey: 'pending_rfqs', sectionKey: 'rfq-requests' },
+  { name: 'Purchase Orders', href: '/purchase-orders', icon: FileText, sectionKey: 'purchase-orders' },
+  { name: 'Invoices', href: '/invoices', icon: Receipt, sectionKey: 'invoices' },
+  { name: 'Payments', href: '/payments', icon: CreditCard, sectionKey: 'payments' },
+  { name: 'Delivery Challan', href: '/delivery-challan', icon: Truck, sectionKey: 'delivery-challan' },
+  { name: 'Shipments', href: '/shipments', icon: Truck, sectionKey: 'shipments' },
 ];
 
 const adminNavigation: NavItem[] = [
@@ -46,6 +47,7 @@ const adminNavigation: NavItem[] = [
   { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all' },
   { name: '3-Way Matching', href: '/admin/three-way-match', icon: GitCompareArrows },
   { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles },
+  { name: 'Access Control', href: '/admin/access-control', icon: Shield },
 ];
 
 export function Sidebar() {
