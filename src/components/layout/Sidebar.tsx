@@ -180,7 +180,7 @@ export function Sidebar() {
             <div className="space-y-4">
               <div className="space-y-1">
                 <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Admin</p>
-                {adminNavigation.map(renderNavItem)}
+                {adminNavigation.filter((i) => !i.superAdminOnly || isSuperAdmin).map(renderNavItem)}
               </div>
               <div className="space-y-1">
                 <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Supplier Pages</p>
