@@ -20,6 +20,7 @@ import AdminRfq from "./pages/admin/AdminRfq";
 import AdminAiInsights from "./pages/admin/AdminAiInsights";
 import AdminThreeWayMatch from "./pages/admin/AdminThreeWayMatch";
 import AdminPagePermissions from "./pages/admin/AdminPagePermissions";
+import AdminUserRoles from "./pages/admin/AdminUserRoles";
 import RfqRequests from "./pages/RfqRequests";
 import ResetPassword from "./pages/ResetPassword";
 import { SupplierSectionGuard } from "./components/SupplierSectionGuard";
@@ -56,6 +57,20 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
   if (!isAuthenticated) return <Navigate to="/" replace />;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isSuperAdmin, isLoading } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      </div>
+    );
+  }
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!isSuperAdmin) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }
 
@@ -99,7 +114,8 @@ function AppRoutes() {
       <Route path="/admin/rfq" element={<AdminRoute><AdminRfq /></AdminRoute>} />
       <Route path="/admin/ai-insights" element={<AdminRoute><AdminAiInsights /></AdminRoute>} />
       <Route path="/admin/three-way-match" element={<AdminRoute><AdminThreeWayMatch /></AdminRoute>} />
-      <Route path="/admin/page-permissions" element={<AdminRoute><AdminPagePermissions /></AdminRoute>} />
+      <Route path="/admin/user-roles" element={<SuperAdminRoute><AdminUserRoles /></SuperAdminRoute>} />
+      <Route path="/admin/page-permissions" element={<SuperAdminRoute><AdminPagePermissions /></SuperAdminRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -6,6 +6,8 @@ import { Supplier } from '@/types/supplier';
 interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
+  role: string | null;
   isLoading: boolean;
   user: User | null;
   supplier: Supplier | null;
@@ -16,6 +18,8 @@ interface AuthContextType {
 const defaultAuthContext: AuthContextType = {
   isAuthenticated: false,
   isAdmin: false,
+  isSuperAdmin: false,
+  role: null,
   isLoading: true,
   user: null,
   supplier: null,
@@ -29,6 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const profileUserIdRef = useRef<string | null>(null);
   const initialSessionResolvedRef = useRef(false);
@@ -42,6 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error || !data) {
       setSupplier(null);
       setIsAdmin(false);
+      setIsSuperAdmin(false);
+      setRole(null);
       return;
     }
 
@@ -57,7 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       address: data.address || '',
       zoho_vendor_id: data.zoho_vendor_id || '',
     });
-    setIsAdmin(profile.role === 'admin');
+    const r = profile.role ?? 'supplier';
+    setRole(r);
+    setIsSuperAdmin(r === 'admin');
+    // isAdmin = full admin UI access (admin OR super_user)
+    setIsAdmin(r === 'admin' || r === 'super_user');
   }
 
   useEffect(() => {
@@ -72,6 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initialSessionResolvedRef.current = true;
         setSupplier(null);
         setIsAdmin(false);
+        setIsSuperAdmin(false);
+        setRole(null);
         setIsLoading(false);
         return;
       }
@@ -122,12 +136,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSupplier(null);
     setIsAdmin(false);
+    setIsSuperAdmin(false);
+    setRole(null);
   };
 
   return (
     <AuthContext.Provider value={{
       isAuthenticated: !!user,
       isAdmin,
+      isSuperAdmin,
+      role,
       isLoading,
       user,
       supplier,

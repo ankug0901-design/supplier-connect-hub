@@ -14,6 +14,7 @@ import {
   Sparkles,
   GitCompareArrows,
   ShieldCheck,
+  UserCog,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +27,7 @@ type NavItem = {
   icon: any;
   badgeKey?: 'pending_regs' | 'pending_rfqs' | 'pending_rfqs_all' | null;
   sectionKey?: string; // matches role_section_access.section_key for supplier pages
+  superAdminOnly?: boolean;
 };
 
 const supplierNavigation: NavItem[] = [
@@ -45,12 +47,13 @@ const adminNavigation: NavItem[] = [
   { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all' },
   { name: '3-Way Matching', href: '/admin/three-way-match', icon: GitCompareArrows },
   { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles },
-  { name: 'Page Permissions', href: '/admin/page-permissions', icon: ShieldCheck },
+  { name: 'User Roles', href: '/admin/user-roles', icon: UserCog, superAdminOnly: true },
+  { name: 'Page Permissions', href: '/admin/page-permissions', icon: ShieldCheck, superAdminOnly: true },
 ];
 
 export function Sidebar() {
   const location = useLocation();
-  const { supplier, logout, isAdmin } = useAuth();
+  const { supplier, logout, isAdmin, isSuperAdmin } = useAuth();
   const [pendingRegs, setPendingRegs] = useState(0);
   const [pendingRfqs, setPendingRfqs] = useState(0);
   const [pendingRfqsAll, setPendingRfqsAll] = useState(0);
@@ -177,7 +180,7 @@ export function Sidebar() {
             <div className="space-y-4">
               <div className="space-y-1">
                 <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Admin</p>
-                {adminNavigation.map(renderNavItem)}
+                {adminNavigation.filter((i) => !i.superAdminOnly || isSuperAdmin).map(renderNavItem)}
               </div>
               <div className="space-y-1">
                 <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Supplier Pages</p>
@@ -199,7 +202,7 @@ export function Sidebar() {
                 <p className="truncate text-sm font-medium">{supplier?.name}</p>
                 {isAdmin && (
                   <span className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground">
-                    Admin
+                    {isSuperAdmin ? 'Admin' : 'Super User'}
                   </span>
                 )}
               </div>
