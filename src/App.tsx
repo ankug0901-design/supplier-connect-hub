@@ -19,8 +19,10 @@ import AdminRegistrations from "./pages/admin/AdminRegistrations";
 import AdminRfq from "./pages/admin/AdminRfq";
 import AdminAiInsights from "./pages/admin/AdminAiInsights";
 import AdminThreeWayMatch from "./pages/admin/AdminThreeWayMatch";
+import AdminPagePermissions from "./pages/admin/AdminPagePermissions";
 import RfqRequests from "./pages/RfqRequests";
 import ResetPassword from "./pages/ResetPassword";
+import { SupplierSectionGuard } from "./components/SupplierSectionGuard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
