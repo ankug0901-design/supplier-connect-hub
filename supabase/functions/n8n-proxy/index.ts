@@ -21,6 +21,15 @@ const ALLOWED_PATHS = new Set([
   'bulk-register-suppliers',
 ]);
 
+// Subset of paths that only admins are allowed to invoke.
+const ADMIN_ONLY_PATHS = new Set([
+  'rfq-manage',
+  'rfq-issue-po',
+  'bulk-register-suppliers',
+  'rfq-send-attachment',
+  'rfq-quote-accepted',
+]);
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -58,6 +67,22 @@ Deno.serve(async (req) => {
     }
     if (!payload || typeof payload !== 'object') {
       return json({ error: 'Missing payload' }, 400);
+    }
+
+    // Enforce admin-only paths server-side
+    if (ADMIN_ONLY_PATHS.has(path)) {
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      );
+      const { data: callerRow } = await adminClient
+        .from('suppliers')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (callerRow?.role !== 'admin') {
+        return json({ error: 'Forbidden - admin only' }, 403);
+      }
     }
 
     // Strip any client-supplied access_code and inject server-side
