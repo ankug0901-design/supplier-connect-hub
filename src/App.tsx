@@ -84,14 +84,14 @@ function AppRoutes() {
         }
       />
       <Route path="/dashboard" element={<ProtectedRoute><DashboardRedirect /></ProtectedRoute>} />
-      <Route path="/rfq-requests" element={<ProtectedRoute><RfqRequests /></ProtectedRoute>} />
-      <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
-      <Route path="/purchase-orders/:id" element={<ProtectedRoute><PODetail /></ProtectedRoute>} />
-      <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-      <Route path="/invoices/upload" element={<ProtectedRoute><InvoiceUpload /></ProtectedRoute>} />
-      <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-      <Route path="/delivery-challan" element={<ProtectedRoute><DeliveryChallan /></ProtectedRoute>} />
-      <Route path="/shipments" element={<ProtectedRoute><Shipments /></ProtectedRoute>} />
+      <Route path="/rfq-requests" element={<ProtectedRoute><SupplierSectionGuard sectionKey="rfq-requests"><RfqRequests /></SupplierSectionGuard></ProtectedRoute>} />
+      <Route path="/purchase-orders" element={<ProtectedRoute><SupplierSectionGuard sectionKey="purchase-orders"><PurchaseOrders /></SupplierSectionGuard></ProtectedRoute>} />
+      <Route path="/purchase-orders/:id" element={<ProtectedRoute><SupplierSectionGuard sectionKey="purchase-orders"><PODetail /></SupplierSectionGuard></ProtectedRoute>} />
+      <Route path="/invoices" element={<ProtectedRoute><SupplierSectionGuard sectionKey="invoices"><Invoices /></SupplierSectionGuard></ProtectedRoute>} />
+      <Route path="/invoices/upload" element={<ProtectedRoute><SupplierSectionGuard sectionKey="invoices"><InvoiceUpload /></SupplierSectionGuard></ProtectedRoute>} />
+      <Route path="/payments" element={<ProtectedRoute><SupplierSectionGuard sectionKey="payments"><Payments /></SupplierSectionGuard></ProtectedRoute>} />
+      <Route path="/delivery-challan" element={<ProtectedRoute><SupplierSectionGuard sectionKey="delivery-challan"><DeliveryChallan /></SupplierSectionGuard></ProtectedRoute>} />
+      <Route path="/shipments" element={<ProtectedRoute><SupplierSectionGuard sectionKey="shipments"><Shipments /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/awb" element={<Navigate to="/shipments" replace />} />
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/admin/suppliers" element={<AdminRoute><AdminSuppliers /></AdminRoute>} />
@@ -99,6 +99,7 @@ function AppRoutes() {
       <Route path="/admin/rfq" element={<AdminRoute><AdminRfq /></AdminRoute>} />
       <Route path="/admin/ai-insights" element={<AdminRoute><AdminAiInsights /></AdminRoute>} />
       <Route path="/admin/three-way-match" element={<AdminRoute><AdminThreeWayMatch /></AdminRoute>} />
+      <Route path="/admin/page-permissions" element={<AdminRoute><AdminPagePermissions /></AdminRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
