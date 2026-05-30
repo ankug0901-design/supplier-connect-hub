@@ -6,6 +6,8 @@ import { Supplier } from '@/types/supplier';
 interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
+  role: string | null;
   isLoading: boolean;
   user: User | null;
   supplier: Supplier | null;
@@ -16,6 +18,8 @@ interface AuthContextType {
 const defaultAuthContext: AuthContextType = {
   isAuthenticated: false,
   isAdmin: false,
+  isSuperAdmin: false,
+  role: null,
   isLoading: true,
   user: null,
   supplier: null,
