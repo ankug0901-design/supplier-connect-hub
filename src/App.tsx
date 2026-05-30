@@ -19,7 +19,6 @@ import AdminRegistrations from "./pages/admin/AdminRegistrations";
 import AdminRfq from "./pages/admin/AdminRfq";
 import AdminAiInsights from "./pages/admin/AdminAiInsights";
 import AdminThreeWayMatch from "./pages/admin/AdminThreeWayMatch";
-import AdminAccessControl from "./pages/admin/AdminAccessControl";
 import RfqRequests from "./pages/RfqRequests";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -98,7 +97,6 @@ function AppRoutes() {
       <Route path="/admin/rfq" element={<AdminRoute><AdminRfq /></AdminRoute>} />
       <Route path="/admin/ai-insights" element={<AdminRoute><AdminAiInsights /></AdminRoute>} />
       <Route path="/admin/three-way-match" element={<AdminRoute><AdminThreeWayMatch /></AdminRoute>} />
-      <Route path="/admin/access-control" element={<AdminRoute><AdminAccessControl /></AdminRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
