@@ -6,7 +6,6 @@ import {
   Receipt,
   CreditCard,
   Truck,
-  Package,
   LogOut,
   User,
   Users,
@@ -14,6 +13,7 @@ import {
   FileQuestion,
   Sparkles,
   GitCompareArrows,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,16 +25,17 @@ type NavItem = {
   href: string;
   icon: any;
   badgeKey?: 'pending_regs' | 'pending_rfqs' | 'pending_rfqs_all' | null;
+  sectionKey?: string; // matches role_section_access.section_key for supplier pages
 };
 
 const supplierNavigation: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'RFQ Requests', href: '/rfq-requests', icon: FileQuestion, badgeKey: 'pending_rfqs' },
-  { name: 'Purchase Orders', href: '/purchase-orders', icon: FileText },
-  { name: 'Invoices', href: '/invoices', icon: Receipt },
-  { name: 'Payments', href: '/payments', icon: CreditCard },
-  { name: 'Delivery Challan', href: '/delivery-challan', icon: Truck },
-  { name: 'Shipments', href: '/shipments', icon: Truck },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, sectionKey: 'dashboard' },
+  { name: 'RFQ Requests', href: '/rfq-requests', icon: FileQuestion, badgeKey: 'pending_rfqs', sectionKey: 'rfq-requests' },
+  { name: 'Purchase Orders', href: '/purchase-orders', icon: FileText, sectionKey: 'purchase-orders' },
+  { name: 'Invoices', href: '/invoices', icon: Receipt, sectionKey: 'invoices' },
+  { name: 'Payments', href: '/payments', icon: CreditCard, sectionKey: 'payments' },
+  { name: 'Delivery Challan', href: '/delivery-challan', icon: Truck, sectionKey: 'delivery-challan' },
+  { name: 'Shipments', href: '/shipments', icon: Truck, sectionKey: 'shipments' },
 ];
 
 const adminNavigation: NavItem[] = [
@@ -44,6 +45,7 @@ const adminNavigation: NavItem[] = [
   { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all' },
   { name: '3-Way Matching', href: '/admin/three-way-match', icon: GitCompareArrows },
   { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles },
+  { name: 'Page Permissions', href: '/admin/page-permissions', icon: ShieldCheck },
 ];
 
 export function Sidebar() {
@@ -52,6 +54,27 @@ export function Sidebar() {
   const [pendingRegs, setPendingRegs] = useState(0);
   const [pendingRfqs, setPendingRfqs] = useState(0);
   const [pendingRfqsAll, setPendingRfqsAll] = useState(0);
+  const [sectionAccess, setSectionAccess] = useState<Record<string, boolean>>({});
+
+  // Load supplier-section access map (used for non-admin users to filter sidebar)
+  useEffect(() => {
+    if (isAdmin) return;
+    const loadAccess = async () => {
+      const { data } = await supabase
+        .from('role_section_access')
+        .select('section_key, enabled')
+        .eq('role', 'supplier');
+      const map: Record<string, boolean> = {};
+      (data || []).forEach((r: any) => { map[r.section_key] = r.enabled; });
+      setSectionAccess(map);
+    };
+    loadAccess();
+    const channel = supabase
+      .channel('role_section_access_sidebar')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'role_section_access' }, () => loadAccess())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [isAdmin]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -133,6 +156,11 @@ export function Sidebar() {
     );
   };
 
+  // Filter supplier items by access map (default-allow when key not yet loaded/missing)
+  const visibleSupplierItems = supplierNavigation.filter(
+    (i) => !i.sectionKey || sectionAccess[i.sectionKey] !== false
+  );
+
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="flex h-full flex-col">
@@ -146,11 +174,18 @@ export function Sidebar() {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {isAdmin ? (
-            <div className="space-y-1">
-              {adminNavigation.map(renderNavItem)}
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Admin</p>
+                {adminNavigation.map(renderNavItem)}
+              </div>
+              <div className="space-y-1">
+                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Supplier Pages</p>
+                {supplierNavigation.map(renderNavItem)}
+              </div>
             </div>
           ) : (
-            supplierNavigation.map(renderNavItem)
+            visibleSupplierItems.map(renderNavItem)
           )}
         </nav>
 
