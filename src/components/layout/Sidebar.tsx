@@ -21,10 +21,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import embossLogo from '@/assets/emboss-logo.png';
 import { SUPPLIER_SECTIONS, SupplierSectionKey } from '@/lib/sections';
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import embossLogo from '@/assets/emboss-logo.png';
 
 type NavItem = {
   name: string;
