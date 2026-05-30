@@ -52,10 +52,11 @@ const adminNavigation: NavItem[] = [
 
 export function Sidebar() {
   const location = useLocation();
-  const { supplier, logout, isAdmin } = useAuth();
+  const { supplier, user, logout, isAdmin } = useAuth();
   const [pendingRegs, setPendingRegs] = useState(0);
   const [pendingRfqs, setPendingRfqs] = useState(0);
   const [pendingRfqsAll, setPendingRfqsAll] = useState(0);
+  const [sectionAccess, setSectionAccess] = useState<Record<SupplierSectionKey, boolean> | null>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -83,6 +84,7 @@ export function Sidebar() {
       return () => { supabase.removeChannel(channel); };
     } else if (supplier?.email) {
       const email = supplier.email;
+      const userId = user?.id;
       const load = async () => {
         const { count } = await supabase
           .from('rfq_portal_requests')
@@ -92,6 +94,20 @@ export function Sidebar() {
         setPendingRfqs(count ?? 0);
       };
       load();
+      const loadAccess = async () => {
+        if (!userId) return;
+        const { data } = await supabase
+          .from('supplier_section_access')
+          .select('section_key, enabled')
+          .eq('user_id', userId);
+        const map = {} as Record<SupplierSectionKey, boolean>;
+        SUPPLIER_SECTIONS.forEach((s) => { map[s.key] = true; });
+        (data || []).forEach((row: any) => {
+          map[row.section_key as SupplierSectionKey] = row.enabled;
+        });
+        setSectionAccess(map);
+      };
+      loadAccess();
       const channel = supabase
         .channel('supplier_sidebar_counts')
         .on(
@@ -99,10 +115,15 @@ export function Sidebar() {
           { event: '*', schema: 'public', table: 'rfq_portal_requests', filter: `supplier_email=eq.${email}` },
           () => load()
         )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'supplier_section_access', filter: userId ? `user_id=eq.${userId}` : undefined },
+          () => loadAccess()
+        )
         .subscribe();
       return () => { supabase.removeChannel(channel); };
     }
-  }, [isAdmin, supplier?.email]);
+  }, [isAdmin, supplier?.email, user?.id]);
 
   const badgeValue = (key?: NavItem['badgeKey']) => {
     if (key === 'pending_regs') return pendingRegs;
@@ -150,11 +171,21 @@ export function Sidebar() {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {isAdmin ? (
-            <div className="space-y-1">
-              {adminNavigation.map(renderNavItem)}
+            <div className="space-y-4">
+              <div className="space-y-1">
+                {adminNavigation.map(renderNavItem)}
+              </div>
+              <div className="space-y-1">
+                <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                  Supplier Sections
+                </p>
+                {supplierNavigation.map(renderNavItem)}
+              </div>
             </div>
           ) : (
-            supplierNavigation.map(renderNavItem)
+            supplierNavigation
+              .filter((item) => !item.sectionKey || !sectionAccess || sectionAccess[item.sectionKey] !== false)
+              .map(renderNavItem)
           )}
         </nav>
 
