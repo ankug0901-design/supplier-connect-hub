@@ -96,17 +96,14 @@ export default function AdminAccessControl() {
   });
 
   return (
-    <DashboardLayout>
+    <DashboardLayout
+      title="Access Control"
+      subtitle="Choose which sections each supplier user can see in their portal."
+    >
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Shield className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Access Control</h1>
-            <p className="text-sm text-muted-foreground">
-              Choose which sections each supplier user can see in their portal.
-            </p>
           </div>
         </div>
 
