@@ -69,6 +69,22 @@ Deno.serve(async (req) => {
       return json({ error: 'Missing payload' }, 400);
     }
 
+    // Enforce admin-only paths server-side
+    if (ADMIN_ONLY_PATHS.has(path)) {
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      );
+      const { data: callerRow } = await adminClient
+        .from('suppliers')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (callerRow?.role !== 'admin') {
+        return json({ error: 'Forbidden - admin only' }, 403);
+      }
+    }
+
     // Strip any client-supplied access_code and inject server-side
     const safePayload = { ...payload } as Record<string, unknown>;
     delete safePayload.access_code;
