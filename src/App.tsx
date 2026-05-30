@@ -60,6 +60,20 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isSuperAdmin, isLoading } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      </div>
+    );
+  }
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!isSuperAdmin) return <Navigate to="/admin" replace />;
+  return <>{children}</>;
+}
+
 function DashboardRedirect() {
   const { isAdmin } = useAuth();
   return isAdmin ? <Navigate to="/admin" replace /> : <Dashboard />;
