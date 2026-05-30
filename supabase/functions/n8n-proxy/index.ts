@@ -21,6 +21,15 @@ const ALLOWED_PATHS = new Set([
   'bulk-register-suppliers',
 ]);
 
+// Subset of paths that only admins are allowed to invoke.
+const ADMIN_ONLY_PATHS = new Set([
+  'rfq-manage',
+  'rfq-issue-po',
+  'bulk-register-suppliers',
+  'rfq-send-attachment',
+  'rfq-quote-accepted',
+]);
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
