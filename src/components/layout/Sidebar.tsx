@@ -202,7 +202,7 @@ export function Sidebar() {
                 <p className="truncate text-sm font-medium">{supplier?.name}</p>
                 {isAdmin && (
                   <span className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground">
-                    Admin
+                    {isSuperAdmin ? 'Admin' : 'Super User'}
                   </span>
                 )}
               </div>
