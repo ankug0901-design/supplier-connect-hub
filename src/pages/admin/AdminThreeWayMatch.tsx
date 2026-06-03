@@ -131,31 +131,69 @@ export default function AdminThreeWayMatch() {
         (r.client_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
         (r.supplier_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
       });
-      const enrichMap = new Map<string, { date?: string | null; status?: string | null }>();
+      const enrichMap = new Map<string, { id?: string; date?: string | null; status?: string | null }>();
+      const paidInvoiceIds = new Set<string>();
       if (invNums.size) {
         const { data: invRows } = await supabase
           .from('invoices')
-          .select('invoice_number, date, status')
+          .select('id, invoice_number, date, status')
           .in('invoice_number', Array.from(invNums));
         (invRows || []).forEach((iv: any) => {
-          enrichMap.set(iv.invoice_number, { date: iv.date, status: iv.status });
+          enrichMap.set(iv.invoice_number, { id: iv.id, date: iv.date, status: iv.status });
         });
+        // Pull payments for these invoices to detect "paid" even if invoices.status is stale
+        const invoiceIds = (invRows || []).map((iv: any) => iv.id).filter(Boolean);
+        if (invoiceIds.length) {
+          const { data: payRows } = await supabase
+            .from('payments')
+            .select('invoice_id, amount, status')
+            .in('invoice_id', invoiceIds);
+          (payRows || []).forEach((p: any) => {
+            if (p.invoice_id && Number(p.amount || 0) > 0) paidInvoiceIds.add(p.invoice_id);
+          });
+        }
       }
+      const isPaidStatus = (s?: string | null) => (s || '').toLowerCase() === 'paid';
       const enrichItem = (i: any) => {
         if (!i?.invoice_number) return i;
         const extra = enrichMap.get(i.invoice_number);
         if (!extra) return i;
+        const livePaid = isPaidStatus(extra.status) || (extra.id && paidInvoiceIds.has(extra.id));
         return {
           ...i,
           date: i.date ?? extra.date ?? null,
-          status: i.status ?? extra.status ?? null,
+          // Live status overrides snapshot so payments/invoices coming in from Zoho
+          // immediately reflect in the matching view.
+          status: livePaid ? 'paid' : (extra.status ?? i.status ?? null),
         };
       };
-      const enriched = (data as any[]).map((r) => ({
-        ...r,
-        client_invoices: (r.client_invoices || []).map(enrichItem),
-        supplier_invoices: (r.supplier_invoices || []).map(enrichItem),
-      }));
+      const enriched = (data as any[]).map((r) => {
+        const client_invoices = (r.client_invoices || []).map(enrichItem);
+        const supplier_invoices = (r.supplier_invoices || []).map(enrichItem);
+
+        const allClientPaid =
+          client_invoices.length > 0 && client_invoices.every((i: any) => isPaidStatus(i.status));
+        const anyClientPaid = client_invoices.some((i: any) => isPaidStatus(i.status));
+        const allSupplierPaid =
+          supplier_invoices.length > 0 && supplier_invoices.every((i: any) => isPaidStatus(i.status));
+
+        const client_payment_received = allClientPaid;
+        const client_invoice_status = allClientPaid ? 'paid' : (anyClientPaid ? 'partial' : 'unpaid');
+        const supplier_payment_eligible = allClientPaid && r.quantity_match === true;
+        const supplier_payment_status = allSupplierPaid
+          ? 'paid'
+          : supplier_payment_eligible ? 'eligible' : 'pending';
+
+        return {
+          ...r,
+          client_invoices,
+          supplier_invoices,
+          client_payment_received,
+          client_invoice_status,
+          supplier_payment_eligible,
+          supplier_payment_status,
+        };
+      });
       setRows(enriched as any);
     }
     setLoading(false);
@@ -163,12 +201,24 @@ export default function AdminThreeWayMatch() {
 
   useEffect(() => {
     load();
+    // Debounce refetches to coalesce bursts of realtime events from Zoho sync.
+    let timer: any = null;
+    const trigger = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => load(), 400);
+    };
     const ch = supabase
       .channel('three_way_matches_rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'three_way_matches' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'three_way_matches' }, trigger)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, trigger)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, trigger)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(ch);
+    };
   }, []);
+
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
