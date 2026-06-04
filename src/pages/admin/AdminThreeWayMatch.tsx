@@ -99,6 +99,15 @@ function PaidPill({ paid }: { paid: boolean }) {
     : <span className="inline-flex items-center gap-1 text-destructive text-xs font-medium"><XCircle className="h-3 w-3" /> Unpaid</span>;
 }
 
+const PAID_STATUS_WORDS = ['paid', 'closed', 'completed', 'settled', 'received'];
+const isPaidInvoice = (it: any) => {
+  const s = (it?.status || '').toLowerCase();
+  if (PAID_STATUS_WORDS.some((w) => s.includes(w))) return true;
+  if (Number(it?.payment_amount || 0) > 0) return true;
+  if (it?.payment_date) return true;
+  return false;
+};
+
 function InvoiceList({ items }: { items: InvoiceItem[] }) {
   if (!items?.length) return <span className="text-muted-foreground text-xs">—</span>;
   return (
