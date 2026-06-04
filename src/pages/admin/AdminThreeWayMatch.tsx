@@ -443,11 +443,11 @@ export default function AdminThreeWayMatch() {
       clientTotal += Number(r.client_invoice_amount || 0);
       supplierTotal += Number(r.supplier_invoice_amount || 0);
       (r.client_invoices || []).forEach((i) => {
-        if ((i.status || '').toLowerCase() === 'paid') clientPaid += Number(i.amount || 0);
+        if (isPaidInvoice(i)) clientPaid += Number(i.payment_amount || i.amount || 0);
         else clientPaid += Number(i.payment_amount || 0);
       });
       (r.supplier_invoices || []).forEach((i) => {
-        if ((i.status || '').toLowerCase() === 'paid') supplierPaid += Number(i.amount || 0);
+        if (isPaidInvoice(i)) supplierPaid += Number(i.payment_amount || i.amount || 0);
         else supplierPaid += Number(i.payment_amount || 0);
       });
     });
@@ -455,7 +455,6 @@ export default function AdminThreeWayMatch() {
       activeSOs: rows.length,
       clientTotal, clientPaid, clientBalance: clientTotal - clientPaid,
       supplierTotal, supplierPaid, supplierBalance: supplierTotal - supplierPaid,
-      margin: clientTotal - supplierTotal,
     };
   }, [rows]);
 
@@ -465,8 +464,7 @@ export default function AdminThreeWayMatch() {
     rows.forEach((r) => {
       if (!r.client_payment_received) return;
       (r.supplier_invoices || []).forEach((b) => {
-        const isPaid = (b.status || '').toLowerCase() === 'paid';
-        if (isPaid) return;
+        if (isPaidInvoice(b)) return;
         const d = daysSince(b.date) ?? 0;
         if (d >= 45) items.push({ r, bill: b, days: d });
       });
