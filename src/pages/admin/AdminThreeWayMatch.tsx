@@ -663,7 +663,6 @@ export default function AdminThreeWayMatch() {
                     <TableHead>PO(s)</TableHead>
                     <TableHead className="text-right">Client Total</TableHead>
                     <TableHead className="text-right">Sup. Total</TableHead>
-                    <TableHead className="text-right">Margin</TableHead>
                     <TableHead className="text-center">Qty</TableHead>
                     <TableHead className="text-center">Client Paid</TableHead>
                     <TableHead>Match</TableHead>
@@ -673,7 +672,6 @@ export default function AdminThreeWayMatch() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((r) => {
-                    const margin = (r.client_invoice_amount || 0) - (r.supplier_invoice_amount || 0);
                     return (
                       <TableRow key={r.id}>
                         <TableCell className="font-mono font-medium">{r.so_number || '—'}</TableCell>
@@ -682,7 +680,6 @@ export default function AdminThreeWayMatch() {
                         <TableCell className="font-mono text-xs">{(r.po_numbers && r.po_numbers.length) ? r.po_numbers.join(', ') : '—'}</TableCell>
                         <TableCell className="text-right">{fmtMoney(r.client_invoice_amount)}</TableCell>
                         <TableCell className="text-right">{fmtMoney(r.supplier_invoice_amount)}</TableCell>
-                        <TableCell className={`text-right font-medium ${margin >= 0 ? 'text-success' : 'text-destructive'}`}>{fmtMoneyShort(margin)}</TableCell>
                         <TableCell className="text-center">
                           <div><BoolIcon v={r.quantity_match} /></div>
                           <div className="text-[10px] text-muted-foreground">{fmtQty(r.client_quantity)} / {fmtQty(r.supplier_quantity)}</div>
