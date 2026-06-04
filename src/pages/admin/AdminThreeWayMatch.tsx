@@ -536,6 +536,8 @@ export default function AdminThreeWayMatch() {
           icon={FileText}
           tone="bg-muted text-foreground"
           sub={<>Across all clients & suppliers</>}
+          active={tab === 'all'}
+          onClick={() => setTab('all')}
         />
         <HeroStat
           label="Client Invoice Total"
@@ -543,6 +545,8 @@ export default function AdminThreeWayMatch() {
           icon={Receipt}
           tone="bg-primary/10 text-primary"
           sub={<>Paid {fmtMoneyShort(kpis.clientPaid)} · Balance <b>{fmtMoneyShort(kpis.clientBalance)}</b></>}
+          active={tab === 'matched'}
+          onClick={() => setTab('matched')}
         />
         <HeroStat
           label="Supplier Invoice Total"
@@ -550,13 +554,17 @@ export default function AdminThreeWayMatch() {
           icon={Wallet}
           tone="bg-warning/10 text-warning"
           sub={<>Due <b>{fmtMoneyShort(kpis.supplierBalance)}</b></>}
+          active={tab === 'partial'}
+          onClick={() => setTab('partial')}
         />
         <HeroStat
-          label="Total Margin"
-          value={fmtMoneyShort(kpis.margin)}
+          label="Payment Eligible"
+          value={String(counts.release)}
           icon={TrendingUp}
-          tone={kpis.margin >= 0 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}
-          sub={kpis.margin >= 0 ? 'Profitable ✓' : 'Loss'}
+          tone="bg-success/10 text-success"
+          sub={<>Ready to release to suppliers</>}
+          active={tab === 'release'}
+          onClick={() => setTab('release')}
         />
       </div>
 
