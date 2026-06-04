@@ -139,10 +139,17 @@ function InvoiceList({ items }: { items: InvoiceItem[] }) {
 }
 
 function HeroStat({
-  label, value, sub, icon: Icon, tone,
-}: { label: string; value: string; sub?: React.ReactNode; icon: any; tone: string }) {
+  label, value, sub, icon: Icon, tone, onClick, active,
+}: { label: string; value: string; sub?: React.ReactNode; icon: any; tone: string; onClick?: () => void; active?: boolean }) {
+  const clickable = !!onClick;
   return (
-    <Card className="overflow-hidden">
+    <Card
+      className={`overflow-hidden ${clickable ? 'cursor-pointer transition hover:shadow-md hover:-translate-y-0.5' : ''} ${active ? 'ring-2 ring-primary' : ''}`}
+      onClick={onClick}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } } : undefined}
+    >
       <CardContent className="p-0">
         <div className={`p-4 ${tone}`}>
           <div className="flex items-start justify-between">
