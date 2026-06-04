@@ -345,46 +345,55 @@ export default function AdminThreeWayMatch() {
         (r.client_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
         (r.supplier_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
       });
-      const enrichMap = new Map<string, { id?: string; date?: string | null; status?: string | null }>();
-      const paidInvoiceIds = new Set<string>();
+      const enrichMap = new Map<string, { id?: string; date?: string | null; status?: string | null; payment_date?: string | null }>();
+      const paidInvoiceIds = new Map<string, { amount: number; date?: string | null }>();
       if (invNums.size) {
         const { data: invRows } = await supabase
           .from('invoices')
-          .select('id, invoice_number, date, status')
+          .select('id, invoice_number, date, status, payment_date')
           .in('invoice_number', Array.from(invNums));
         (invRows || []).forEach((iv: any) => {
-          enrichMap.set(iv.invoice_number, { id: iv.id, date: iv.date, status: iv.status });
+          enrichMap.set(iv.invoice_number, { id: iv.id, date: iv.date, status: iv.status, payment_date: iv.payment_date });
         });
         const invoiceIds = (invRows || []).map((iv: any) => iv.id).filter(Boolean);
         if (invoiceIds.length) {
           const { data: payRows } = await supabase
             .from('payments')
-            .select('invoice_id, amount, status')
+            .select('invoice_id, amount, status, date')
             .in('invoice_id', invoiceIds);
           (payRows || []).forEach((p: any) => {
-            if (p.invoice_id && Number(p.amount || 0) > 0) paidInvoiceIds.add(p.invoice_id);
+            if (!p.invoice_id) return;
+            const prev = paidInvoiceIds.get(p.invoice_id) || { amount: 0, date: null as string | null };
+            paidInvoiceIds.set(p.invoice_id, {
+              amount: prev.amount + Number(p.amount || 0),
+              date: prev.date || p.date || null,
+            });
           });
         }
       }
-      const isPaidStatus = (s?: string | null) => (s || '').toLowerCase() === 'paid';
       const enrichItem = (i: any) => {
         if (!i?.invoice_number) return i;
         const extra = enrichMap.get(i.invoice_number);
-        if (!extra) return i;
-        const livePaid = isPaidStatus(extra.status) || (extra.id && paidInvoiceIds.has(extra.id));
-        return {
+        const pay = extra?.id ? paidInvoiceIds.get(extra.id) : undefined;
+        const livePaid =
+          PAID_STATUS_WORDS.some((w) => (extra?.status || '').toLowerCase().includes(w)) ||
+          (pay && pay.amount > 0);
+        const merged = {
           ...i,
-          date: i.date ?? extra.date ?? null,
-          status: livePaid ? 'paid' : (extra.status ?? i.status ?? null),
+          date: i.date ?? extra?.date ?? null,
+          payment_date: i.payment_date ?? pay?.date ?? extra?.payment_date ?? null,
+          payment_amount: Number(i.payment_amount || 0) || Number(pay?.amount || 0),
+          status: livePaid ? 'paid' : (extra?.status ?? i.status ?? null),
         };
+        return merged;
       };
       const enriched = (data as any[]).map((r) => {
         const client_invoices = (r.client_invoices || []).map(enrichItem);
         const supplier_invoices = (r.supplier_invoices || []).map(enrichItem);
 
-        const allClientPaid = client_invoices.length > 0 && client_invoices.every((i: any) => isPaidStatus(i.status));
-        const anyClientPaid = client_invoices.some((i: any) => isPaidStatus(i.status));
-        const allSupplierPaid = supplier_invoices.length > 0 && supplier_invoices.every((i: any) => isPaidStatus(i.status));
+        const allClientPaid = client_invoices.length > 0 && client_invoices.every((i: any) => isPaidInvoice(i));
+        const anyClientPaid = client_invoices.some((i: any) => isPaidInvoice(i));
+        const allSupplierPaid = supplier_invoices.length > 0 && supplier_invoices.every((i: any) => isPaidInvoice(i));
 
         const client_payment_received = allClientPaid;
         const client_invoice_status = allClientPaid ? 'paid' : (anyClientPaid ? 'partial' : 'unpaid');
