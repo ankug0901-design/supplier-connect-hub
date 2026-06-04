@@ -99,6 +99,15 @@ function PaidPill({ paid }: { paid: boolean }) {
     : <span className="inline-flex items-center gap-1 text-destructive text-xs font-medium"><XCircle className="h-3 w-3" /> Unpaid</span>;
 }
 
+const PAID_STATUS_WORDS = ['paid', 'closed', 'completed', 'settled', 'received'];
+const isPaidInvoice = (it: any) => {
+  const s = (it?.status || '').toLowerCase();
+  if (PAID_STATUS_WORDS.some((w) => s.includes(w))) return true;
+  if (Number(it?.payment_amount || 0) > 0) return true;
+  if (it?.payment_date) return true;
+  return false;
+};
+
 function InvoiceList({ items }: { items: InvoiceItem[] }) {
   if (!items?.length) return <span className="text-muted-foreground text-xs">—</span>;
   return (
@@ -130,10 +139,17 @@ function InvoiceList({ items }: { items: InvoiceItem[] }) {
 }
 
 function HeroStat({
-  label, value, sub, icon: Icon, tone,
-}: { label: string; value: string; sub?: React.ReactNode; icon: any; tone: string }) {
+  label, value, sub, icon: Icon, tone, onClick, active,
+}: { label: string; value: string; sub?: React.ReactNode; icon: any; tone: string; onClick?: () => void; active?: boolean }) {
+  const clickable = !!onClick;
   return (
-    <Card className="overflow-hidden">
+    <Card
+      className={`overflow-hidden ${clickable ? 'cursor-pointer transition hover:shadow-md hover:-translate-y-0.5' : ''} ${active ? 'ring-2 ring-primary' : ''}`}
+      onClick={onClick}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } } : undefined}
+    >
       <CardContent className="p-0">
         <div className={`p-4 ${tone}`}>
           <div className="flex items-start justify-between">
@@ -152,13 +168,14 @@ function HeroStat({
 
 function SoCard({ r, onView }: { r: Match; onView: () => void }) {
   const [open, setOpen] = useState(false);
-  const margin = (r.client_invoice_amount || 0) - (r.supplier_invoice_amount || 0);
   const balanceDue = (r.supplier_invoice_amount || 0) -
     (r.supplier_invoices || []).reduce((s, i) => s + (Number(i.payment_amount) || 0), 0);
   const clientPaidAmt = (r.client_invoices || []).reduce(
-    (s, i) => s + (Number(i.payment_amount) || ((i.status || '').toLowerCase() === 'paid' ? Number(i.amount) || 0 : 0)),
+    (s, i) => s + (Number(i.payment_amount) || (isPaidInvoice(i) ? Number(i.amount) || 0 : 0)),
     0,
   );
+  const clientLabel = r.client_name || 'Client';
+  const supplierLabel = r.supplier_company || r.supplier_name || 'Supplier';
 
   // group invoices by PO
   const groups = useMemo(() => {
@@ -185,14 +202,14 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
             {open ? <ChevronDown className="h-4 w-4 mt-1 shrink-0" /> : <ChevronRight className="h-4 w-4 mt-1 shrink-0" />}
             <div className="min-w-0">
               <div className="font-mono text-sm font-semibold">{r.so_number || '—'}</div>
-              <div className="text-sm text-muted-foreground truncate">{r.client_name || '—'}</div>
+              <div className="text-sm text-muted-foreground truncate">{clientLabel}</div>
               <div className="text-xs text-muted-foreground truncate">
-                Vendor: <span className="font-medium text-foreground">{r.supplier_company || r.supplier_name || '—'}</span>
+                Vendor: <span className="font-medium text-foreground">{supplierLabel}</span>
                 {r.po_numbers?.length ? <> · PO: <span className="font-mono">{r.po_numbers.join(', ')}</span></> : null}
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs md:w-[520px]">
+          <div className="grid grid-cols-3 gap-3 text-xs md:w-[420px]">
             <div>
               <div className="text-muted-foreground">Client Inv</div>
               <div className="font-semibold">{fmtMoneyShort(r.client_invoice_amount)}</div>
@@ -200,10 +217,6 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
             <div>
               <div className="text-muted-foreground">Supplier</div>
               <div className="font-semibold">{fmtMoneyShort(r.supplier_invoice_amount)}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Margin</div>
-              <div className={`font-semibold ${margin >= 0 ? 'text-success' : 'text-destructive'}`}>{fmtMoneyShort(margin)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Due</div>
@@ -241,7 +254,6 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
           {groups.map(([po, g]) => {
             const cAmt = g.client.reduce((s, i) => s + (Number(i.amount) || 0), 0);
             const sAmt = g.supplier.reduce((s, i) => s + (Number(i.amount) || 0), 0);
-            const gMargin = cAmt - sAmt;
             return (
               <div key={po} className="rounded-md border bg-background overflow-hidden">
                 <div className="px-3 py-2 bg-muted/50 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
@@ -249,14 +261,14 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
                   <span className="font-mono">{po}</span>
                   <span className="text-muted-foreground">Client: <span className="text-foreground font-medium">{fmtMoneyShort(cAmt)}</span></span>
                   <span className="text-muted-foreground">Supplier: <span className="text-foreground font-medium">{fmtMoneyShort(sAmt)}</span></span>
-                  <span className="text-muted-foreground">Margin: <span className={`font-medium ${gMargin >= 0 ? 'text-success' : 'text-destructive'}`}>{fmtMoneyShort(gMargin)}</span></span>
                 </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs">Side</TableHead>
+                      <TableHead className="text-xs">Party</TableHead>
                       <TableHead className="text-xs">Invoice #</TableHead>
                       <TableHead className="text-xs">Date</TableHead>
+                      <TableHead className="text-xs">Payment Date</TableHead>
                       <TableHead className="text-xs text-right">Qty</TableHead>
                       <TableHead className="text-xs text-right">Amount</TableHead>
                       <TableHead className="text-xs">Status</TableHead>
@@ -265,22 +277,34 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
                   <TableBody>
                     {g.client.map((it, idx) => (
                       <TableRow key={`c${idx}`}>
-                        <TableCell className="text-xs"><Badge variant="outline" className="text-[10px]">Client</Badge></TableCell>
+                        <TableCell className="text-xs">
+                          <div className="flex flex-col gap-0.5">
+                            <Badge variant="outline" className="text-[10px] w-fit">Client</Badge>
+                            <span className="text-[11px] text-muted-foreground truncate max-w-[160px]">{clientLabel}</span>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-xs font-medium">{it.invoice_number || '—'}</TableCell>
                         <TableCell className="text-xs">{fmtDate(it.date)}</TableCell>
+                        <TableCell className="text-xs">{fmtDate(it.payment_date)}</TableCell>
                         <TableCell className="text-xs text-right">{fmtQty(it.quantity ?? null)}</TableCell>
                         <TableCell className="text-xs text-right">{fmtMoney(it.amount ?? null)}</TableCell>
-                        <TableCell className="text-xs"><PaidPill paid={(it.status || '').toLowerCase() === 'paid'} /></TableCell>
+                        <TableCell className="text-xs"><PaidPill paid={isPaidInvoice(it)} /></TableCell>
                       </TableRow>
                     ))}
                     {g.supplier.map((it, idx) => (
                       <TableRow key={`s${idx}`}>
-                        <TableCell className="text-xs"><Badge variant="outline" className="text-[10px] bg-muted">Supplier</Badge></TableCell>
+                        <TableCell className="text-xs">
+                          <div className="flex flex-col gap-0.5">
+                            <Badge variant="outline" className="text-[10px] bg-muted w-fit">Supplier</Badge>
+                            <span className="text-[11px] text-muted-foreground truncate max-w-[160px]">{supplierLabel}</span>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-xs font-medium">{it.invoice_number || '—'}</TableCell>
                         <TableCell className="text-xs">{fmtDate(it.date)}</TableCell>
+                        <TableCell className="text-xs">{fmtDate(it.payment_date)}</TableCell>
                         <TableCell className="text-xs text-right">{fmtQty(it.quantity ?? null)}</TableCell>
                         <TableCell className="text-xs text-right">{fmtMoney(it.amount ?? null)}</TableCell>
-                        <TableCell className="text-xs"><PaidPill paid={(it.status || '').toLowerCase() === 'paid'} /></TableCell>
+                        <TableCell className="text-xs"><PaidPill paid={isPaidInvoice(it)} /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -321,46 +345,55 @@ export default function AdminThreeWayMatch() {
         (r.client_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
         (r.supplier_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
       });
-      const enrichMap = new Map<string, { id?: string; date?: string | null; status?: string | null }>();
-      const paidInvoiceIds = new Set<string>();
+      const enrichMap = new Map<string, { id?: string; date?: string | null; status?: string | null; payment_date?: string | null }>();
+      const paidInvoiceIds = new Map<string, { amount: number; date?: string | null }>();
       if (invNums.size) {
         const { data: invRows } = await supabase
           .from('invoices')
-          .select('id, invoice_number, date, status')
+          .select('id, invoice_number, date, status, payment_date')
           .in('invoice_number', Array.from(invNums));
         (invRows || []).forEach((iv: any) => {
-          enrichMap.set(iv.invoice_number, { id: iv.id, date: iv.date, status: iv.status });
+          enrichMap.set(iv.invoice_number, { id: iv.id, date: iv.date, status: iv.status, payment_date: iv.payment_date });
         });
         const invoiceIds = (invRows || []).map((iv: any) => iv.id).filter(Boolean);
         if (invoiceIds.length) {
           const { data: payRows } = await supabase
             .from('payments')
-            .select('invoice_id, amount, status')
+            .select('invoice_id, amount, status, date')
             .in('invoice_id', invoiceIds);
           (payRows || []).forEach((p: any) => {
-            if (p.invoice_id && Number(p.amount || 0) > 0) paidInvoiceIds.add(p.invoice_id);
+            if (!p.invoice_id) return;
+            const prev = paidInvoiceIds.get(p.invoice_id) || { amount: 0, date: null as string | null };
+            paidInvoiceIds.set(p.invoice_id, {
+              amount: prev.amount + Number(p.amount || 0),
+              date: prev.date || p.date || null,
+            });
           });
         }
       }
-      const isPaidStatus = (s?: string | null) => (s || '').toLowerCase() === 'paid';
       const enrichItem = (i: any) => {
         if (!i?.invoice_number) return i;
         const extra = enrichMap.get(i.invoice_number);
-        if (!extra) return i;
-        const livePaid = isPaidStatus(extra.status) || (extra.id && paidInvoiceIds.has(extra.id));
-        return {
+        const pay = extra?.id ? paidInvoiceIds.get(extra.id) : undefined;
+        const livePaid =
+          PAID_STATUS_WORDS.some((w) => (extra?.status || '').toLowerCase().includes(w)) ||
+          (pay && pay.amount > 0);
+        const merged = {
           ...i,
-          date: i.date ?? extra.date ?? null,
-          status: livePaid ? 'paid' : (extra.status ?? i.status ?? null),
+          date: i.date ?? extra?.date ?? null,
+          payment_date: i.payment_date ?? pay?.date ?? extra?.payment_date ?? null,
+          payment_amount: Number(i.payment_amount || 0) || Number(pay?.amount || 0),
+          status: livePaid ? 'paid' : (extra?.status ?? i.status ?? null),
         };
+        return merged;
       };
       const enriched = (data as any[]).map((r) => {
         const client_invoices = (r.client_invoices || []).map(enrichItem);
         const supplier_invoices = (r.supplier_invoices || []).map(enrichItem);
 
-        const allClientPaid = client_invoices.length > 0 && client_invoices.every((i: any) => isPaidStatus(i.status));
-        const anyClientPaid = client_invoices.some((i: any) => isPaidStatus(i.status));
-        const allSupplierPaid = supplier_invoices.length > 0 && supplier_invoices.every((i: any) => isPaidStatus(i.status));
+        const allClientPaid = client_invoices.length > 0 && client_invoices.every((i: any) => isPaidInvoice(i));
+        const anyClientPaid = client_invoices.some((i: any) => isPaidInvoice(i));
+        const allSupplierPaid = supplier_invoices.length > 0 && supplier_invoices.every((i: any) => isPaidInvoice(i));
 
         const client_payment_received = allClientPaid;
         const client_invoice_status = allClientPaid ? 'paid' : (anyClientPaid ? 'partial' : 'unpaid');
@@ -410,11 +443,11 @@ export default function AdminThreeWayMatch() {
       clientTotal += Number(r.client_invoice_amount || 0);
       supplierTotal += Number(r.supplier_invoice_amount || 0);
       (r.client_invoices || []).forEach((i) => {
-        if ((i.status || '').toLowerCase() === 'paid') clientPaid += Number(i.amount || 0);
+        if (isPaidInvoice(i)) clientPaid += Number(i.payment_amount || i.amount || 0);
         else clientPaid += Number(i.payment_amount || 0);
       });
       (r.supplier_invoices || []).forEach((i) => {
-        if ((i.status || '').toLowerCase() === 'paid') supplierPaid += Number(i.amount || 0);
+        if (isPaidInvoice(i)) supplierPaid += Number(i.payment_amount || i.amount || 0);
         else supplierPaid += Number(i.payment_amount || 0);
       });
     });
@@ -422,7 +455,6 @@ export default function AdminThreeWayMatch() {
       activeSOs: rows.length,
       clientTotal, clientPaid, clientBalance: clientTotal - clientPaid,
       supplierTotal, supplierPaid, supplierBalance: supplierTotal - supplierPaid,
-      margin: clientTotal - supplierTotal,
     };
   }, [rows]);
 
@@ -432,8 +464,7 @@ export default function AdminThreeWayMatch() {
     rows.forEach((r) => {
       if (!r.client_payment_received) return;
       (r.supplier_invoices || []).forEach((b) => {
-        const isPaid = (b.status || '').toLowerCase() === 'paid';
-        if (isPaid) return;
+        if (isPaidInvoice(b)) return;
         const d = daysSince(b.date) ?? 0;
         if (d >= 45) items.push({ r, bill: b, days: d });
       });
@@ -505,6 +536,8 @@ export default function AdminThreeWayMatch() {
           icon={FileText}
           tone="bg-muted text-foreground"
           sub={<>Across all clients & suppliers</>}
+          active={tab === 'all'}
+          onClick={() => setTab('all')}
         />
         <HeroStat
           label="Client Invoice Total"
@@ -512,6 +545,8 @@ export default function AdminThreeWayMatch() {
           icon={Receipt}
           tone="bg-primary/10 text-primary"
           sub={<>Paid {fmtMoneyShort(kpis.clientPaid)} · Balance <b>{fmtMoneyShort(kpis.clientBalance)}</b></>}
+          active={tab === 'matched'}
+          onClick={() => setTab('matched')}
         />
         <HeroStat
           label="Supplier Invoice Total"
@@ -519,13 +554,17 @@ export default function AdminThreeWayMatch() {
           icon={Wallet}
           tone="bg-warning/10 text-warning"
           sub={<>Due <b>{fmtMoneyShort(kpis.supplierBalance)}</b></>}
+          active={tab === 'partial'}
+          onClick={() => setTab('partial')}
         />
         <HeroStat
-          label="Total Margin"
-          value={fmtMoneyShort(kpis.margin)}
+          label="Payment Eligible"
+          value={String(counts.release)}
           icon={TrendingUp}
-          tone={kpis.margin >= 0 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}
-          sub={kpis.margin >= 0 ? 'Profitable ✓' : 'Loss'}
+          tone="bg-success/10 text-success"
+          sub={<>Ready to release to suppliers</>}
+          active={tab === 'release'}
+          onClick={() => setTab('release')}
         />
       </div>
 
@@ -624,7 +663,6 @@ export default function AdminThreeWayMatch() {
                     <TableHead>PO(s)</TableHead>
                     <TableHead className="text-right">Client Total</TableHead>
                     <TableHead className="text-right">Sup. Total</TableHead>
-                    <TableHead className="text-right">Margin</TableHead>
                     <TableHead className="text-center">Qty</TableHead>
                     <TableHead className="text-center">Client Paid</TableHead>
                     <TableHead>Match</TableHead>
@@ -634,7 +672,6 @@ export default function AdminThreeWayMatch() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((r) => {
-                    const margin = (r.client_invoice_amount || 0) - (r.supplier_invoice_amount || 0);
                     return (
                       <TableRow key={r.id}>
                         <TableCell className="font-mono font-medium">{r.so_number || '—'}</TableCell>
@@ -643,7 +680,6 @@ export default function AdminThreeWayMatch() {
                         <TableCell className="font-mono text-xs">{(r.po_numbers && r.po_numbers.length) ? r.po_numbers.join(', ') : '—'}</TableCell>
                         <TableCell className="text-right">{fmtMoney(r.client_invoice_amount)}</TableCell>
                         <TableCell className="text-right">{fmtMoney(r.supplier_invoice_amount)}</TableCell>
-                        <TableCell className={`text-right font-medium ${margin >= 0 ? 'text-success' : 'text-destructive'}`}>{fmtMoneyShort(margin)}</TableCell>
                         <TableCell className="text-center">
                           <div><BoolIcon v={r.quantity_match} /></div>
                           <div className="text-[10px] text-muted-foreground">{fmtQty(r.client_quantity)} / {fmtQty(r.supplier_quantity)}</div>
