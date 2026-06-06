@@ -315,6 +315,7 @@ const mapDbInvoice = (i: any, supplier?: SupplierRow, purchaseOrder?: any) => {
 };
 
 export async function fetchInvoicesFromDb() {
+  triggerGlobalSync();
   const { data, error } = await supabase
     .from('invoices')
     .select('id, zoho_id, invoice_number, date, due_date, payment_date, amount, balance, has_attachment, attachment_name, status, po_id, supplier_id')
