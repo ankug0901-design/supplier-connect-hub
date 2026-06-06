@@ -243,8 +243,8 @@ function triggerGlobalSync(force = false) {
   return runSync('global', {}, force);
 }
 
-export async function fetchPurchaseOrdersFromDb(forceSync = true) {
-  await triggerGlobalSync(forceSync);
+export async function fetchPurchaseOrdersFromDb(forceSync = false) {
+  if (forceSync) triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('purchase_orders')
     .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id')
@@ -259,6 +259,11 @@ export async function fetchPurchaseOrdersFromDb(forceSync = true) {
   return (data || []).map((p: any) =>
     mapDbPurchaseOrder(p, suppliersById[p.supplier_id], itemsByPo[p.id] || [], aggByPo[p.id]),
   );
+}
+
+export async function syncAndFetchPurchaseOrdersFromDb() {
+  await triggerGlobalSync(true);
+  return fetchPurchaseOrdersFromDb(false);
 }
 
 async function fetchInvoicesFromDbByVendor(zohoVendorId: string) {
