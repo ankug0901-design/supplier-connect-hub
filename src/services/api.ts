@@ -461,33 +461,36 @@ export async function downloadBillAttachment(
 }
 
 export async function fetchPayments(zohoVendorId: string) {
-  let raw: any[] = [];
+  const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
+  if (supplier?.id) triggerSupplierSync(supplier.id);
+  const rows = await fetchPaymentsFromDbByVendor(zohoVendorId);
+  if (rows.length) return rows;
   try {
     const data = await zohoProxy('get_payments', zohoVendorId);
-    raw = data.payments || [];
+    const raw = data.payments || [];
+    return raw.map((p: any) => ({
+      id: p.payment_id || p.id,
+      paymentNumber: p.payment_number || p.paymentNumber || p.reference_number || p.referenceNumber || p.payment_id || p.id,
+      invoiceNumber:
+        p.invoice_number ||
+        p.invoiceNumber ||
+        p.bill_number ||
+        p.billNumber ||
+        (Array.isArray(p.bills) && p.bills.length
+          ? p.bills.map((b: any) => b.bill_number || b.billNumber).filter(Boolean).join(', ')
+          : '-'),
+      poNumber: p.po_number || p.poNumber || (Array.isArray(p.bills) && (p.bills[0]?.po_number || p.bills[0]?.poNumber)) || '-',
+      date: p.date || p.payment_date || p.paymentDate,
+      amount: Number(p.amount || p.payment_amount || p.paymentAmount || 0),
+      paymentMode: p.payment_mode || p.paymentMode || p.mode || '-',
+      account: p.account || p.paid_through_account_name || p.paidThroughAccountName || p.account_name || p.accountName || p.paid_through || p.paidThrough || '-',
+      status: p.status || 'completed',
+      transactionId: p.reference_number || p.referenceNumber || p.transaction_id || p.transactionId || p.payment_number || p.paymentNumber || '',
+    }));
   } catch (err) {
-    console.warn('Zoho payments webhook failed; falling back to synced payments.', err);
+    console.warn('Zoho payments webhook fallback failed', err);
+    return [];
   }
-  if (!raw.length) return fetchPaymentsFromDbByVendor(zohoVendorId);
-  return raw.map((p: any) => ({
-    id: p.payment_id || p.id,
-    paymentNumber: p.payment_number || p.paymentNumber || p.reference_number || p.referenceNumber || p.payment_id || p.id,
-    invoiceNumber:
-      p.invoice_number ||
-      p.invoiceNumber ||
-      p.bill_number ||
-      p.billNumber ||
-      (Array.isArray(p.bills) && p.bills.length
-        ? p.bills.map((b: any) => b.bill_number || b.billNumber).filter(Boolean).join(', ')
-        : '-'),
-    poNumber: p.po_number || p.poNumber || (Array.isArray(p.bills) && (p.bills[0]?.po_number || p.bills[0]?.poNumber)) || '-',
-    date: p.date || p.payment_date || p.paymentDate,
-    amount: Number(p.amount || p.payment_amount || p.paymentAmount || 0),
-    paymentMode: p.payment_mode || p.paymentMode || p.mode || '-',
-    account: p.account || p.paid_through_account_name || p.paidThroughAccountName || p.account_name || p.accountName || p.paid_through || p.paidThrough || '-',
-    status: p.status || 'completed',
-    transactionId: p.reference_number || p.referenceNumber || p.transaction_id || p.transactionId || p.payment_number || p.paymentNumber || '',
-  }));
 }
 
 export async function fetchInvoicedQuantitiesForPo(
