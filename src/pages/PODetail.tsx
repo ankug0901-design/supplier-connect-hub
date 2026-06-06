@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, fetchInvoicedQuantitiesForPo } from '@/services/api';
+import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, fetchInvoicedQuantitiesForPo } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
@@ -66,7 +66,7 @@ export default function PODetail() {
       setIsLoading(true);
       try {
         const data = isAdmin
-          ? await fetchPurchaseOrdersFromDb()
+          ? await fetchPurchaseOrdersFromDb(false)
           : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
         const target = String(id);
         let found =
@@ -122,6 +122,20 @@ export default function PODetail() {
         }
 
         if (!cancelled) setOrder(found);
+        if (isAdmin) {
+          syncAndFetchPurchaseOrdersFromDb()
+            .then((freshData) => {
+              if (cancelled) return;
+              const refreshed = freshData.find(
+                (po: any) =>
+                  String(po.id) === target ||
+                  String(po.dbId ?? '') === target ||
+                  String(po.poNumber ?? '') === target,
+              );
+              if (refreshed) setOrder(refreshed);
+            })
+            .catch((syncErr) => console.warn('Background PO detail refresh failed', syncErr));
+        }
       } catch (err) {
         console.error('Failed to load purchase order', err);
       } finally {

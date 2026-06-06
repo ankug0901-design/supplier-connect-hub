@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchPurchaseOrdersFromDb } from '@/services/api';
 
 type Row = any;
 
@@ -36,10 +37,10 @@ export default function AdminDashboard() {
   const [challans, setChallans] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = async (forcePoSync = true) => {
     const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
       supabase.from('rfq_portal_requests').select('*').order('created_at', { ascending: false }).limit(2000),
-      supabase.from('purchase_orders').select('*').order('created_at', { ascending: false }).limit(1000),
+      fetchPurchaseOrdersFromDb(forcePoSync),
       supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(1000),
       supabase.from('payments').select('*').order('created_at', { ascending: false }).limit(1000),
       supabase.from('suppliers').select('*').limit(5000),
@@ -47,7 +48,7 @@ export default function AdminDashboard() {
       supabase.from('delivery_challans').select('*').order('created_at', { ascending: false }).limit(500),
     ]);
     setRfqRows(r1.data || []);
-    setPos(r2.data || []);
+    setPos(Array.isArray(r2) ? r2 : []);
     setInvoices(r3.data || []);
     setPayments(r4.data || []);
     setSuppliers(r5.data || []);
@@ -60,10 +61,10 @@ export default function AdminDashboard() {
     load();
     const ch = supabase
       .channel('admin_dash')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rfq_portal_requests' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_orders' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rfq_portal_requests' }, () => load(false))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_orders' }, () => load(false))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, () => load(false))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => load(false))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);

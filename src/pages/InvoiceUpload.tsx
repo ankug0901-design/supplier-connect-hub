@@ -13,7 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, submitInvoice, fetchInvoicedQuantitiesForPo } from '@/services/api';
+import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, submitInvoice, fetchInvoicedQuantitiesForPo } from '@/services/api';
 import { preparePodFiles } from '@/lib/pod-files';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
@@ -431,9 +431,16 @@ export default function InvoiceUpload() {
     (async () => {
       try {
         const data = isAdmin
-          ? await fetchPurchaseOrdersFromDb()
+          ? await fetchPurchaseOrdersFromDb(false)
           : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
         if (!cancelled) setPurchaseOrders(data);
+        if (isAdmin) {
+          syncAndFetchPurchaseOrdersFromDb()
+            .then((freshData) => {
+              if (!cancelled) setPurchaseOrders(freshData);
+            })
+            .catch((syncErr) => console.warn('Background PO refresh failed', syncErr));
+        }
       } catch (err) {
         console.error('Failed to load POs', err);
       } finally {

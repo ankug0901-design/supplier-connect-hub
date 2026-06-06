@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, downloadPurchaseOrder } from '@/services/api';
+import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, downloadPurchaseOrder } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
@@ -59,9 +59,16 @@ export default function PurchaseOrders() {
       setIsLoading(true);
       try {
         const data = isAdmin
-          ? await fetchPurchaseOrdersFromDb()
+          ? await fetchPurchaseOrdersFromDb(false)
           : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
         if (!cancelled) setPurchaseOrders(data);
+        if (isAdmin) {
+          syncAndFetchPurchaseOrdersFromDb()
+            .then((freshData) => {
+              if (!cancelled) setPurchaseOrders(freshData);
+            })
+            .catch((syncErr) => console.warn('Background purchase order refresh failed', syncErr));
+        }
       } catch (err) {
         console.error('Failed to load purchase orders', err);
       } finally {

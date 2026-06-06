@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 const N8N_BASE = 'https://n8n.srv1141999.hstgr.cloud/webhook';
+const SYNC_THROTTLE_MS = 60_000;
 
 // Routes through the authenticated n8n-proxy edge function which injects the
 // N8N access code server-side. Never put the access code in the client bundle.
@@ -129,6 +130,10 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
   const paid = agg?.paid || 0;
   return {
     id: p.zoho_id || p.id,
+    dbId: p.id,
+    supplier_id: p.supplier_id,
+    supplierId: p.supplier_id,
+    po_number: p.po_number,
     poNumber: p.po_number,
     date: p.date,
     expectedDelivery: p.expected_delivery,
@@ -165,16 +170,32 @@ async function fetchSupplierByZohoVendorId(zohoVendorId: string) {
   return data as SupplierRow | null;
 }
 
-// Fire-and-forget on-demand sync so the portal always reflects the latest
-// Zoho data without waiting for the next cron tick. Throttled per supplier.
+// On-demand sync so portal reads happen after the newest Zoho/n8n data has
+// been persisted locally. Calls are deduped/throttled to avoid sync storms.
 const lastSyncAt: Record<string, number> = {};
-function triggerSupplierSync(supplierId: string) {
+const syncInFlight: Record<string, Promise<void> | undefined> = {};
+
+async function runSync(key: string, body: Record<string, unknown>, force = false) {
   const now = Date.now();
-  if (lastSyncAt[supplierId] && now - lastSyncAt[supplierId] < 60_000) return;
-  lastSyncAt[supplierId] = now;
-  supabase.functions
-    .invoke('zoho-sync', { body: { supplier_id: supplierId } })
-    .catch((err) => console.warn('Background zoho-sync failed', err));
+  if (!force && lastSyncAt[key] && now - lastSyncAt[key] < SYNC_THROTTLE_MS) return;
+  if (syncInFlight[key]) return syncInFlight[key];
+  lastSyncAt[key] = now;
+  syncInFlight[key] = supabase.functions
+    .invoke('zoho-sync', { body })
+    .then(({ data, error }) => {
+      if (error || data?.success === false) {
+        console.warn('Zoho sync failed', error || data?.error || data);
+      }
+    })
+    .catch((err) => console.warn('Zoho sync failed', err))
+    .finally(() => {
+      syncInFlight[key] = undefined;
+    });
+  return syncInFlight[key];
+}
+
+function triggerSupplierSync(supplierId: string, force = false) {
+  return runSync(`supplier:${supplierId}`, { supplier_id: supplierId }, force);
 }
 
 async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string) {
@@ -201,7 +222,7 @@ export async function fetchPurchaseOrders(zohoVendorId: string) {
   // and we derive PO status from local invoice/payment rows so a freshly
   // submitted invoice immediately flips the PO out of "pending".
   const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (supplier?.id) triggerSupplierSync(supplier.id);
+  if (supplier?.id) await triggerSupplierSync(supplier.id, true);
   const rows = await fetchPurchaseOrdersFromDbByVendor(zohoVendorId);
   if (rows.length) return rows;
   // Last-resort fallback: live n8n call (e.g. if local sync hasn't run yet).
@@ -215,17 +236,15 @@ export async function fetchPurchaseOrders(zohoVendorId: string) {
 }
 
 let lastGlobalSyncAt = 0;
-function triggerGlobalSync() {
+function triggerGlobalSync(force = false) {
   const now = Date.now();
-  if (now - lastGlobalSyncAt < 120_000) return;
+  if (!force && now - lastGlobalSyncAt < 120_000) return Promise.resolve();
   lastGlobalSyncAt = now;
-  supabase.functions
-    .invoke('zoho-sync', { body: {} })
-    .catch((err) => console.warn('Background global zoho-sync failed', err));
+  return runSync('global', {}, force);
 }
 
-export async function fetchPurchaseOrdersFromDb() {
-  triggerGlobalSync();
+export async function fetchPurchaseOrdersFromDb(forceSync = false) {
+  if (forceSync) triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('purchase_orders')
     .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id')
@@ -240,6 +259,11 @@ export async function fetchPurchaseOrdersFromDb() {
   return (data || []).map((p: any) =>
     mapDbPurchaseOrder(p, suppliersById[p.supplier_id], itemsByPo[p.id] || [], aggByPo[p.id]),
   );
+}
+
+export async function syncAndFetchPurchaseOrdersFromDb() {
+  await triggerGlobalSync(true);
+  return fetchPurchaseOrdersFromDb(false);
 }
 
 async function fetchInvoicesFromDbByVendor(zohoVendorId: string) {
@@ -315,7 +339,7 @@ const mapDbInvoice = (i: any, supplier?: SupplierRow, purchaseOrder?: any) => {
 };
 
 export async function fetchInvoicesFromDb() {
-  triggerGlobalSync();
+  await triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('invoices')
     .select('id, zoho_id, invoice_number, date, due_date, payment_date, amount, balance, has_attachment, attachment_name, status, po_id, supplier_id')
@@ -329,7 +353,7 @@ export async function fetchInvoicesFromDb() {
 }
 
 export async function fetchPaymentsFromDb() {
-  triggerGlobalSync();
+  await triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('payments')
     .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id')
@@ -434,7 +458,7 @@ export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, 
 
 export async function fetchInvoices(zohoVendorId: string) {
   const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (supplier?.id) triggerSupplierSync(supplier.id);
+  if (supplier?.id) await triggerSupplierSync(supplier.id, true);
   const rows = await fetchInvoicesFromDbByVendor(zohoVendorId);
   if (rows.length) return rows;
   try {
@@ -475,7 +499,7 @@ export async function downloadBillAttachment(
 
 export async function fetchPayments(zohoVendorId: string) {
   const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (supplier?.id) triggerSupplierSync(supplier.id);
+  if (supplier?.id) await triggerSupplierSync(supplier.id, true);
   const rows = await fetchPaymentsFromDbByVendor(zohoVendorId);
   if (rows.length) return rows;
   try {

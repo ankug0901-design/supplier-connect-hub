@@ -24,8 +24,12 @@ const passthrough = (s?: string) => (s || "pending").toLowerCase();
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const requestBody = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+  const requestedSupplierId = typeof requestBody?.supplier_id === "string" ? requestBody.supplier_id : null;
+
   // Auth check: accept either the service role key (for internal calls from other edge
-  // functions like admin-ai-insights) or a JWT belonging to an admin user.
+  // functions like admin-ai-insights), cron, an admin user, or a supplier syncing
+  // only their own supplier row.
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   const apikeyHeader = req.headers.get("apikey") || "";
@@ -49,10 +53,11 @@ Deno.serve(async (req) => {
     if (userData?.user) {
       const { data: supplierRow } = await userClient
         .from("suppliers")
-        .select("role")
+        .select("id, role")
         .eq("user_id", userData.user.id)
         .maybeSingle();
-      if (supplierRow?.role === "admin") authorized = true;
+      if (["admin", "super_user"].includes(String(supplierRow?.role || ""))) authorized = true;
+      if (requestedSupplierId && supplierRow?.id === requestedSupplierId) authorized = true;
     }
   }
 
@@ -80,14 +85,11 @@ Deno.serve(async (req) => {
       .not("zoho_vendor_id", "is", null)
       .neq("zoho_vendor_id", "");
 
-    if (req.method === "POST") {
-      try {
-        const body = await req.json();
-        if (body?.supplier_id) supplierQuery = supabase
-          .from("suppliers")
-          .select("id, zoho_vendor_id")
-          .eq("id", body.supplier_id);
-      } catch (_) { /* no body */ }
+    if (requestedSupplierId) {
+      supplierQuery = supabase
+        .from("suppliers")
+        .select("id, zoho_vendor_id")
+        .eq("id", requestedSupplierId);
     }
 
     const { data: suppliers, error: sErr } = await supplierQuery;
@@ -119,6 +121,43 @@ Deno.serve(async (req) => {
             .upsert(poRows, { onConflict: "supplier_id,po_number" });
           if (error) throw error;
           summary.pos_upserted += poRows.length;
+
+          const { data: syncedPoList, error: lookupError } = await supabase
+            .from("purchase_orders")
+            .select("id, po_number")
+            .eq("supplier_id", sup.id)
+            .in("po_number", poRows.map((p: any) => p.po_number));
+          if (lookupError) throw lookupError;
+
+          const poIdByNumber = new Map((syncedPoList || []).map((p: any) => [p.po_number, p.id]));
+          const itemRows = pos.flatMap((p: any) => {
+            const poId = poIdByNumber.get(p.poNumber);
+            const items = Array.isArray(p.items) ? p.items : Array.isArray(p.line_items) ? p.line_items : [];
+            if (!poId || !items.length) return [];
+            return items.map((it: any) => {
+              const quantity = Number(it.quantity || 0);
+              const unitPrice = Number(it.rate ?? it.unit_price ?? it.unitPrice ?? 0);
+              return {
+                po_id: poId,
+                description: it.description || it.item_name || it.name || "Item",
+                quantity: Math.max(1, Math.round(quantity || 1)),
+                unit_price: unitPrice,
+                total: Number(it.total ?? it.item_total ?? quantity * unitPrice ?? 0),
+              };
+            });
+          });
+
+          if (syncedPoList?.length) {
+            const { error: deleteItemsError } = await supabase
+              .from("po_items")
+              .delete()
+              .in("po_id", syncedPoList.map((p: any) => p.id));
+            if (deleteItemsError) throw deleteItemsError;
+          }
+          if (itemRows.length) {
+            const { error: itemError } = await supabase.from("po_items").insert(itemRows);
+            if (itemError) throw itemError;
+          }
         }
       } catch (e: any) {
         summary.errors.push(`PO ${sup.id}: ${e.message}`);
