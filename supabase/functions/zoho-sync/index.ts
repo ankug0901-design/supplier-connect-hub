@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
         .select("id, role")
         .eq("user_id", userData.user.id)
         .maybeSingle();
-      if (supplierRow?.role === "admin") authorized = true;
+      if (["admin", "super_user"].includes(String(supplierRow?.role || ""))) authorized = true;
       if (requestedSupplierId && supplierRow?.id === requestedSupplierId) authorized = true;
     }
   }
