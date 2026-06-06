@@ -214,7 +214,18 @@ export async function fetchPurchaseOrders(zohoVendorId: string) {
   }
 }
 
+let lastGlobalSyncAt = 0;
+function triggerGlobalSync() {
+  const now = Date.now();
+  if (now - lastGlobalSyncAt < 120_000) return;
+  lastGlobalSyncAt = now;
+  supabase.functions
+    .invoke('zoho-sync', { body: {} })
+    .catch((err) => console.warn('Background global zoho-sync failed', err));
+}
+
 export async function fetchPurchaseOrdersFromDb() {
+  triggerGlobalSync();
   const { data, error } = await supabase
     .from('purchase_orders')
     .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id')
