@@ -330,7 +330,7 @@ const mapDbInvoice = (i: any, supplier?: SupplierRow, purchaseOrder?: any) => {
 };
 
 export async function fetchInvoicesFromDb() {
-  triggerGlobalSync();
+  await triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('invoices')
     .select('id, zoho_id, invoice_number, date, due_date, payment_date, amount, balance, has_attachment, attachment_name, status, po_id, supplier_id')
@@ -344,7 +344,7 @@ export async function fetchInvoicesFromDb() {
 }
 
 export async function fetchPaymentsFromDb() {
-  triggerGlobalSync();
+  await triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('payments')
     .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id')
@@ -449,7 +449,7 @@ export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, 
 
 export async function fetchInvoices(zohoVendorId: string) {
   const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (supplier?.id) triggerSupplierSync(supplier.id);
+  if (supplier?.id) await triggerSupplierSync(supplier.id, true);
   const rows = await fetchInvoicesFromDbByVendor(zohoVendorId);
   if (rows.length) return rows;
   try {
@@ -490,7 +490,7 @@ export async function downloadBillAttachment(
 
 export async function fetchPayments(zohoVendorId: string) {
   const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (supplier?.id) triggerSupplierSync(supplier.id);
+  if (supplier?.id) await triggerSupplierSync(supplier.id, true);
   const rows = await fetchPaymentsFromDbByVendor(zohoVendorId);
   if (rows.length) return rows;
   try {
