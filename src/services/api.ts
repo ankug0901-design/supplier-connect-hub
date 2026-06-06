@@ -74,26 +74,83 @@ async function fetchInvoicesByIds(invoiceIds: string[]) {
   return indexById(data || []);
 }
 
-const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = []) => ({
-  id: p.zoho_id || p.id,
-  poNumber: p.po_number,
-  date: p.date,
-  expectedDelivery: p.expected_delivery,
-  deliveryAddress: p.delivery_address,
-  amount: Number(p.amount || 0),
-  status: p.status,
-  supplierName: supplier?.company,
-  supplierZohoVendorId: supplier?.zoho_vendor_id,
-  items: poItems.map((it: any) => ({
-    id: it.id,
-    item_name: it.description,
-    description: it.description,
-    quantity: Number(it.quantity || 0),
-    rate: Number(it.unit_price || 0),
-    unitPrice: Number(it.unit_price || 0),
-    total: Number(it.total || 0),
-  })),
-});
+// Derive a PO's effective status based on invoices and payments so the portal
+// reflects reality even when Zoho hasn't flipped the PO status yet.
+// Original Zoho statuses like 'closed', 'cancelled', 'rejected' are preserved.
+const PRESERVE_PO_STATUSES = new Set(['closed', 'cancelled', 'rejected', 'void']);
+const derivePoStatus = (
+  originalStatus: string | null | undefined,
+  poAmount: number,
+  invoicedAmount: number,
+  paidAmount: number,
+): string => {
+  const raw = (originalStatus || 'pending').toLowerCase();
+  if (PRESERVE_PO_STATUSES.has(raw)) return raw;
+  if (poAmount > 0 && paidAmount >= poAmount - 0.5) return 'completed';
+  if (paidAmount > 0) return 'partial';
+  if (poAmount > 0 && invoicedAmount >= poAmount - 0.5) return 'invoiced';
+  if (invoicedAmount > 0) return 'partial';
+  return raw;
+};
+
+type PoAggregate = { invoiced: number; paid: number };
+async function fetchPoAggregates(poIds: string[]): Promise<Record<string, PoAggregate>> {
+  if (!poIds.length) return {};
+  const { data: invs } = await supabase
+    .from('invoices')
+    .select('id, po_id, amount, balance, status')
+    .in('po_id', poIds);
+  const invoiceIds = (invs || []).map((i: any) => i.id);
+  const { data: pays } = invoiceIds.length
+    ? await supabase
+        .from('payments')
+        .select('invoice_id, amount, status')
+        .in('invoice_id', invoiceIds)
+    : { data: [] as any[] };
+  const paidByInvoice: Record<string, number> = {};
+  (pays || []).forEach((p: any) => {
+    paidByInvoice[p.invoice_id] = (paidByInvoice[p.invoice_id] || 0) + Number(p.amount || 0);
+  });
+  const agg: Record<string, PoAggregate> = {};
+  (invs || []).forEach((i: any) => {
+    const a = (agg[i.po_id] ||= { invoiced: 0, paid: 0 });
+    a.invoiced += Number(i.amount || 0);
+    const invPaid = paidByInvoice[i.id] || 0;
+    const status = (i.status || '').toLowerCase();
+    const treatedAsPaid = status === 'paid' || status === 'closed';
+    a.paid += treatedAsPaid ? Number(i.amount || 0) : invPaid;
+  });
+  return agg;
+}
+
+const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [], agg?: PoAggregate) => {
+  const amount = Number(p.amount || 0);
+  const invoiced = agg?.invoiced || 0;
+  const paid = agg?.paid || 0;
+  return {
+    id: p.zoho_id || p.id,
+    poNumber: p.po_number,
+    date: p.date,
+    expectedDelivery: p.expected_delivery,
+    deliveryAddress: p.delivery_address,
+    amount,
+    status: derivePoStatus(p.status, amount, invoiced, paid),
+    rawStatus: (p.status || 'pending').toLowerCase(),
+    invoicedAmount: invoiced,
+    paidAmount: paid,
+    supplierName: supplier?.company,
+    supplierZohoVendorId: supplier?.zoho_vendor_id,
+    items: poItems.map((it: any) => ({
+      id: it.id,
+      item_name: it.description,
+      description: it.description,
+      quantity: Number(it.quantity || 0),
+      rate: Number(it.unit_price || 0),
+      unitPrice: Number(it.unit_price || 0),
+      total: Number(it.total || 0),
+    })),
+  };
+};
 
 async function fetchSupplierByZohoVendorId(zohoVendorId: string) {
   const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -108,6 +165,18 @@ async function fetchSupplierByZohoVendorId(zohoVendorId: string) {
   return data as SupplierRow | null;
 }
 
+// Fire-and-forget on-demand sync so the portal always reflects the latest
+// Zoho data without waiting for the next cron tick. Throttled per supplier.
+const lastSyncAt: Record<string, number> = {};
+function triggerSupplierSync(supplierId: string) {
+  const now = Date.now();
+  if (lastSyncAt[supplierId] && now - lastSyncAt[supplierId] < 60_000) return;
+  lastSyncAt[supplierId] = now;
+  supabase.functions
+    .invoke('zoho-sync', { body: { supplier_id: supplierId } })
+    .catch((err) => console.warn('Background zoho-sync failed', err));
+}
+
 async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string) {
   const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
   if (!supplier?.id) return [];
@@ -117,32 +186,60 @@ async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string) {
     .eq('supplier_id', supplier.id)
     .order('date', { ascending: false });
   if (error) throw error;
-  const itemsByPo = await fetchPoItemsByPoIds((data || []).map((p: any) => p.id));
-  return (data || []).map((p: any) => mapDbPurchaseOrder(p, supplier, itemsByPo[p.id] || []));
+  const poIds = (data || []).map((p: any) => p.id);
+  const [itemsByPo, aggByPo] = await Promise.all([
+    fetchPoItemsByPoIds(poIds),
+    fetchPoAggregates(poIds),
+  ]);
+  return (data || []).map((p: any) =>
+    mapDbPurchaseOrder(p, supplier, itemsByPo[p.id] || [], aggByPo[p.id]),
+  );
 }
 
 export async function fetchPurchaseOrders(zohoVendorId: string) {
+  // DB is the source of truth: zoho-sync (cron + on-demand) keeps it fresh,
+  // and we derive PO status from local invoice/payment rows so a freshly
+  // submitted invoice immediately flips the PO out of "pending".
+  const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
+  if (supplier?.id) triggerSupplierSync(supplier.id);
+  const rows = await fetchPurchaseOrdersFromDbByVendor(zohoVendorId);
+  if (rows.length) return rows;
+  // Last-resort fallback: live n8n call (e.g. if local sync hasn't run yet).
   try {
     const data = await zohoProxy('get_pos', zohoVendorId);
-    const purchaseOrders = data.purchaseOrders || [];
-    if (purchaseOrders.length) return purchaseOrders;
+    return data.purchaseOrders || [];
   } catch (err) {
-    console.warn('Zoho PO webhook failed; falling back to synced purchase orders.', err);
+    console.warn('Zoho PO webhook fallback failed', err);
+    return [];
   }
-  return fetchPurchaseOrdersFromDbByVendor(zohoVendorId);
+}
+
+let lastGlobalSyncAt = 0;
+function triggerGlobalSync() {
+  const now = Date.now();
+  if (now - lastGlobalSyncAt < 120_000) return;
+  lastGlobalSyncAt = now;
+  supabase.functions
+    .invoke('zoho-sync', { body: {} })
+    .catch((err) => console.warn('Background global zoho-sync failed', err));
 }
 
 export async function fetchPurchaseOrdersFromDb() {
+  triggerGlobalSync();
   const { data, error } = await supabase
     .from('purchase_orders')
     .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id')
     .order('date', { ascending: false });
   if (error) throw error;
-  const [suppliersById, itemsByPo] = await Promise.all([
+  const poIds = (data || []).map((p: any) => p.id);
+  const [suppliersById, itemsByPo, aggByPo] = await Promise.all([
     fetchSuppliersByIds(unique((data || []).map((p: any) => p.supplier_id))),
-    fetchPoItemsByPoIds((data || []).map((p: any) => p.id)),
+    fetchPoItemsByPoIds(poIds),
+    fetchPoAggregates(poIds),
   ]);
-  return (data || []).map((p: any) => mapDbPurchaseOrder(p, suppliersById[p.supplier_id], itemsByPo[p.id] || []));
+  return (data || []).map((p: any) =>
+    mapDbPurchaseOrder(p, suppliersById[p.supplier_id], itemsByPo[p.id] || [], aggByPo[p.id]),
+  );
 }
 
 async function fetchInvoicesFromDbByVendor(zohoVendorId: string) {
@@ -218,6 +315,7 @@ const mapDbInvoice = (i: any, supplier?: SupplierRow, purchaseOrder?: any) => {
 };
 
 export async function fetchInvoicesFromDb() {
+  triggerGlobalSync();
   const { data, error } = await supabase
     .from('invoices')
     .select('id, zoho_id, invoice_number, date, due_date, payment_date, amount, balance, has_attachment, attachment_name, status, po_id, supplier_id')
@@ -231,6 +329,7 @@ export async function fetchInvoicesFromDb() {
 }
 
 export async function fetchPaymentsFromDb() {
+  triggerGlobalSync();
   const { data, error } = await supabase
     .from('payments')
     .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id')
@@ -334,14 +433,17 @@ export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, 
 }
 
 export async function fetchInvoices(zohoVendorId: string) {
+  const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
+  if (supplier?.id) triggerSupplierSync(supplier.id);
+  const rows = await fetchInvoicesFromDbByVendor(zohoVendorId);
+  if (rows.length) return rows;
   try {
     const data = await zohoProxy('get_bills', zohoVendorId);
-    const invoices = data.invoices || [];
-    if (invoices.length) return invoices;
+    return data.invoices || [];
   } catch (err) {
-    console.warn('Zoho bills webhook failed; falling back to synced invoices.', err);
+    console.warn('Zoho bills webhook fallback failed', err);
+    return [];
   }
-  return fetchInvoicesFromDbByVendor(zohoVendorId);
 }
 
 export interface BillAttachment {
@@ -372,33 +474,36 @@ export async function downloadBillAttachment(
 }
 
 export async function fetchPayments(zohoVendorId: string) {
-  let raw: any[] = [];
+  const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
+  if (supplier?.id) triggerSupplierSync(supplier.id);
+  const rows = await fetchPaymentsFromDbByVendor(zohoVendorId);
+  if (rows.length) return rows;
   try {
     const data = await zohoProxy('get_payments', zohoVendorId);
-    raw = data.payments || [];
+    const raw = data.payments || [];
+    return raw.map((p: any) => ({
+      id: p.payment_id || p.id,
+      paymentNumber: p.payment_number || p.paymentNumber || p.reference_number || p.referenceNumber || p.payment_id || p.id,
+      invoiceNumber:
+        p.invoice_number ||
+        p.invoiceNumber ||
+        p.bill_number ||
+        p.billNumber ||
+        (Array.isArray(p.bills) && p.bills.length
+          ? p.bills.map((b: any) => b.bill_number || b.billNumber).filter(Boolean).join(', ')
+          : '-'),
+      poNumber: p.po_number || p.poNumber || (Array.isArray(p.bills) && (p.bills[0]?.po_number || p.bills[0]?.poNumber)) || '-',
+      date: p.date || p.payment_date || p.paymentDate,
+      amount: Number(p.amount || p.payment_amount || p.paymentAmount || 0),
+      paymentMode: p.payment_mode || p.paymentMode || p.mode || '-',
+      account: p.account || p.paid_through_account_name || p.paidThroughAccountName || p.account_name || p.accountName || p.paid_through || p.paidThrough || '-',
+      status: p.status || 'completed',
+      transactionId: p.reference_number || p.referenceNumber || p.transaction_id || p.transactionId || p.payment_number || p.paymentNumber || '',
+    }));
   } catch (err) {
-    console.warn('Zoho payments webhook failed; falling back to synced payments.', err);
+    console.warn('Zoho payments webhook fallback failed', err);
+    return [];
   }
-  if (!raw.length) return fetchPaymentsFromDbByVendor(zohoVendorId);
-  return raw.map((p: any) => ({
-    id: p.payment_id || p.id,
-    paymentNumber: p.payment_number || p.paymentNumber || p.reference_number || p.referenceNumber || p.payment_id || p.id,
-    invoiceNumber:
-      p.invoice_number ||
-      p.invoiceNumber ||
-      p.bill_number ||
-      p.billNumber ||
-      (Array.isArray(p.bills) && p.bills.length
-        ? p.bills.map((b: any) => b.bill_number || b.billNumber).filter(Boolean).join(', ')
-        : '-'),
-    poNumber: p.po_number || p.poNumber || (Array.isArray(p.bills) && (p.bills[0]?.po_number || p.bills[0]?.poNumber)) || '-',
-    date: p.date || p.payment_date || p.paymentDate,
-    amount: Number(p.amount || p.payment_amount || p.paymentAmount || 0),
-    paymentMode: p.payment_mode || p.paymentMode || p.mode || '-',
-    account: p.account || p.paid_through_account_name || p.paidThroughAccountName || p.account_name || p.accountName || p.paid_through || p.paidThrough || '-',
-    status: p.status || 'completed',
-    transactionId: p.reference_number || p.referenceNumber || p.transaction_id || p.transactionId || p.payment_number || p.paymentNumber || '',
-  }));
 }
 
 export async function fetchInvoicedQuantitiesForPo(
