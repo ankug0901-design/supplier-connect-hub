@@ -130,6 +130,10 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
   const paid = agg?.paid || 0;
   return {
     id: p.zoho_id || p.id,
+    dbId: p.id,
+    supplier_id: p.supplier_id,
+    supplierId: p.supplier_id,
+    po_number: p.po_number,
     poNumber: p.po_number,
     date: p.date,
     expectedDelivery: p.expected_delivery,
