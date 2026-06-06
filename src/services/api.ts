@@ -420,14 +420,17 @@ export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, 
 }
 
 export async function fetchInvoices(zohoVendorId: string) {
+  const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
+  if (supplier?.id) triggerSupplierSync(supplier.id);
+  const rows = await fetchInvoicesFromDbByVendor(zohoVendorId);
+  if (rows.length) return rows;
   try {
     const data = await zohoProxy('get_bills', zohoVendorId);
-    const invoices = data.invoices || [];
-    if (invoices.length) return invoices;
+    return data.invoices || [];
   } catch (err) {
-    console.warn('Zoho bills webhook failed; falling back to synced invoices.', err);
+    console.warn('Zoho bills webhook fallback failed', err);
+    return [];
   }
-  return fetchInvoicesFromDbByVendor(zohoVendorId);
 }
 
 export interface BillAttachment {
