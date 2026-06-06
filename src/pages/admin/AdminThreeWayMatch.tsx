@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -331,15 +331,27 @@ export default function AdminThreeWayMatch() {
   const [tab, setTab] = useState<'all' | 'matched' | 'partial' | 'mismatch' | 'release'>('all');
   const [view, setView] = useState<'cards' | 'table'>('cards');
   const [selected, setSelected] = useState<Match | null>(null);
+  const loadInFlightRef = useRef(false);
+  const pendingReloadRef = useRef(false);
+  const mountedRef = useRef(true);
 
-  const load = async () => {
-    setLoading(true);
+  const load = useCallback(async ({ showSpinner = false }: { showSpinner?: boolean } = {}) => {
+    if (loadInFlightRef.current) {
+      pendingReloadRef.current = true;
+      return;
+    }
+
+    loadInFlightRef.current = true;
+    if (showSpinner) setLoading(true);
     const { data, error } = await supabase
       .from('three_way_matches')
       .select('*')
       .order('updated_at', { ascending: false })
       .limit(1000);
-    if (!error && data) {
+
+    if (error) {
+      console.warn('3-way match refresh failed', error);
+    } else if (data) {
       const invNums = new Set<string>();
       (data as any[]).forEach((r) => {
         (r.client_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
@@ -412,17 +424,25 @@ export default function AdminThreeWayMatch() {
           supplier_payment_status,
         };
       });
-      setRows(enriched as any);
+      if (mountedRef.current) setRows(enriched as any);
     }
-    setLoading(false);
-  };
+
+    loadInFlightRef.current = false;
+    if (mountedRef.current && showSpinner) setLoading(false);
+    if (pendingReloadRef.current && mountedRef.current) {
+      pendingReloadRef.current = false;
+      window.setTimeout(() => load({ showSpinner: false }), 250);
+    }
+  }, []);
 
   useEffect(() => {
-    load();
-    let timer: any = null;
+    mountedRef.current = true;
+    load({ showSpinner: true });
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const poller = window.setInterval(() => load({ showSpinner: false }), 60_000);
     const trigger = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => load(), 400);
+      timer = setTimeout(() => load({ showSpinner: false }), 1200);
     };
     const ch = supabase
       .channel('three_way_matches_rt')
@@ -431,10 +451,12 @@ export default function AdminThreeWayMatch() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, trigger)
       .subscribe();
     return () => {
+      mountedRef.current = false;
       if (timer) clearTimeout(timer);
+      window.clearInterval(poller);
       supabase.removeChannel(ch);
     };
-  }, []);
+  }, [load]);
 
   // Top-level KPIs (mirror the email report)
   const kpis = useMemo(() => {
@@ -522,7 +544,7 @@ export default function AdminThreeWayMatch() {
               <ListIcon className="h-3.5 w-3.5" /> Table
             </button>
           </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => load({ showSpinner: true })} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
         </div>
