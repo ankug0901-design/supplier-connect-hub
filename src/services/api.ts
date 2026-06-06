@@ -329,6 +329,7 @@ export async function fetchInvoicesFromDb() {
 }
 
 export async function fetchPaymentsFromDb() {
+  triggerGlobalSync();
   const { data, error } = await supabase
     .from('payments')
     .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id')
