@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 const N8N_BASE = 'https://n8n.srv1141999.hstgr.cloud/webhook';
+const SYNC_THROTTLE_MS = 60_000;
 
 // Routes through the authenticated n8n-proxy edge function which injects the
 // N8N access code server-side. Never put the access code in the client bundle.
@@ -165,16 +166,32 @@ async function fetchSupplierByZohoVendorId(zohoVendorId: string) {
   return data as SupplierRow | null;
 }
 
-// Fire-and-forget on-demand sync so the portal always reflects the latest
-// Zoho data without waiting for the next cron tick. Throttled per supplier.
+// On-demand sync so portal reads happen after the newest Zoho/n8n data has
+// been persisted locally. Calls are deduped/throttled to avoid sync storms.
 const lastSyncAt: Record<string, number> = {};
-function triggerSupplierSync(supplierId: string) {
+const syncInFlight: Record<string, Promise<void> | undefined> = {};
+
+async function runSync(key: string, body: Record<string, unknown>, force = false) {
   const now = Date.now();
-  if (lastSyncAt[supplierId] && now - lastSyncAt[supplierId] < 60_000) return;
-  lastSyncAt[supplierId] = now;
-  supabase.functions
-    .invoke('zoho-sync', { body: { supplier_id: supplierId } })
-    .catch((err) => console.warn('Background zoho-sync failed', err));
+  if (!force && lastSyncAt[key] && now - lastSyncAt[key] < SYNC_THROTTLE_MS) return;
+  if (syncInFlight[key]) return syncInFlight[key];
+  lastSyncAt[key] = now;
+  syncInFlight[key] = supabase.functions
+    .invoke('zoho-sync', { body })
+    .then(({ data, error }) => {
+      if (error || data?.success === false) {
+        console.warn('Zoho sync failed', error || data?.error || data);
+      }
+    })
+    .catch((err) => console.warn('Zoho sync failed', err))
+    .finally(() => {
+      syncInFlight[key] = undefined;
+    });
+  return syncInFlight[key];
+}
+
+function triggerSupplierSync(supplierId: string, force = false) {
+  return runSync(`supplier:${supplierId}`, { supplier_id: supplierId }, force);
 }
 
 async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string) {
@@ -201,7 +218,7 @@ export async function fetchPurchaseOrders(zohoVendorId: string) {
   // and we derive PO status from local invoice/payment rows so a freshly
   // submitted invoice immediately flips the PO out of "pending".
   const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (supplier?.id) triggerSupplierSync(supplier.id);
+  if (supplier?.id) await triggerSupplierSync(supplier.id, true);
   const rows = await fetchPurchaseOrdersFromDbByVendor(zohoVendorId);
   if (rows.length) return rows;
   // Last-resort fallback: live n8n call (e.g. if local sync hasn't run yet).
@@ -215,17 +232,15 @@ export async function fetchPurchaseOrders(zohoVendorId: string) {
 }
 
 let lastGlobalSyncAt = 0;
-function triggerGlobalSync() {
+function triggerGlobalSync(force = false) {
   const now = Date.now();
-  if (now - lastGlobalSyncAt < 120_000) return;
+  if (!force && now - lastGlobalSyncAt < 120_000) return Promise.resolve();
   lastGlobalSyncAt = now;
-  supabase.functions
-    .invoke('zoho-sync', { body: {} })
-    .catch((err) => console.warn('Background global zoho-sync failed', err));
+  return runSync('global', {}, force);
 }
 
 export async function fetchPurchaseOrdersFromDb() {
-  triggerGlobalSync();
+  await triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('purchase_orders')
     .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id')
