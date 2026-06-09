@@ -22,6 +22,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 type LineItem = {
   line_item_id?: string;
   item_name: string;
+  description?: string;
   hsn?: string;
   po_quantity?: number;
   invoiced_quantity?: number;
