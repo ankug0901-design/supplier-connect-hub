@@ -137,9 +137,14 @@ Deno.serve(async (req) => {
             return items.map((it: any) => {
               const quantity = Number(it.quantity || 0);
               const unitPrice = Number(it.rate ?? it.unit_price ?? it.unitPrice ?? 0);
+              const zohoLineId = it.line_item_id ?? it.lineItemId ?? it.line_id ?? it.item_id ?? null;
+              const zohoName = it.item_name ?? it.name ?? null;
+              const zohoDescription = it.description ?? it.item_description ?? zohoName ?? "Item";
               return {
                 po_id: poId,
-                description: it.description || it.item_name || it.name || "Item",
+                description: zohoDescription,
+                item_name: zohoName,
+                zoho_line_item_id: zohoLineId ? String(zohoLineId) : null,
                 quantity: Math.max(1, Math.round(quantity || 1)),
                 unit_price: unitPrice,
                 total: Number(it.total ?? it.item_total ?? quantity * unitPrice ?? 0),

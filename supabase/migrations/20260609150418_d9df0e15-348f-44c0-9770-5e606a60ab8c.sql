@@ -1,0 +1,1 @@
+ALTER TABLE public.po_items ADD COLUMN IF NOT EXISTS item_name TEXT; ALTER TABLE public.po_items ADD COLUMN IF NOT EXISTS zoho_line_item_id TEXT; CREATE INDEX IF NOT EXISTS po_items_zoho_line_item_id_idx ON public.po_items (zoho_line_item_id);

@@ -49,7 +49,7 @@ async function fetchPoItemsByPoIds(poIds: string[]) {
   if (!poIds.length) return {} as Record<string, any[]>;
   const { data, error } = await supabase
     .from('po_items')
-    .select('id, po_id, description, quantity, unit_price, total')
+    .select('id, po_id, description, item_name, zoho_line_item_id, quantity, unit_price, total')
     .in('po_id', poIds);
   if (error) throw error;
   return groupBy(data || [], 'po_id');
@@ -147,7 +147,8 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
     supplierZohoVendorId: supplier?.zoho_vendor_id,
     items: poItems.map((it: any) => ({
       id: it.id,
-      item_name: it.description,
+      line_item_id: it.zoho_line_item_id || undefined,
+      item_name: it.item_name || it.description,
       description: it.description,
       quantity: Number(it.quantity || 0),
       rate: Number(it.unit_price || 0),

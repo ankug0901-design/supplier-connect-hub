@@ -421,28 +421,34 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          item_name: string | null
           po_id: string
           quantity: number
           total: number
           unit_price: number
+          zoho_line_item_id: string | null
         }
         Insert: {
           created_at?: string
           description: string
           id?: string
+          item_name?: string | null
           po_id: string
           quantity?: number
           total?: number
           unit_price?: number
+          zoho_line_item_id?: string | null
         }
         Update: {
           created_at?: string
           description?: string
           id?: string
+          item_name?: string | null
           po_id?: string
           quantity?: number
           total?: number
           unit_price?: number
+          zoho_line_item_id?: string | null
         }
         Relationships: [
           {
