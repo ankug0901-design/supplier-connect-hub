@@ -132,7 +132,7 @@ function LineItemsInput({
                   </TableCell>
                   <TableCell className="py-3">
                     {lockDetails ? (
-                      <div className="text-sm font-medium">{item.item_name || '—'}</div>
+                      <div className="text-sm font-medium">{item.description || item.item_name || '—'}</div>
                     ) : (
                       <Input
                         placeholder="Item description"
