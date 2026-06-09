@@ -517,18 +517,24 @@ export default function InvoiceUpload() {
         setLineItems(
           items.map((it: any) => {
             const qty = Number(it.quantity ?? it.qty ?? 0) || 0;
-            const name =
-              it.item_name ||
-              it.name ||
-              it.description ||
-              it.item_description ||
-              it.item ||
-              '';
+            // Zoho's product name (e.g. "Branding Elements") — must be echoed
+            // back to Zoho on submit, even though the UI shows the description.
+            const name = String(
+              it.item_name ?? it.name ?? it.description ?? it.item_description ?? it.item ?? '',
+            );
+            // Zoho's free-text description (e.g. "Event Collaterals ~ Delhi…").
+            const description = String(
+              it.description ?? it.item_description ?? it.item_name ?? it.name ?? '',
+            );
+            // Only accept Zoho's real 19-digit line_item_id. DO NOT fall back
+            // to local DB row UUIDs — Zoho rejects unknown line ids.
+            const zohoLineId = it.line_item_id ?? it.lineItemId ?? it.zoho_line_item_id ?? '';
             const invoiced = invoicedMap[name.trim().toLowerCase()] || 0;
             const remaining = Math.max(qty - invoiced, 0);
             return {
-              line_item_id: String(it.line_item_id ?? it.lineItemId ?? it.id ?? it.item_id ?? it.itemId ?? ''),
+              line_item_id: zohoLineId ? String(zohoLineId) : undefined,
               item_name: name,
+              description,
               hsn: it.hsn || it.hsn_or_sac || it.hsn_sac || it.sac || '',
               po_quantity: qty,
               invoiced_quantity: invoiced,
