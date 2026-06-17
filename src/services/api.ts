@@ -502,7 +502,7 @@ export async function downloadBillAttachment(
 
 export async function fetchPayments(zohoVendorId: string) {
   const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (supplier?.id) await triggerSupplierSync(supplier.id, true);
+  if (supplier?.id) void triggerSupplierSync(supplier.id, false);
   const rows = await fetchPaymentsFromDbByVendor(zohoVendorId);
   if (rows.length) return rows;
   try {
