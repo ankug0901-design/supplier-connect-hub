@@ -476,7 +476,7 @@ function SupplierNudges() {
             AI-Generated Supplier Nudges
           </CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Identifies suppliers with overdue invoices, stalled POs, weak scores, or stale registrations and drafts personalised reminder emails.
+            Identifies suppliers with pending invoices, delayed deliveries, low performance scores, pending RFQ quotes or stale registrations, and drafts personalised reminder emails.
           </p>
         </div>
         <Button onClick={run} disabled={loading} className="gap-2">
