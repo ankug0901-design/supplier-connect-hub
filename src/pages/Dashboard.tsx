@@ -246,6 +246,12 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Payment Date Prediction */}
+        <div className="animate-slide-up" style={{ animationDelay: '375ms' }}>
+          <PaymentPredictionCard />
+        </div>
+
+
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 animate-slide-up" style={{ animationDelay: '400ms' }}>
