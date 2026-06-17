@@ -184,14 +184,20 @@ export default function PODetail() {
               Back
             </Button>
           </Link>
-          {order.status === 'pending' && (
-            <Link to={`/invoices/upload?po=${order.id}`}>
-              <Button variant="accent" className="gap-2">
-                <Upload className="h-4 w-4" />
+          {order.status === 'pending' &&
+            (order.deliveryDatesConfirmedAt ? (
+              <Link to={`/invoices/upload?po=${order.id}`}>
+                <Button variant="accent" className="gap-2">
+                  <Upload className="h-4 w-4" />
+                  Upload Invoice
+                </Button>
+              </Link>
+            ) : (
+              <Button variant="accent" className="gap-2" disabled title="Confirm delivery dates first">
+                <Lock className="h-4 w-4" />
                 Upload Invoice
               </Button>
-            </Link>
-          )}
+            ))}
         </div>
 
         {/* Order Info Cards */}
