@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Upload, Search, Filter, Download, Loader2 } from 'lucide-react';
+import { Eye, Upload, Search, Filter, Download, Loader2, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,11 @@ export default function PurchaseOrders() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const handleDownloadPO = async (poId: string, poNumber: string, rowVendorId?: string) => {
+  const handleDownloadPO = async (poId: string, poNumber: string, rowVendorId?: string, deliveryConfirmed?: boolean) => {
+    if (!deliveryConfirmed) {
+      toast.error('Please confirm delivery dates for this PO before downloading.');
+      return;
+    }
     const vendorId = supplier?.zoho_vendor_id || rowVendorId;
     if (!vendorId) {
       toast.error('Vendor ID not found for this purchase order.');
@@ -223,9 +227,19 @@ export default function PurchaseOrders() {
                         {order.items?.length ?? 0} items
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
-                        <Badge variant="outline" className={cn('capitalize', statusStyles[order.status] || '')}>
-                          {order.status}
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className={cn('capitalize w-fit', statusStyles[order.status] || '')}>
+                            {order.status}
+                          </Badge>
+                          {order.needsDeliveryConfirmation && (
+                            <Link
+                              to={`/purchase-orders/${order.id}`}
+                              className="text-xs font-medium text-warning hover:underline"
+                            >
+                              Confirm delivery dates
+                            </Link>
+                          )}
+                        </div>
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -233,14 +247,27 @@ export default function PurchaseOrders() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => handleDownloadPO(order.id, order.poNumber, order.supplierZohoVendorId)}
-                            disabled={downloadingId === order.id}
-                            title="Download PO"
+                            onClick={() =>
+                              handleDownloadPO(
+                                order.id,
+                                order.poNumber,
+                                order.supplierZohoVendorId,
+                                !!order.deliveryDatesConfirmedAt,
+                              )
+                            }
+                            disabled={downloadingId === order.id || !order.deliveryDatesConfirmedAt}
+                            title={
+                              order.deliveryDatesConfirmedAt
+                                ? 'Download PO'
+                                : 'Confirm delivery dates first'
+                            }
                           >
                             {downloadingId === order.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
+                            ) : order.deliveryDatesConfirmedAt ? (
                               <Download className="h-4 w-4" />
+                            ) : (
+                              <Lock className="h-4 w-4" />
                             )}
                           </Button>
                           <Link to={`/purchase-orders/${order.id}`}>
@@ -248,14 +275,20 @@ export default function PurchaseOrders() {
                               <Eye className="h-4 w-4" />
                             </Button>
                           </Link>
-                          {order.status === 'pending' && (
-                            <Link to={`/invoices/upload?po=${order.id}`}>
-                              <Button variant="accent" size="sm" className="gap-1">
-                                <Upload className="h-3 w-3" />
+                          {order.status === 'pending' &&
+                            (order.deliveryDatesConfirmedAt ? (
+                              <Link to={`/invoices/upload?po=${order.id}`}>
+                                <Button variant="accent" size="sm" className="gap-1">
+                                  <Upload className="h-3 w-3" />
+                                  Upload Invoice
+                                </Button>
+                              </Link>
+                            ) : (
+                              <Button variant="accent" size="sm" className="gap-1" disabled title="Confirm delivery dates first">
+                                <Lock className="h-3 w-3" />
                                 Upload Invoice
                               </Button>
-                            </Link>
-                          )}
+                            ))}
                         </div>
                       </td>
                     </tr>
