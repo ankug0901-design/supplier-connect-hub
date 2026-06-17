@@ -598,6 +598,15 @@ export default function InvoiceUpload() {
     if (!supplier) return;
     const selectedPOData = purchaseOrders.find((po: any) => po.id === selectedPO);
     if (!selectedPOData) return;
+    if (!selectedPOData.deliveryDatesConfirmedAt) {
+      toast({
+        title: 'Delivery dates not confirmed',
+        description:
+          'Please confirm the delivery date for every line item on this PO before submitting an invoice.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (materialReceipts.length === 0) {
       toast({
         title: 'Proof of Delivery required',
@@ -702,11 +711,27 @@ export default function InvoiceUpload() {
                         <SelectItem key={po.id} value={po.id}>
                           {po.poNumber}
                           {isAdmin && po.supplierName ? ` — ${po.supplierName}` : ''}
+                          {!po.deliveryDatesConfirmedAt ? ' · ⚠ delivery dates pending' : ''}
                         </SelectItem>
                       ))
                     )}
                   </SelectContent>
                 </Select>
+                {(() => {
+                  const po = purchaseOrders.find((p: any) => p.id === selectedPO);
+                  if (po && !po.deliveryDatesConfirmedAt) {
+                    return (
+                      <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs text-muted-foreground">
+                        Delivery dates have not been confirmed for this PO yet. Please{' '}
+                        <Link to={`/purchase-orders/${po.id}`} className="font-medium text-warning underline">
+                          confirm delivery dates on the PO
+                        </Link>{' '}
+                        before submitting the invoice.
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
 
@@ -926,6 +951,9 @@ export default function InvoiceUpload() {
             if (!invoiceFile) missing.push('Invoice Document');
             if (materialReceipts.length === 0) missing.push('Proof of Delivery');
             if (!hasLine) missing.push('At least one selected line item');
+            const selectedPoData = purchaseOrders.find((p: any) => p.id === selectedPO);
+            const deliveryPending = !!selectedPoData && !selectedPoData.deliveryDatesConfirmedAt;
+            if (deliveryPending) missing.push('Confirmed delivery dates on the PO');
             const disabled = missing.length > 0 || isSubmitting;
             return (
               <div className="flex flex-col items-end gap-3">

@@ -195,9 +195,42 @@ export default function Dashboard() {
     );
   }
 
+  const awaitingDeliveryConfirm = (purchaseOrders as any[]).filter((po) => po.needsDeliveryConfirmation);
+
   return (
     <DashboardLayout title="Dashboard" subtitle="Welcome back! Here's your business overview.">
       <div className="space-y-6">
+        {awaitingDeliveryConfirm.length > 0 && (
+          <div className="rounded-xl border border-warning/40 bg-warning/5 p-4 animate-slide-up">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
+              <div className="flex-1">
+                <h4 className="font-medium text-foreground">
+                  {awaitingDeliveryConfirm.length} purchase order{awaitingDeliveryConfirm.length > 1 ? 's' : ''} awaiting delivery date confirmation
+                </h4>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  You cannot download these POs or upload invoices against them until you record a delivery date for every line item.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {awaitingDeliveryConfirm.slice(0, 5).map((po: any) => (
+                    <li key={po.id} className="text-sm">
+                      <Link to={`/purchase-orders/${po.id}`} className="font-medium text-warning hover:underline">
+                        {po.poNumber}
+                      </Link>{' '}
+                      <span className="text-muted-foreground">— confirm now</span>
+                    </li>
+                  ))}
+                  {awaitingDeliveryConfirm.length > 5 && (
+                    <li className="text-xs text-muted-foreground">
+                      …and {awaitingDeliveryConfirm.length - 5} more on the{' '}
+                      <Link to="/purchase-orders" className="underline">Purchase Orders page</Link>.
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Stats Grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Link to="/purchase-orders" className="animate-slide-up block" style={{ animationDelay: '0ms' }}>

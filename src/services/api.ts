@@ -49,10 +49,22 @@ async function fetchPoItemsByPoIds(poIds: string[]) {
   if (!poIds.length) return {} as Record<string, any[]>;
   const { data, error } = await supabase
     .from('po_items')
-    .select('id, po_id, description, item_name, zoho_line_item_id, quantity, unit_price, total')
+    .select('id, po_id, description, item_name, zoho_line_item_id, quantity, unit_price, total, confirmed_delivery_date')
     .in('po_id', poIds);
   if (error) throw error;
   return groupBy(data || [], 'po_id');
+}
+
+export async function confirmPoDeliveryDates(
+  poId: string,
+  items: { id: string; confirmed_delivery_date: string | null }[],
+): Promise<{ confirmed: boolean; remaining: number }> {
+  const { data, error } = await supabase.rpc('confirm_po_delivery_dates', {
+    _po_id: poId,
+    _items: items as any,
+  });
+  if (error) throw error;
+  return data as any;
 }
 
 async function fetchPurchaseOrdersByIds(poIds: string[]) {
@@ -128,6 +140,24 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
   const amount = Number(p.amount || 0);
   const invoiced = agg?.invoiced || 0;
   const paid = agg?.paid || 0;
+  const mappedItems = poItems.map((it: any) => ({
+    id: it.id,
+    line_item_id: it.zoho_line_item_id || undefined,
+    item_name: it.item_name || it.description,
+    description: it.description,
+    quantity: Number(it.quantity || 0),
+    rate: Number(it.unit_price || 0),
+    unitPrice: Number(it.unit_price || 0),
+    total: Number(it.total || 0),
+    confirmedDeliveryDate: it.confirmed_delivery_date || null,
+  }));
+  const rawStatus = (p.status || 'pending').toLowerCase();
+  const blockingStatuses = new Set(['closed', 'cancelled', 'rejected', 'completed', 'void']);
+  // Only "open" POs need delivery confirmation
+  const needsDeliveryConfirmation =
+    !blockingStatuses.has(rawStatus) &&
+    !p.delivery_dates_confirmed_at &&
+    mappedItems.length > 0;
   return {
     id: p.zoho_id || p.id,
     dbId: p.id,
@@ -140,21 +170,14 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
     deliveryAddress: p.delivery_address,
     amount,
     status: derivePoStatus(p.status, amount, invoiced, paid),
-    rawStatus: (p.status || 'pending').toLowerCase(),
+    rawStatus,
     invoicedAmount: invoiced,
     paidAmount: paid,
     supplierName: supplier?.company,
     supplierZohoVendorId: supplier?.zoho_vendor_id,
-    items: poItems.map((it: any) => ({
-      id: it.id,
-      line_item_id: it.zoho_line_item_id || undefined,
-      item_name: it.item_name || it.description,
-      description: it.description,
-      quantity: Number(it.quantity || 0),
-      rate: Number(it.unit_price || 0),
-      unitPrice: Number(it.unit_price || 0),
-      total: Number(it.total || 0),
-    })),
+    deliveryDatesConfirmedAt: p.delivery_dates_confirmed_at || null,
+    needsDeliveryConfirmation,
+    items: mappedItems,
   };
 };
 
@@ -204,7 +227,7 @@ async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string) {
   if (!supplier?.id) return [];
   const { data, error } = await supabase
     .from('purchase_orders')
-    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id')
+    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at')
     .eq('supplier_id', supplier.id)
     .order('date', { ascending: false });
   if (error) throw error;
@@ -250,7 +273,7 @@ export async function fetchPurchaseOrdersFromDb(forceSync = false) {
   if (forceSync) triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('purchase_orders')
-    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id')
+    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at')
     .order('date', { ascending: false });
   if (error) throw error;
   const poIds = (data || []).map((p: any) => p.id);
