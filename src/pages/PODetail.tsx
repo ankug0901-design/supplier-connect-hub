@@ -57,96 +57,77 @@ export default function PODetail() {
   const [invoicedMap, setInvoicedMap] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const loadOrder = useCallback(async () => {
     if (!isAdmin && !supplier?.zoho_vendor_id) {
       setIsLoading(false);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      try {
-        const data = isAdmin
-          ? await fetchPurchaseOrdersFromDb(false)
-          : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
-        const target = String(id);
-        let found =
-          data.find(
-            (po: any) =>
-              String(po.id) === target ||
-              String(po.zoho_id ?? '') === target ||
-              String(po.poNumber ?? '') === target,
-          ) || null;
+    setIsLoading(true);
+    try {
+      const data = isAdmin
+        ? await fetchPurchaseOrdersFromDb(false)
+        : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
+      const target = String(id);
+      let found =
+        data.find(
+          (po: any) =>
+            String(po.id) === target ||
+            String(po.zoho_id ?? '') === target ||
+            String(po.poNumber ?? '') === target,
+        ) || null;
 
-        // If items / delivery address are missing, fetch the live PO list
-        // from Zoho for this supplier's vendor and merge richer fields.
-        if (found) {
-          const needsEnrichment = !extractItems(found).length || !found.deliveryAddress;
-          const vendorId = found.supplierZohoVendorId || supplier?.zoho_vendor_id;
-          if (needsEnrichment && vendorId) {
-            try {
-              const livePos = await fetchPurchaseOrders(vendorId);
-              const match = (livePos || []).find(
-                (p: any) =>
-                  String(p.id) === String(found!.id) ||
-                  p.poNumber === found!.poNumber ||
-                  p.purchaseorder_number === found!.poNumber,
-              );
-              if (match) {
-                const liveItems = extractItems(match);
-                found = {
-                  ...found,
-                  items: liveItems.length ? liveItems : found.items,
-                  deliveryAddress:
-                    found.deliveryAddress ||
-                    match.deliveryAddress ||
-                    match.delivery_address ||
-                    match.delivery_customer_address ||
-                    '',
-                };
-              }
-            } catch (err) {
-              console.warn('Live PO enrichment failed', err);
+      if (found) {
+        const needsEnrichment = !extractItems(found).length || !found.deliveryAddress;
+        const vendorId = found.supplierZohoVendorId || supplier?.zoho_vendor_id;
+        if (needsEnrichment && vendorId) {
+          try {
+            const livePos = await fetchPurchaseOrders(vendorId);
+            const match = (livePos || []).find(
+              (p: any) =>
+                String(p.id) === String(found!.id) ||
+                p.poNumber === found!.poNumber ||
+                p.purchaseorder_number === found!.poNumber,
+            );
+            if (match) {
+              const liveItems = extractItems(match);
+              found = {
+                ...found,
+                items: liveItems.length ? liveItems : found.items,
+                deliveryAddress:
+                  found.deliveryAddress ||
+                  match.deliveryAddress ||
+                  match.delivery_address ||
+                  match.delivery_customer_address ||
+                  '',
+              };
             }
-          }
-
-          // Pull invoiced quantities for this PO
-          const supplierIdForLookup = isAdmin ? found.supplier_id || supplier?.id : supplier?.id;
-          if (supplierIdForLookup && found.poNumber) {
-            try {
-              const map = await fetchInvoicedQuantitiesForPo(supplierIdForLookup, found.poNumber);
-              if (!cancelled) setInvoicedMap(map);
-            } catch (err) {
-              console.warn('Failed to load invoiced quantities', err);
-            }
+          } catch (err) {
+            console.warn('Live PO enrichment failed', err);
           }
         }
 
-        if (!cancelled) setOrder(found);
-        if (isAdmin) {
-          syncAndFetchPurchaseOrdersFromDb()
-            .then((freshData) => {
-              if (cancelled) return;
-              const refreshed = freshData.find(
-                (po: any) =>
-                  String(po.id) === target ||
-                  String(po.dbId ?? '') === target ||
-                  String(po.poNumber ?? '') === target,
-              );
-              if (refreshed) setOrder(refreshed);
-            })
-            .catch((syncErr) => console.warn('Background PO detail refresh failed', syncErr));
+        const supplierIdForLookup = isAdmin ? found.supplier_id || supplier?.id : supplier?.id;
+        if (supplierIdForLookup && found.poNumber) {
+          try {
+            const map = await fetchInvoicedQuantitiesForPo(supplierIdForLookup, found.poNumber);
+            setInvoicedMap(map);
+          } catch (err) {
+            console.warn('Failed to load invoiced quantities', err);
+          }
         }
-      } catch (err) {
-        console.error('Failed to load purchase order', err);
-      } finally {
-        if (!cancelled) setIsLoading(false);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+
+      setOrder(found);
+    } catch (err) {
+      console.error('Failed to load purchase order', err);
+    } finally {
+      setIsLoading(false);
+    }
   }, [supplier?.zoho_vendor_id, supplier?.id, isAdmin, id]);
+
+  useEffect(() => {
+    void loadOrder();
+  }, [loadOrder]);
 
   if (!isAdmin && !supplier?.zoho_vendor_id) {
     return (
