@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentPOTable } from '@/components/dashboard/RecentPOTable';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { PerformanceCard } from '@/components/dashboard/PerformanceCard';
 import { Button } from '@/components/ui/button';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { SupplierAssistant } from '@/components/SupplierAssistant';
@@ -236,6 +237,13 @@ export default function Dashboard() {
             />
           </Link>
         </div>
+
+        {/* Performance */}
+        {supplier?.id && (
+          <div className="animate-slide-up" style={{ animationDelay: '350ms' }}>
+            <PerformanceCard supplierId={supplier.id} />
+          </div>
+        )}
 
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-3">
