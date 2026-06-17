@@ -39,6 +39,29 @@ function buildHtml(opts: { subject: string; body: string; cta?: string; recipien
 </body></html>`;
 }
 
+async function getOrCreateUnsubscribeToken(admin: any, email: string): Promise<string> {
+  const lower = String(email).toLowerCase();
+  const { data: existing } = await admin
+    .from("email_unsubscribe_tokens")
+    .select("token")
+    .eq("email", lower)
+    .maybeSingle();
+  if (existing?.token) return existing.token as string;
+  const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+  const { error } = await admin.from("email_unsubscribe_tokens").insert({ email: lower, token });
+  if (error) {
+    // Race: another insert won
+    const { data: again } = await admin
+      .from("email_unsubscribe_tokens")
+      .select("token")
+      .eq("email", lower)
+      .maybeSingle();
+    if (again?.token) return again.token as string;
+    throw error;
+  }
+  return token;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -50,7 +73,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Verify caller is an admin
     const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -69,11 +91,20 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { recipientEmail, recipientName, subject, body: emailBody, callToAction, supplierId } = body || {};
+    const { recipientEmail, recipientName, subject, body: emailBody, callToAction, supplierId, preview } = body || {};
 
     if (!recipientEmail || !subject || !emailBody) {
       return new Response(JSON.stringify({ error: "recipientEmail, subject and body are required" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const html = buildHtml({ subject, body: emailBody, cta: callToAction, recipientName });
+
+    // Preview mode: return rendered HTML without enqueueing
+    if (preview) {
+      return new Response(JSON.stringify({ preview: true, subject, html, from: FROM_ADDRESS, to: recipientEmail }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -91,7 +122,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const html = buildHtml({ subject, body: emailBody, cta: callToAction, recipientName });
+    const unsubscribeToken = await getOrCreateUnsubscribeToken(admin, recipientEmail);
     const messageId = `nudge-${supplierId || "x"}-${crypto.randomUUID()}`;
 
     const payload = {
@@ -105,6 +136,7 @@ Deno.serve(async (req) => {
       label: "supplier-nudge",
       idempotency_key: messageId,
       message_id: messageId,
+      unsubscribe_token: unsubscribeToken,
       queued_at: new Date().toISOString(),
     };
 
@@ -121,7 +153,6 @@ Deno.serve(async (req) => {
       status: "pending",
     });
 
-    // Kick the queue processor immediately so the email is sent without waiting for cron
     try {
       await fetch(`${SUPABASE_URL}/functions/v1/process-email-queue`, {
         method: "POST",
