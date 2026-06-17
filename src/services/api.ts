@@ -461,7 +461,7 @@ export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, 
 
 export async function fetchInvoices(zohoVendorId: string) {
   const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (supplier?.id) await triggerSupplierSync(supplier.id, true);
+  if (supplier?.id) void triggerSupplierSync(supplier.id, false);
   const rows = await fetchInvoicesFromDbByVendor(zohoVendorId);
   if (rows.length) return rows;
   try {
