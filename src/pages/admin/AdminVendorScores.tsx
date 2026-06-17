@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+const FragmentWithKey = Fragment as any;
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Award, Search, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle } from 'lucide-react';
@@ -133,7 +134,7 @@ export default function AdminVendorScores() {
                   const strengths = toArray(g.latest.strengths).slice(0, 4);
                   const weaknesses = toArray(g.latest.weaknesses).slice(0, 4);
                   return (
-                    <>
+                    <FragmentWithKey key={g.key}>
                       <tr className="border-t hover:bg-muted/20" key={`${g.key}-row`}>
                         <td className="px-4 py-3 font-semibold text-muted-foreground">#{idx + 1}</td>
                         <td className="px-4 py-3 font-medium text-foreground">{g.company}</td>
@@ -217,7 +218,7 @@ export default function AdminVendorScores() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </FragmentWithKey>
                   );
                 })}
               </tbody>
