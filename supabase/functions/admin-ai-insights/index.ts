@@ -529,15 +529,17 @@ Deno.serve(async (req) => {
       const today = new Date().toISOString().slice(0, 10);
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
-      const [{ data: suppliers }, { data: pendingRegs }, { data: pendingInvoices }, { data: openPos }, { data: latestScores }] = await Promise.all([
+      const [{ data: suppliers }, { data: pendingRegs }, { data: pendingInvoices }, { data: openPos }, { data: latestScores }, { data: openRfqs }] = await Promise.all([
         admin.from("suppliers").select("id, company, email, name").eq("role", "supplier"),
         admin.from("supplier_registrations").select("id, company, email, created_at, status").eq("status", "pending").lte("created_at", sevenDaysAgo),
-        admin.from("invoices").select("id, supplier_id, invoice_number, amount, status, date, due_date, balance").in("status", ["pending", "overdue"]),
+        admin.from("invoices").select("id, supplier_id, invoice_number, amount, status, date").eq("status", "pending"),
         admin.from("purchase_orders").select("id, supplier_id, po_number, amount, status, expected_delivery").in("status", ["pending", "open"]),
         admin.from("vendor_scores").select("supplier_id, score, grade, weaknesses, scored_at").order("scored_at", { ascending: false }).limit(500),
+        admin.from("rfq_portal_requests").select("id, rfq_id, product_name, supplier_id, supplier_email, supplier_company, status, response_deadline, quote_submitted_at, created_at").is("quote_submitted_at", null).in("status", ["pending", "open", "sent", "in_review"]),
       ]);
 
       const supById = new Map((suppliers || []).map((s: any) => [s.id, s]));
+      const supByEmail = new Map((suppliers || []).map((s: any) => [String(s.email || "").toLowerCase(), s]));
       const scoreById = new Map<string, any>();
       for (const r of latestScores || []) if (!scoreById.has(r.supplier_id)) scoreById.set(r.supplier_id, r);
 
@@ -549,22 +551,36 @@ Deno.serve(async (req) => {
         triggersBySupplier.get(sid)!.push(t);
       };
 
+      // Pending invoices awaiting processing (no overdue / payment framing)
       for (const inv of pendingInvoices || []) {
-        if (inv.due_date && String(inv.due_date) < today) {
-          push(inv.supplier_id, { type: "overdue_invoice", detail: `Invoice ${inv.invoice_number} (₹${inv.amount}) overdue since ${inv.due_date}`, priority: "high" });
-        }
+        push(inv.supplier_id, { type: "pending_invoice", detail: `Invoice ${inv.invoice_number} (₹${inv.amount}) submitted on ${inv.date} is still pending verification/approval`, priority: "low" });
       }
+      // Delayed deliveries
       for (const po of openPos || []) {
         if (po.expected_delivery && String(po.expected_delivery) < today) {
-          push(po.supplier_id, { type: "overdue_delivery", detail: `PO ${po.po_number} delivery overdue since ${po.expected_delivery}`, priority: "high" });
+          push(po.supplier_id, { type: "delayed_delivery", detail: `PO ${po.po_number} delivery was expected on ${po.expected_delivery} and is now delayed`, priority: "high" });
         } else if (po.status === "pending") {
-          push(po.supplier_id, { type: "pending_po", detail: `PO ${po.po_number} (₹${po.amount}) awaiting action`, priority: "medium" });
+          push(po.supplier_id, { type: "pending_po", detail: `PO ${po.po_number} (₹${po.amount}) is awaiting acknowledgement / action`, priority: "medium" });
         }
       }
+      // Low scores
       for (const [sid, score] of scoreById.entries()) {
         if (score.score < 60) {
           push(sid, { type: "low_score", detail: `Performance score ${score.score} (${score.grade}). Weaknesses: ${(score.weaknesses || []).join("; ")}`, priority: "medium" });
         }
+      }
+      // RFQ compliance — open RFQs awaiting supplier quote
+      for (const r of openRfqs || []) {
+        const sid = r.supplier_id || supByEmail.get(String(r.supplier_email || "").toLowerCase())?.id;
+        if (!sid) continue;
+        const overdue = r.response_deadline && String(r.response_deadline) < today;
+        push(sid, {
+          type: overdue ? "rfq_overdue_response" : "rfq_pending_response",
+          detail: overdue
+            ? `RFQ ${r.rfq_id} for "${r.product_name}" — quote was due by ${r.response_deadline} and is still not submitted`
+            : `RFQ ${r.rfq_id} for "${r.product_name}" is awaiting your quote${r.response_deadline ? ` (deadline ${r.response_deadline})` : ""}`,
+          priority: overdue ? "high" : "medium",
+        });
       }
 
       // Stale registrations as their own nudges
@@ -578,7 +594,7 @@ Deno.serve(async (req) => {
 
       const candidates = [...triggersBySupplier.entries()].map(([sid, triggers]) => {
         const s = supById.get(sid) as any;
-        const top = triggers.find((t) => t.priority === "high") || triggers[0];
+        const top = triggers.find((t) => t.priority === "high") || triggers.find((t) => t.priority === "medium") || triggers[0];
         return {
           supplier_id: sid,
           supplier_name: s?.company || s?.name || "Supplier",
@@ -586,7 +602,7 @@ Deno.serve(async (req) => {
           priority: top.priority,
           triggers,
         };
-      });
+      }).filter((c) => c.supplier_email);
 
       const allCandidates = [...candidates, ...regNudges].slice(0, 40);
 
