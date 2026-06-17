@@ -413,9 +413,12 @@ function SupplierNudges() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [nudges, setNudges] = useState<any[] | null>(null);
+  const [sendingIdx, setSendingIdx] = useState<number | null>(null);
+  const [sentIdx, setSentIdx] = useState<Set<number>>(new Set());
 
   const run = async () => {
     setLoading(true);
+    setSentIdx(new Set());
     try {
       const data = await runOperation('generate_nudges');
       setNudges(data.nudges || []);
@@ -439,10 +442,29 @@ function SupplierNudges() {
     toast({ title: 'Copied to clipboard' });
   };
 
-  const mailto = (n: any) => {
+  const sendEmail = async (n: any, idx: number) => {
     if (!n.supplier_email) return;
-    const url = `mailto:${encodeURIComponent(n.supplier_email)}?subject=${encodeURIComponent(n.subject)}&body=${encodeURIComponent(n.body)}`;
-    window.open(url, '_blank');
+    setSendingIdx(idx);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-supplier-nudge', {
+        body: {
+          recipientEmail: n.supplier_email,
+          recipientName: n.supplier_name,
+          subject: n.subject,
+          body: n.body,
+          callToAction: n.call_to_action,
+          supplierId: n.supplier_id,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setSentIdx((prev) => new Set(prev).add(idx));
+      toast({ title: 'Email sent', description: `Reminder queued to ${n.supplier_email}.` });
+    } catch (e: any) {
+      toast({ title: 'Send failed', description: e.message || 'Unable to send email', variant: 'destructive' });
+    } finally {
+      setSendingIdx(null);
+    }
   };
 
   return (
@@ -454,7 +476,7 @@ function SupplierNudges() {
             AI-Generated Supplier Nudges
           </CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Identifies suppliers with overdue invoices, stalled POs, weak scores, or stale registrations and drafts personalised reminder emails.
+            Identifies suppliers with pending invoices, delayed deliveries, low performance scores, pending RFQ quotes or stale registrations, and drafts personalised reminder emails.
           </p>
         </div>
         <Button onClick={run} disabled={loading} className="gap-2">
@@ -510,8 +532,19 @@ function SupplierNudges() {
                     <Copy className="h-3.5 w-3.5" /> Copy
                   </Button>
                   {n.supplier_email && (
-                    <Button size="sm" variant="default" onClick={() => mailto(n)} className="gap-1">
-                      <Mail className="h-3.5 w-3.5" /> Send email
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => sendEmail(n, i)}
+                      disabled={sendingIdx === i || sentIdx.has(i)}
+                      className="gap-1"
+                    >
+                      {sendingIdx === i ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Mail className="h-3.5 w-3.5" />
+                      )}
+                      {sentIdx.has(i) ? 'Sent' : sendingIdx === i ? 'Sending…' : 'Send email'}
                     </Button>
                   )}
                 </div>
