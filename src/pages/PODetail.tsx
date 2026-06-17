@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, MapPin, Calendar, Loader2 } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, MapPin, Calendar, Loader2, Lock } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, fetchInvoicedQuantitiesForPo } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
+import { DeliveryDateConfirmation } from '@/components/po/DeliveryDateConfirmation';
 import { cn } from '@/lib/utils';
 
 const statusStyles: Record<string, string> = {
