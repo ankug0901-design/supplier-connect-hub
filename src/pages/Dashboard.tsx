@@ -6,6 +6,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentPOTable } from '@/components/dashboard/RecentPOTable';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { PerformanceCard } from '@/components/dashboard/PerformanceCard';
+import { PaymentPredictionCard } from '@/components/dashboard/PaymentPredictionCard';
 import { Button } from '@/components/ui/button';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { SupplierAssistant } from '@/components/SupplierAssistant';
