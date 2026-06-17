@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Loader2, ShieldCheck, TrendingUp, BarChart3, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { Sparkles, Loader2, ShieldCheck, TrendingUp, BarChart3, AlertTriangle, CheckCircle2, XCircle, Bell, Mail, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -409,6 +409,121 @@ function DemandForecast() {
   );
 }
 
+function SupplierNudges() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [nudges, setNudges] = useState<any[] | null>(null);
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const data = await runOperation('generate_nudges');
+      setNudges(data.nudges || []);
+      toast({ title: 'Nudges ready', description: `Drafted ${data.nudges?.length || 0} reminder messages.` });
+    } catch (e: any) {
+      toast({ title: 'Failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const priorityColor: Record<string, string> = {
+    high: 'bg-destructive/10 text-destructive border-destructive/30',
+    medium: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
+    low: 'bg-muted text-muted-foreground border-border',
+  };
+
+  const copy = (n: any) => {
+    const text = `Subject: ${n.subject}\n\n${n.body}`;
+    navigator.clipboard.writeText(text);
+    toast({ title: 'Copied to clipboard' });
+  };
+
+  const mailto = (n: any) => {
+    if (!n.supplier_email) return;
+    const url = `mailto:${encodeURIComponent(n.supplier_email)}?subject=${encodeURIComponent(n.subject)}&body=${encodeURIComponent(n.body)}`;
+    window.open(url, '_blank');
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-primary" />
+            AI-Generated Supplier Nudges
+          </CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Identifies suppliers with overdue invoices, stalled POs, weak scores, or stale registrations and drafts personalised reminder emails.
+          </p>
+        </div>
+        <Button onClick={run} disabled={loading} className="gap-2">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {loading ? 'Generating...' : 'Generate nudges'}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {!nudges && !loading && (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Click "Generate nudges" to scan suppliers and draft reminder messages.
+          </p>
+        )}
+        {loading && (
+          <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            Scanning suppliers and drafting messages...
+          </div>
+        )}
+        {nudges && nudges.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted-foreground">No suppliers currently need a nudge — well done!</p>
+        )}
+        {nudges && nudges.length > 0 && (
+          <div className="space-y-3">
+            {nudges.map((n, i) => (
+              <div key={i} className="rounded-lg border border-border bg-card p-4">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold">{n.supplier_name}</p>
+                    {n.supplier_email && <p className="text-xs text-muted-foreground">{n.supplier_email}</p>}
+                  </div>
+                  <Badge variant="outline" className={cn('uppercase', priorityColor[n.priority] || '')}>
+                    {n.priority}
+                  </Badge>
+                </div>
+
+                {n.triggers?.length > 0 && (
+                  <ul className="mb-3 ml-4 list-disc text-xs text-muted-foreground">
+                    {n.triggers.map((t: any, j: number) => <li key={j}>{t.detail}</li>)}
+                  </ul>
+                )}
+
+                <div className="rounded-md border bg-muted/30 p-3">
+                  <p className="text-sm font-medium">{n.subject}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{n.body}</p>
+                  {n.call_to_action && (
+                    <p className="mt-2 text-xs italic text-primary">→ {n.call_to_action}</p>
+                  )}
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => copy(n)} className="gap-1">
+                    <Copy className="h-3.5 w-3.5" /> Copy
+                  </Button>
+                  {n.supplier_email && (
+                    <Button size="sm" variant="default" onClick={() => mailto(n)} className="gap-1">
+                      <Mail className="h-3.5 w-3.5" /> Send email
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminAiInsights() {
   return (
     <DashboardLayout title="AI Insights" subtitle="AI-powered analysis across the procurement portal">
@@ -423,11 +538,16 @@ export default function AdminAiInsights() {
           <TabsTrigger value="forecast" className="gap-2">
             <BarChart3 className="h-4 w-4" /> Demand Forecast
           </TabsTrigger>
+          <TabsTrigger value="nudges" className="gap-2">
+            <Bell className="h-4 w-4" /> Supplier Nudges
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="invoices"><InvoiceValidation /></TabsContent>
         <TabsContent value="vendors"><VendorScoring /></TabsContent>
         <TabsContent value="forecast"><DemandForecast /></TabsContent>
+        <TabsContent value="nudges"><SupplierNudges /></TabsContent>
       </Tabs>
     </DashboardLayout>
   );
 }
+

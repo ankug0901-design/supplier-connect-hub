@@ -6,6 +6,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentPOTable } from '@/components/dashboard/RecentPOTable';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { PerformanceCard } from '@/components/dashboard/PerformanceCard';
+import { PaymentPredictionCard } from '@/components/dashboard/PaymentPredictionCard';
 import { Button } from '@/components/ui/button';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { SupplierAssistant } from '@/components/SupplierAssistant';
@@ -244,6 +245,12 @@ export default function Dashboard() {
             <PerformanceCard supplierId={supplier.id} />
           </div>
         )}
+
+        {/* Payment Date Prediction */}
+        <div className="animate-slide-up" style={{ animationDelay: '375ms' }}>
+          <PaymentPredictionCard />
+        </div>
+
 
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-3">
