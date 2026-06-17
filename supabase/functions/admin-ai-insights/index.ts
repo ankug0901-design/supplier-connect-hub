@@ -525,6 +525,109 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (operation === "generate_nudges") {
+      const today = new Date().toISOString().slice(0, 10);
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+
+      const [{ data: suppliers }, { data: pendingRegs }, { data: pendingInvoices }, { data: openPos }, { data: latestScores }] = await Promise.all([
+        admin.from("suppliers").select("id, company, email, name").eq("role", "supplier"),
+        admin.from("supplier_registrations").select("id, company, email, created_at, status").eq("status", "pending").lte("created_at", sevenDaysAgo),
+        admin.from("invoices").select("id, supplier_id, invoice_number, amount, status, date, due_date, balance").in("status", ["pending", "overdue"]),
+        admin.from("purchase_orders").select("id, supplier_id, po_number, amount, status, expected_delivery").in("status", ["pending", "open"]),
+        admin.from("vendor_scores").select("supplier_id, score, grade, weaknesses, scored_at").order("scored_at", { ascending: false }).limit(500),
+      ]);
+
+      const supById = new Map((suppliers || []).map((s: any) => [s.id, s]));
+      const scoreById = new Map<string, any>();
+      for (const r of latestScores || []) if (!scoreById.has(r.supplier_id)) scoreById.set(r.supplier_id, r);
+
+      // Build candidate triggers per supplier
+      type Trigger = { type: string; detail: string; priority: "high" | "medium" | "low" };
+      const triggersBySupplier = new Map<string, Trigger[]>();
+      const push = (sid: string, t: Trigger) => {
+        if (!triggersBySupplier.has(sid)) triggersBySupplier.set(sid, []);
+        triggersBySupplier.get(sid)!.push(t);
+      };
+
+      for (const inv of pendingInvoices || []) {
+        if (inv.due_date && String(inv.due_date) < today) {
+          push(inv.supplier_id, { type: "overdue_invoice", detail: `Invoice ${inv.invoice_number} (₹${inv.amount}) overdue since ${inv.due_date}`, priority: "high" });
+        }
+      }
+      for (const po of openPos || []) {
+        if (po.expected_delivery && String(po.expected_delivery) < today) {
+          push(po.supplier_id, { type: "overdue_delivery", detail: `PO ${po.po_number} delivery overdue since ${po.expected_delivery}`, priority: "high" });
+        } else if (po.status === "pending") {
+          push(po.supplier_id, { type: "pending_po", detail: `PO ${po.po_number} (₹${po.amount}) awaiting action`, priority: "medium" });
+        }
+      }
+      for (const [sid, score] of scoreById.entries()) {
+        if (score.score < 60) {
+          push(sid, { type: "low_score", detail: `Performance score ${score.score} (${score.grade}). Weaknesses: ${(score.weaknesses || []).join("; ")}`, priority: "medium" });
+        }
+      }
+
+      // Stale registrations as their own nudges
+      const regNudges = (pendingRegs || []).map((r: any) => ({
+        supplier_id: r.id,
+        supplier_name: r.company || r.email,
+        supplier_email: r.email,
+        priority: "medium" as const,
+        triggers: [{ type: "stale_registration", detail: `Registration submitted on ${String(r.created_at).slice(0, 10)} still pending review` }],
+      }));
+
+      const candidates = [...triggersBySupplier.entries()].map(([sid, triggers]) => {
+        const s = supById.get(sid) as any;
+        const top = triggers.find((t) => t.priority === "high") || triggers[0];
+        return {
+          supplier_id: sid,
+          supplier_name: s?.company || s?.name || "Supplier",
+          supplier_email: s?.email,
+          priority: top.priority,
+          triggers,
+        };
+      });
+
+      const allCandidates = [...candidates, ...regNudges].slice(0, 40);
+
+      if (allCandidates.length === 0) {
+        return new Response(JSON.stringify({ data: { nudges: [] } }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Ask AI to draft personalised nudge messages
+      const { text } = await generateText({
+        model,
+        system: "You draft short, friendly but firm reminder messages for B2B suppliers in India. For each supplier, write ONE concise email (subject + 3-5 sentence body) addressing the most important trigger. Tone: professional, courteous, specific (cite invoice/PO numbers and dates). Sign-off: 'Emboss Marketing Procurement Team'. Return ONLY a JSON array, one item per supplier in the same order: [{\"supplier_id\":\"...\",\"subject\":\"...\",\"body\":\"...\",\"channel\":\"email\",\"call_to_action\":\"...\"}]. No markdown.",
+        prompt: `Generate nudge messages for these ${allCandidates.length} suppliers:\n${JSON.stringify(allCandidates, null, 2)}`,
+      });
+
+      let drafts: any[] = [];
+      try {
+        drafts = extractJSON(text) as any[];
+        if (!Array.isArray(drafts)) drafts = [];
+      } catch {
+        drafts = [];
+      }
+      const draftById = new Map(drafts.map((d: any) => [d.supplier_id, d]));
+
+      const nudges = allCandidates.map((c) => {
+        const d = draftById.get(c.supplier_id) || {};
+        return {
+          ...c,
+          subject: d.subject || `Action needed on your account`,
+          body: d.body || c.triggers.map((t: any) => t.detail).join("\n"),
+          channel: d.channel || "email",
+          call_to_action: d.call_to_action || "Please log in to the supplier portal to take action.",
+        };
+      });
+
+      return new Response(JSON.stringify({ data: { nudges } }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown operation" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
