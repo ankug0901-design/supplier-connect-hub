@@ -418,6 +418,9 @@ export type Database = {
       }
       po_items: {
         Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_delivery_date: string | null
           created_at: string
           description: string
           id: string
@@ -429,6 +432,9 @@ export type Database = {
           zoho_line_item_id: string | null
         }
         Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_delivery_date?: string | null
           created_at?: string
           description: string
           id?: string
@@ -440,6 +446,9 @@ export type Database = {
           zoho_line_item_id?: string | null
         }
         Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_delivery_date?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -466,6 +475,10 @@ export type Database = {
           created_at: string
           date: string
           delivery_address: string | null
+          delivery_dates_confirmed_at: string | null
+          delivery_first_notified_at: string | null
+          delivery_notification_sent_at: string | null
+          delivery_reminder_count: number
           expected_delivery: string | null
           id: string
           po_number: string
@@ -479,6 +492,10 @@ export type Database = {
           created_at?: string
           date?: string
           delivery_address?: string | null
+          delivery_dates_confirmed_at?: string | null
+          delivery_first_notified_at?: string | null
+          delivery_notification_sent_at?: string | null
+          delivery_reminder_count?: number
           expected_delivery?: string | null
           id?: string
           po_number: string
@@ -492,6 +509,10 @@ export type Database = {
           created_at?: string
           date?: string
           delivery_address?: string | null
+          delivery_dates_confirmed_at?: string | null
+          delivery_first_notified_at?: string | null
+          delivery_notification_sent_at?: string | null
+          delivery_reminder_count?: number
           expected_delivery?: string | null
           id?: string
           po_number?: string
@@ -1018,6 +1039,10 @@ export type Database = {
       }
     }
     Functions: {
+      confirm_po_delivery_dates: {
+        Args: { _items: Json; _po_id: string }
+        Returns: Json
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
