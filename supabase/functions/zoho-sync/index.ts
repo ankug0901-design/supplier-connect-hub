@@ -248,6 +248,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fire-and-forget: trigger PO delivery confirmation reminder for any newly
+    // synced POs that still need confirmation. The function itself deduplicates
+    // so the daily cron and ad-hoc kicks won't double-send within 20h.
+    if (summary.pos_upserted > 0) {
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/po-delivery-reminder`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${serviceRoleKey}`, "Content-Type": "application/json" },
+          body: "{}",
+        });
+      } catch (e) {
+        console.warn("po-delivery-reminder kick failed", e);
+      }
+    }
+
     return new Response(JSON.stringify({ success: true, ...summary }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
