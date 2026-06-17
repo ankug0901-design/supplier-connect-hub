@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Loader2, ShieldCheck, TrendingUp, BarChart3, AlertTriangle, CheckCircle2, XCircle, Bell, Mail, Copy } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sparkles, Loader2, ShieldCheck, TrendingUp, BarChart3, AlertTriangle, CheckCircle2, XCircle, Bell, Mail, Copy, Send, Inbox, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -413,8 +414,15 @@ function SupplierNudges() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [nudges, setNudges] = useState<any[] | null>(null);
-  const [sendingIdx, setSendingIdx] = useState<number | null>(null);
   const [sentIdx, setSentIdx] = useState<Set<number>>(new Set());
+
+  // Preview modal state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string>('');
+  const [previewNudge, setPreviewNudge] = useState<any | null>(null);
+  const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
 
   const run = async () => {
     setLoading(true);
@@ -442,9 +450,13 @@ function SupplierNudges() {
     toast({ title: 'Copied to clipboard' });
   };
 
-  const sendEmail = async (n: any, idx: number) => {
+  const openPreview = async (n: any, idx: number) => {
     if (!n.supplier_email) return;
-    setSendingIdx(idx);
+    setPreviewNudge(n);
+    setPreviewIdx(idx);
+    setPreviewHtml('');
+    setPreviewOpen(true);
+    setPreviewLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('send-supplier-nudge', {
         body: {
@@ -454,108 +466,274 @@ function SupplierNudges() {
           body: n.body,
           callToAction: n.call_to_action,
           supplierId: n.supplier_id,
+          preview: true,
         },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      setSentIdx((prev) => new Set(prev).add(idx));
-      toast({ title: 'Email sent', description: `Reminder queued to ${n.supplier_email}.` });
+      setPreviewHtml((data as any).html || '');
+    } catch (e: any) {
+      toast({ title: 'Preview failed', description: e.message, variant: 'destructive' });
+      setPreviewOpen(false);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const confirmSend = async () => {
+    if (!previewNudge) return;
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-supplier-nudge', {
+        body: {
+          recipientEmail: previewNudge.supplier_email,
+          recipientName: previewNudge.supplier_name,
+          subject: previewNudge.subject,
+          body: previewNudge.body,
+          callToAction: previewNudge.call_to_action,
+          supplierId: previewNudge.supplier_id,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      if (previewIdx !== null) setSentIdx((prev) => new Set(prev).add(previewIdx));
+      toast({ title: 'Email sent', description: `Reminder sent to ${previewNudge.supplier_email}.` });
+      setPreviewOpen(false);
     } catch (e: any) {
       toast({ title: 'Send failed', description: e.message || 'Unable to send email', variant: 'destructive' });
     } finally {
-      setSendingIdx(null);
+      setSending(false);
     }
   };
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-primary" />
+              AI-Generated Supplier Nudges
+            </CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Identifies suppliers with pending invoices, delayed deliveries, low performance scores, pending RFQ quotes or stale registrations, and drafts personalised reminder emails.
+            </p>
+          </div>
+          <Button onClick={run} disabled={loading} className="gap-2">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {loading ? 'Generating...' : 'Generate nudges'}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {!nudges && !loading && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Click "Generate nudges" to scan suppliers and draft reminder messages.
+            </p>
+          )}
+          {loading && (
+            <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              Scanning suppliers and drafting messages...
+            </div>
+          )}
+          {nudges && nudges.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">No suppliers currently need a nudge — well done!</p>
+          )}
+          {nudges && nudges.length > 0 && (
+            <div className="space-y-3">
+              {nudges.map((n, i) => (
+                <div key={i} className="rounded-lg border border-border bg-card p-4">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold">{n.supplier_name}</p>
+                      {n.supplier_email && <p className="text-xs text-muted-foreground">{n.supplier_email}</p>}
+                    </div>
+                    <Badge variant="outline" className={cn('uppercase', priorityColor[n.priority] || '')}>
+                      {n.priority}
+                    </Badge>
+                  </div>
+
+                  {n.triggers?.length > 0 && (
+                    <ul className="mb-3 ml-4 list-disc text-xs text-muted-foreground">
+                      {n.triggers.map((t: any, j: number) => <li key={j}>{t.detail}</li>)}
+                    </ul>
+                  )}
+
+                  <div className="rounded-md border bg-muted/30 p-3">
+                    <p className="text-sm font-medium">{n.subject}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{n.body}</p>
+                    {n.call_to_action && (
+                      <p className="mt-2 text-xs italic text-primary">→ {n.call_to_action}</p>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => copy(n)} className="gap-1">
+                      <Copy className="h-3.5 w-3.5" /> Copy
+                    </Button>
+                    {n.supplier_email && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => openPreview(n, i)}
+                        disabled={sentIdx.has(i)}
+                        className="gap-1"
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        {sentIdx.has(i) ? 'Sent' : 'Preview & send'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Email preview</DialogTitle>
+            <DialogDescription asChild>
+              {previewNudge ? (
+                <div>
+                  <div><span className="font-medium text-foreground">To:</span> {previewNudge.supplier_email}</div>
+                  <div><span className="font-medium text-foreground">Subject:</span> {previewNudge.subject}</div>
+                </div>
+              ) : <div />}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border bg-white">
+            {previewLoading ? (
+              <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Rendering preview...
+              </div>
+            ) : (
+              <iframe
+                title="Email preview"
+                srcDoc={previewHtml}
+                sandbox=""
+                className="h-[460px] w-full rounded-md"
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)} disabled={sending}>
+              Cancel
+            </Button>
+            <Button onClick={confirmSend} disabled={sending || previewLoading} className="gap-2">
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sending ? 'Sending...' : 'Confirm & send'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function SentNudgeEmails() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<any[]>([]);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('email_send_log')
+        .select('id,message_id,recipient_email,status,error_message,created_at,template_name')
+        .eq('template_name', 'supplier-nudge')
+        .order('created_at', { ascending: false })
+        .limit(400);
+      if (error) throw error;
+      const seen = new Map<string, any>();
+      for (const r of data || []) {
+        if (!r.message_id) continue;
+        if (!seen.has(r.message_id)) seen.set(r.message_id, r);
+      }
+      setRows(Array.from(seen.values()));
+    } catch (e: any) {
+      toast({ title: 'Failed to load', description: e.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const statusBadge = (s: string) => {
+    const map: Record<string, string> = {
+      sent: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30',
+      pending: 'bg-blue-500/15 text-blue-700 border-blue-500/30',
+      failed: 'bg-orange-500/15 text-orange-700 border-orange-500/30',
+      dlq: 'bg-destructive/15 text-destructive border-destructive/30',
+      suppressed: 'bg-muted text-muted-foreground border-border',
+    };
+    return <Badge variant="outline" className={cn('uppercase', map[s] || '')}>{s}</Badge>;
+  };
+
+  const counts = rows.reduce((acc, r) => {
+    acc[r.status] = (acc[r.status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            AI-Generated Supplier Nudges
+            <Inbox className="h-5 w-5 text-primary" /> Sent Nudge Emails
           </CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Identifies suppliers with pending invoices, delayed deliveries, low performance scores, pending RFQ quotes or stale registrations, and drafts personalised reminder emails.
+            Delivery history for AI-generated supplier nudges (latest status per email).
           </p>
         </div>
-        <Button onClick={run} disabled={loading} className="gap-2">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {loading ? 'Generating...' : 'Generate nudges'}
+        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
+          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh
         </Button>
       </CardHeader>
       <CardContent>
-        {!nudges && !loading && (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Click "Generate nudges" to scan suppliers and draft reminder messages.
-          </p>
-        )}
-        {loading && (
-          <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            Scanning suppliers and drafting messages...
-          </div>
-        )}
-        {nudges && nudges.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">No suppliers currently need a nudge — well done!</p>
-        )}
-        {nudges && nudges.length > 0 && (
-          <div className="space-y-3">
-            {nudges.map((n, i) => (
-              <div key={i} className="rounded-lg border border-border bg-card p-4">
-                <div className="mb-2 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold">{n.supplier_name}</p>
-                    {n.supplier_email && <p className="text-xs text-muted-foreground">{n.supplier_email}</p>}
-                  </div>
-                  <Badge variant="outline" className={cn('uppercase', priorityColor[n.priority] || '')}>
-                    {n.priority}
-                  </Badge>
-                </div>
-
-                {n.triggers?.length > 0 && (
-                  <ul className="mb-3 ml-4 list-disc text-xs text-muted-foreground">
-                    {n.triggers.map((t: any, j: number) => <li key={j}>{t.detail}</li>)}
-                  </ul>
-                )}
-
-                <div className="rounded-md border bg-muted/30 p-3">
-                  <p className="text-sm font-medium">{n.subject}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{n.body}</p>
-                  {n.call_to_action && (
-                    <p className="mt-2 text-xs italic text-primary">→ {n.call_to_action}</p>
-                  )}
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => copy(n)} className="gap-1">
-                    <Copy className="h-3.5 w-3.5" /> Copy
-                  </Button>
-                  {n.supplier_email && (
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => sendEmail(n, i)}
-                      disabled={sendingIdx === i || sentIdx.has(i)}
-                      className="gap-1"
-                    >
-                      {sendingIdx === i ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Mail className="h-3.5 w-3.5" />
-                      )}
-                      {sentIdx.has(i) ? 'Sent' : sendingIdx === i ? 'Sending…' : 'Send email'}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Badge variant="outline">Total: {rows.length}</Badge>
+          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30">Sent: {counts.sent || 0}</Badge>
+          <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/30">Pending: {counts.pending || 0}</Badge>
+          <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">Failed/DLQ: {(counts.failed || 0) + (counts.dlq || 0)}</Badge>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        ) : rows.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No nudge emails sent yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40">
+                <tr className="text-left">
+                  <th className="p-2 font-medium">Recipient</th>
+                  <th className="p-2 font-medium">Status</th>
+                  <th className="p-2 font-medium">Sent at</th>
+                  <th className="p-2 font-medium">Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-t">
+                    <td className="p-2">{r.recipient_email}</td>
+                    <td className="p-2">{statusBadge(r.status)}</td>
+                    <td className="p-2 whitespace-nowrap text-muted-foreground">{new Date(r.created_at).toLocaleString()}</td>
+                    <td className="p-2 text-xs text-destructive">{r.error_message || ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </CardContent>
     </Card>
   );
 }
+
 
 export default function AdminAiInsights() {
   return (
@@ -574,11 +752,15 @@ export default function AdminAiInsights() {
           <TabsTrigger value="nudges" className="gap-2">
             <Bell className="h-4 w-4" /> Supplier Nudges
           </TabsTrigger>
+          <TabsTrigger value="sent" className="gap-2">
+            <Inbox className="h-4 w-4" /> Sent Emails
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="invoices"><InvoiceValidation /></TabsContent>
         <TabsContent value="vendors"><VendorScoring /></TabsContent>
         <TabsContent value="forecast"><DemandForecast /></TabsContent>
         <TabsContent value="nudges"><SupplierNudges /></TabsContent>
+        <TabsContent value="sent"><SentNudgeEmails /></TabsContent>
       </Tabs>
     </DashboardLayout>
   );
