@@ -898,6 +898,23 @@ export default function InvoiceUpload() {
             </div>
           </div>
 
+          {/* Smart Discrepancy Check */}
+          {selectedPO && (() => {
+            const po = purchaseOrders.find((p: any) => p.id === selectedPO);
+            return (
+              <DiscrepancyChecker
+                po={po}
+                poItems={lineItems}
+                invoice={{
+                  invoice_number: invoiceNumber,
+                  invoice_date: invoiceDate,
+                  amount: Number(amount || 0),
+                  items: lineItems,
+                }}
+              />
+            );
+          })()}
+
           {/* Submit Button */}
           {(() => {
             const hasLine = lineItems.some((li) => li.selected !== false && li.item_name);
