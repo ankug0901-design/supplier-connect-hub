@@ -134,7 +134,7 @@ export default function AdminVendorScores() {
                   const weaknesses = toArray(g.latest.weaknesses).slice(0, 4);
                   return (
                     <>
-                      <tr key={g.key} className="border-t hover:bg-muted/20">
+                      <tr className="border-t hover:bg-muted/20" key={`${g.key}-row`}>
                         <td className="px-4 py-3 font-semibold text-muted-foreground">#{idx + 1}</td>
                         <td className="px-4 py-3 font-medium text-foreground">{g.company}</td>
                         <td className="px-4 py-3"><span className="text-lg font-bold">{g.latest.score}</span><span className="text-xs text-muted-foreground"> / 100</span></td>
