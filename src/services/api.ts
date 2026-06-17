@@ -222,8 +222,10 @@ export async function fetchPurchaseOrders(zohoVendorId: string) {
   // DB is the source of truth: zoho-sync (cron + on-demand) keeps it fresh,
   // and we derive PO status from local invoice/payment rows so a freshly
   // submitted invoice immediately flips the PO out of "pending".
+  // Kick the sync in the background (throttled + deduped) so the page renders
+  // instantly from the local DB instead of waiting on an n8n round trip.
   const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (supplier?.id) await triggerSupplierSync(supplier.id, true);
+  if (supplier?.id) void triggerSupplierSync(supplier.id, false);
   const rows = await fetchPurchaseOrdersFromDbByVendor(zohoVendorId);
   if (rows.length) return rows;
   // Last-resort fallback: live n8n call (e.g. if local sync hasn't run yet).
