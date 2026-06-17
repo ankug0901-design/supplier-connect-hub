@@ -280,6 +280,15 @@ export default function PODetail() {
                 </table>
               </div>
             </div>
+
+            {/* Delivery Date Confirmation */}
+            <DeliveryDateConfirmation
+              poDbId={order.dbId || order.id}
+              items={(order.items || []) as any}
+              deliveryDatesConfirmedAt={order.deliveryDatesConfirmedAt || null}
+              expectedDelivery={order.expectedDelivery}
+              onSaved={() => void loadOrder()}
+            />
           </div>
 
           {/* Side Info */}
