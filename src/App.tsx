@@ -18,6 +18,7 @@ import AdminSuppliers from "./pages/admin/AdminSuppliers";
 import AdminRegistrations from "./pages/admin/AdminRegistrations";
 import AdminRfq from "./pages/admin/AdminRfq";
 import AdminAiInsights from "./pages/admin/AdminAiInsights";
+import AdminVendorScores from "./pages/admin/AdminVendorScores";
 import AdminThreeWayMatch from "./pages/admin/AdminThreeWayMatch";
 import AdminPagePermissions from "./pages/admin/AdminPagePermissions";
 import AdminUserRoles from "./pages/admin/AdminUserRoles";
@@ -113,6 +114,7 @@ function AppRoutes() {
       <Route path="/admin/registrations" element={<AdminRoute><AdminRegistrations /></AdminRoute>} />
       <Route path="/admin/rfq" element={<AdminRoute><AdminRfq /></AdminRoute>} />
       <Route path="/admin/ai-insights" element={<AdminRoute><AdminAiInsights /></AdminRoute>} />
+      <Route path="/admin/vendor-scores" element={<AdminRoute><AdminVendorScores /></AdminRoute>} />
       <Route path="/admin/three-way-match" element={<AdminRoute><AdminThreeWayMatch /></AdminRoute>} />
       <Route path="/admin/user-roles" element={<SuperAdminRoute><AdminUserRoles /></SuperAdminRoute>} />
       <Route path="/admin/page-permissions" element={<SuperAdminRoute><AdminPagePermissions /></SuperAdminRoute>} />
