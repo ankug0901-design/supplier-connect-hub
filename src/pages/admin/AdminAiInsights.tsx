@@ -752,11 +752,15 @@ export default function AdminAiInsights() {
           <TabsTrigger value="nudges" className="gap-2">
             <Bell className="h-4 w-4" /> Supplier Nudges
           </TabsTrigger>
+          <TabsTrigger value="sent" className="gap-2">
+            <Inbox className="h-4 w-4" /> Sent Emails
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="invoices"><InvoiceValidation /></TabsContent>
         <TabsContent value="vendors"><VendorScoring /></TabsContent>
         <TabsContent value="forecast"><DemandForecast /></TabsContent>
         <TabsContent value="nudges"><SupplierNudges /></TabsContent>
+        <TabsContent value="sent"><SentNudgeEmails /></TabsContent>
       </Tabs>
     </DashboardLayout>
   );
