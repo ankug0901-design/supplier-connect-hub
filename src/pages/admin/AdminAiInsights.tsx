@@ -532,8 +532,19 @@ function SupplierNudges() {
                     <Copy className="h-3.5 w-3.5" /> Copy
                   </Button>
                   {n.supplier_email && (
-                    <Button size="sm" variant="default" onClick={() => mailto(n)} className="gap-1">
-                      <Mail className="h-3.5 w-3.5" /> Send email
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => sendEmail(n, i)}
+                      disabled={sendingIdx === i || sentIdx.has(i)}
+                      className="gap-1"
+                    >
+                      {sendingIdx === i ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Mail className="h-3.5 w-3.5" />
+                      )}
+                      {sentIdx.has(i) ? 'Sent' : sendingIdx === i ? 'Sending…' : 'Send email'}
                     </Button>
                   )}
                 </div>
