@@ -18,6 +18,7 @@ import { preparePodFiles } from '@/lib/pod-files';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DiscrepancyChecker } from '@/components/invoice/DiscrepancyChecker';
 
 type LineItem = {
   line_item_id?: string;
