@@ -15,6 +15,7 @@ import {
   GitCompareArrows,
   ShieldCheck,
   UserCog,
+  Award,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,6 +48,7 @@ const adminNavigation: NavItem[] = [
   { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all' },
   { name: '3-Way Matching', href: '/admin/three-way-match', icon: GitCompareArrows },
   { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles },
+  { name: 'Supplier Performance', href: '/admin/vendor-scores', icon: Award },
   { name: 'User Roles', href: '/admin/user-roles', icon: UserCog, superAdminOnly: true },
   { name: 'Page Permissions', href: '/admin/page-permissions', icon: ShieldCheck, superAdminOnly: true },
 ];
