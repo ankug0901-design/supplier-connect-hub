@@ -529,11 +529,12 @@ Deno.serve(async (req) => {
       const today = new Date().toISOString().slice(0, 10);
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
-      const [{ data: suppliers }, { data: pendingRegs }, { data: pendingInvoices }, { data: openPos }, { data: latestScores }, { data: openRfqs }] = await Promise.all([
+      const [{ data: suppliers }, { data: pendingRegs }, { data: pendingInvoices }, { data: openPos }, { data: allInvoicesForPos }, { data: latestScores }, { data: openRfqs }] = await Promise.all([
         admin.from("suppliers").select("id, company, email, name").eq("role", "supplier"),
         admin.from("supplier_registrations").select("id, company, email, created_at, status").eq("status", "pending").lte("created_at", sevenDaysAgo),
-        admin.from("invoices").select("id, supplier_id, invoice_number, amount, status, date").eq("status", "pending"),
+        admin.from("invoices").select("id, supplier_id, invoice_number, amount, status, date, po_id").eq("status", "pending"),
         admin.from("purchase_orders").select("id, supplier_id, po_number, amount, status, expected_delivery").in("status", ["pending", "open"]),
+        admin.from("invoices").select("id, po_id, amount, status"),
         admin.from("vendor_scores").select("supplier_id, score, grade, weaknesses, scored_at").order("scored_at", { ascending: false }).limit(500),
         admin.from("rfq_portal_requests").select("id, rfq_id, product_name, supplier_id, supplier_email, supplier_company, status, response_deadline, quote_submitted_at, created_at").is("quote_submitted_at", null).in("status", ["pending", "open", "sent", "in_review"]),
       ]);
@@ -543,6 +544,25 @@ Deno.serve(async (req) => {
       const scoreById = new Map<string, any>();
       for (const r of latestScores || []) if (!scoreById.has(r.supplier_id)) scoreById.set(r.supplier_id, r);
 
+      // Index invoices by PO id to compute invoiced/paid coverage per PO
+      const invByPo = new Map<string, any[]>();
+      for (const inv of allInvoicesForPos || []) {
+        if (!inv.po_id) continue;
+        if (!invByPo.has(inv.po_id)) invByPo.set(inv.po_id, []);
+        invByPo.get(inv.po_id)!.push(inv);
+      }
+      const poCoverage = (poId: string, poAmount: number) => {
+        const invs = invByPo.get(poId) || [];
+        const invoicedAmt = invs.reduce((s, i) => s + Number(i.amount || 0), 0);
+        const paidAmt = invs.filter((i) => String(i.status) === "paid").reduce((s, i) => s + Number(i.amount || 0), 0);
+        const tol = Math.max(1, Number(poAmount || 0) * 0.01);
+        return {
+          hasAnyInvoice: invs.length > 0,
+          fullyInvoiced: invoicedAmt + tol >= Number(poAmount || 0) && Number(poAmount || 0) > 0,
+          fullyPaid: paidAmt + tol >= Number(poAmount || 0) && Number(poAmount || 0) > 0,
+        };
+      };
+
       // Build candidate triggers per supplier
       type Trigger = { type: string; detail: string; priority: "high" | "medium" | "low" };
       const triggersBySupplier = new Map<string, Trigger[]>();
@@ -551,16 +571,33 @@ Deno.serve(async (req) => {
         triggersBySupplier.get(sid)!.push(t);
       };
 
-      // Pending invoices awaiting processing (no overdue / payment framing)
+      // Pending invoices awaiting verification (skip paid; status filter already excludes paid)
       for (const inv of pendingInvoices || []) {
+        if (String(inv.status) === "paid") continue;
         push(inv.supplier_id, { type: "pending_invoice", detail: `Invoice ${inv.invoice_number} (₹${inv.amount}) submitted on ${inv.date} is still pending verification/approval`, priority: "low" });
       }
-      // Delayed deliveries
+      // PO-driven triggers
       for (const po of openPos || []) {
-        if (po.expected_delivery && String(po.expected_delivery) < today) {
-          push(po.supplier_id, { type: "delayed_delivery", detail: `PO ${po.po_number} delivery was expected on ${po.expected_delivery} and is now delayed`, priority: "high" });
-        } else if (po.status === "pending") {
-          push(po.supplier_id, { type: "pending_po", detail: `PO ${po.po_number} (₹${po.amount}) is awaiting acknowledgement / action`, priority: "medium" });
+        const cov = poCoverage(po.id, Number(po.amount || 0));
+        // Exclude fully paid POs entirely
+        if (cov.fullyPaid) continue;
+
+        // Pending invoice submission: any open PO where supplier has not submitted an invoice yet
+        if (!cov.hasAnyInvoice) {
+          push(po.supplier_id, {
+            type: "pending_invoice_submission",
+            detail: `PO ${po.po_number} (₹${po.amount}) has no invoice submitted yet — please raise the invoice`,
+            priority: "medium",
+          });
+        }
+
+        // Delayed delivery: only if expected_delivery passed AND not fully invoiced
+        if (po.expected_delivery && String(po.expected_delivery) < today && !cov.fullyInvoiced) {
+          push(po.supplier_id, {
+            type: "delayed_delivery",
+            detail: `PO ${po.po_number} delivery was expected on ${po.expected_delivery} and is now delayed${cov.hasAnyInvoice ? " (partially invoiced)" : ""}`,
+            priority: "high",
+          });
         }
       }
       // Low scores
