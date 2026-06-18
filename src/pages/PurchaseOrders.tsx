@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, downloadPurchaseOrder } from '@/services/api';
+import { exportToCsv } from '@/lib/exportCsv';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
@@ -144,7 +145,32 @@ export default function PurchaseOrders() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" className="gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            disabled={filteredOrders.length === 0}
+            onClick={() => {
+              const rows = filteredOrders.map((o: any) => ({
+                poNumber: o.poNumber,
+                supplier: o.supplierName || '',
+                date: o.date ? new Date(o.date).toLocaleDateString('en-IN') : '',
+                expectedDelivery: o.expectedDelivery ? new Date(o.expectedDelivery).toLocaleDateString('en-IN') : '',
+                amount: Number(o.amount || 0),
+                items: o.items?.length ?? 0,
+                status: o.status,
+              }));
+              exportToCsv(`purchase-orders-${new Date().toISOString().slice(0,10)}.csv`, rows, [
+                { key: 'poNumber', header: 'PO #' },
+                { key: 'supplier', header: 'Supplier' },
+                { key: 'date', header: 'PO Date' },
+                { key: 'expectedDelivery', header: 'Expected Delivery' },
+                { key: 'amount', header: 'Amount (INR)' },
+                { key: 'items', header: 'Items' },
+                { key: 'status', header: 'Status' },
+              ]);
+              toast.success(`Exported ${rows.length} purchase orders.`);
+            }}
+          >
             <Download className="h-4 w-4" />
             Export
           </Button>
