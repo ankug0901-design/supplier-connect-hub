@@ -42,33 +42,33 @@ const supplierNavigation: NavItem[] = [
 ];
 
 const adminNavigation: NavItem[] = [
-  { name: 'Admin Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'All Suppliers', href: '/admin/suppliers', icon: Users },
-  { name: 'Registrations', href: '/admin/registrations', icon: ClipboardList, badgeKey: 'pending_regs' },
-  { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all' },
-  { name: '3-Way Matching', href: '/admin/three-way-match', icon: GitCompareArrows },
-  { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles },
-  { name: 'Supplier Performance', href: '/admin/vendor-scores', icon: Award },
+  { name: 'Admin Dashboard', href: '/admin', icon: LayoutDashboard, sectionKey: 'admin-dashboard' },
+  { name: 'All Suppliers', href: '/admin/suppliers', icon: Users, sectionKey: 'admin-suppliers' },
+  { name: 'Registrations', href: '/admin/registrations', icon: ClipboardList, badgeKey: 'pending_regs', sectionKey: 'admin-registrations' },
+  { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all', sectionKey: 'admin-rfq' },
+  { name: '3-Way Matching', href: '/admin/three-way-match', icon: GitCompareArrows, sectionKey: 'admin-three-way-match' },
+  { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles, sectionKey: 'admin-ai-insights' },
+  { name: 'Supplier Performance', href: '/admin/vendor-scores', icon: Award, sectionKey: 'admin-vendor-scores' },
   { name: 'User Roles', href: '/admin/user-roles', icon: UserCog, superAdminOnly: true },
   { name: 'Page Permissions', href: '/admin/page-permissions', icon: ShieldCheck, superAdminOnly: true },
 ];
 
 export function Sidebar() {
   const location = useLocation();
-  const { supplier, logout, isAdmin, isSuperAdmin } = useAuth();
+  const { supplier, logout, isAdmin, isSuperAdmin, role } = useAuth();
   const [pendingRegs, setPendingRegs] = useState(0);
   const [pendingRfqs, setPendingRfqs] = useState(0);
   const [pendingRfqsAll, setPendingRfqsAll] = useState(0);
   const [sectionAccess, setSectionAccess] = useState<Record<string, boolean>>({});
 
-  // Load supplier-section access map (used for non-admin users to filter sidebar)
+  // Load section access for the current user's role (super admin bypasses all checks)
   useEffect(() => {
-    if (isAdmin) return;
+    if (isSuperAdmin || !role) return;
     const loadAccess = async () => {
       const { data } = await supabase
         .from('role_section_access')
         .select('section_key, enabled')
-        .eq('role', 'supplier');
+        .eq('role', role);
       const map: Record<string, boolean> = {};
       (data || []).forEach((r: any) => { map[r.section_key] = r.enabled; });
       setSectionAccess(map);
@@ -79,7 +79,7 @@ export function Sidebar() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'role_section_access' }, () => loadAccess())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [isAdmin]);
+  }, [isSuperAdmin, role]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -161,10 +161,16 @@ export function Sidebar() {
     );
   };
 
-  // Filter supplier items by access map (default-allow when key not yet loaded/missing)
-  const visibleSupplierItems = supplierNavigation.filter(
-    (i) => !i.sectionKey || sectionAccess[i.sectionKey] !== false
-  );
+  // Apply section access filter (super admin sees everything)
+  const isAllowed = (sectionKey?: string) => {
+    if (!sectionKey) return true;
+    if (isSuperAdmin) return true;
+    return sectionAccess[sectionKey] !== false;
+  };
+  const visibleSupplierItems = supplierNavigation.filter((i) => isAllowed(i.sectionKey));
+  const visibleAdminItems = adminNavigation
+    .filter((i) => !i.superAdminOnly || isSuperAdmin)
+    .filter((i) => isAllowed(i.sectionKey));
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -180,14 +186,18 @@ export function Sidebar() {
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {isAdmin ? (
             <div className="space-y-4">
-              <div className="space-y-1">
-                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Admin</p>
-                {adminNavigation.filter((i) => !i.superAdminOnly || isSuperAdmin).map(renderNavItem)}
-              </div>
-              <div className="space-y-1">
-                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Supplier Pages</p>
-                {supplierNavigation.map(renderNavItem)}
-              </div>
+              {visibleAdminItems.length > 0 && (
+                <div className="space-y-1">
+                  <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Admin</p>
+                  {visibleAdminItems.map(renderNavItem)}
+                </div>
+              )}
+              {visibleSupplierItems.length > 0 && (
+                <div className="space-y-1">
+                  <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Supplier Pages</p>
+                  {visibleSupplierItems.map(renderNavItem)}
+                </div>
+              )}
             </div>
           ) : (
             visibleSupplierItems.map(renderNavItem)
@@ -204,7 +214,7 @@ export function Sidebar() {
                 <p className="truncate text-sm font-medium">{supplier?.name}</p>
                 {isAdmin && (
                   <span className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground">
-                    {isSuperAdmin ? 'Admin' : 'Super User'}
+                    {isSuperAdmin ? 'Admin' : role === 'super_user' ? 'Super User' : role === 'user' ? 'User' : role}
                   </span>
                 )}
               </div>

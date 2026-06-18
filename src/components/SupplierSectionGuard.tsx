@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -9,24 +9,25 @@ interface Props {
 }
 
 /**
- * Blocks supplier users from accessing a page when the admin has disabled
- * the corresponding section in role_section_access. Admins always pass.
+ * Blocks the current user from accessing a page when that section is disabled
+ * for their role in role_section_access. Super admins (role='admin') always pass.
  */
 export function SupplierSectionGuard({ sectionKey, children }: Props) {
-  const { isAdmin, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isSuperAdmin, isAuthenticated, isLoading: authLoading, role } = useAuth();
   const [enabled, setEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (isAdmin || !isAuthenticated) {
+    if (isSuperAdmin || !isAuthenticated) {
       setEnabled(true);
       return;
     }
+    if (!role) return;
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from('role_section_access')
         .select('enabled')
-        .eq('role', 'supplier')
+        .eq('role', role)
         .eq('section_key', sectionKey)
         .maybeSingle();
       if (cancelled) return;
@@ -34,7 +35,7 @@ export function SupplierSectionGuard({ sectionKey, children }: Props) {
       setEnabled(data ? !!data.enabled : true);
     })();
     return () => { cancelled = true; };
-  }, [isAdmin, isAuthenticated, sectionKey]);
+  }, [isSuperAdmin, isAuthenticated, role, sectionKey]);
 
   if (authLoading || enabled === null) {
     return (
@@ -44,6 +45,15 @@ export function SupplierSectionGuard({ sectionKey, children }: Props) {
     );
   }
 
-  if (!enabled) return <Navigate to="/dashboard" replace />;
+  if (!enabled) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center">
+        <h1 className="text-2xl font-bold mb-2">Access restricted</h1>
+        <p className="text-muted-foreground max-w-md">
+          Your role does not have access to this page. Please contact an administrator if you believe this is a mistake.
+        </p>
+      </div>
+    );
+  }
   return <>{children}</>;
 }

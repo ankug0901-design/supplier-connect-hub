@@ -109,13 +109,13 @@ function AppRoutes() {
       <Route path="/delivery-challan" element={<ProtectedRoute><SupplierSectionGuard sectionKey="delivery-challan"><DeliveryChallan /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/shipments" element={<ProtectedRoute><SupplierSectionGuard sectionKey="shipments"><Shipments /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/awb" element={<Navigate to="/shipments" replace />} />
-      <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-      <Route path="/admin/suppliers" element={<AdminRoute><AdminSuppliers /></AdminRoute>} />
-      <Route path="/admin/registrations" element={<AdminRoute><AdminRegistrations /></AdminRoute>} />
-      <Route path="/admin/rfq" element={<AdminRoute><AdminRfq /></AdminRoute>} />
-      <Route path="/admin/ai-insights" element={<AdminRoute><AdminAiInsights /></AdminRoute>} />
-      <Route path="/admin/vendor-scores" element={<AdminRoute><AdminVendorScores /></AdminRoute>} />
-      <Route path="/admin/three-way-match" element={<AdminRoute><AdminThreeWayMatch /></AdminRoute>} />
+      <Route path="/admin" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-dashboard"><AdminDashboard /></SupplierSectionGuard></AdminRoute>} />
+      <Route path="/admin/suppliers" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-suppliers"><AdminSuppliers /></SupplierSectionGuard></AdminRoute>} />
+      <Route path="/admin/registrations" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-registrations"><AdminRegistrations /></SupplierSectionGuard></AdminRoute>} />
+      <Route path="/admin/rfq" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-rfq"><AdminRfq /></SupplierSectionGuard></AdminRoute>} />
+      <Route path="/admin/ai-insights" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-ai-insights"><AdminAiInsights /></SupplierSectionGuard></AdminRoute>} />
+      <Route path="/admin/vendor-scores" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-vendor-scores"><AdminVendorScores /></SupplierSectionGuard></AdminRoute>} />
+      <Route path="/admin/three-way-match" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-three-way-match"><AdminThreeWayMatch /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/admin/user-roles" element={<SuperAdminRoute><AdminUserRoles /></SuperAdminRoute>} />
       <Route path="/admin/page-permissions" element={<SuperAdminRoute><AdminPagePermissions /></SuperAdminRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />

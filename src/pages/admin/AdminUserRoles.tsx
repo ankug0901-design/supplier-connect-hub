@@ -32,14 +32,14 @@ type Row = {
   role: string;
 };
 
-const ROLE_OPTIONS = [
+type RoleOption = { value: string; label: string };
+
+const SYSTEM_FALLBACK: RoleOption[] = [
   { value: 'supplier', label: 'Supplier' },
+  { value: 'user', label: 'User' },
   { value: 'super_user', label: 'Super User' },
   { value: 'admin', label: 'Admin' },
 ];
-
-const roleLabel = (r: string) =>
-  ROLE_OPTIONS.find((o) => o.value === r)?.label ?? r;
 
 const roleVariant = (r: string): 'default' | 'secondary' | 'outline' =>
   r === 'admin' ? 'default' : r === 'super_user' ? 'secondary' : 'outline';
@@ -51,6 +51,8 @@ export default function AdminUserRoles() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>(SYSTEM_FALLBACK);
+  const roleLabel = (r: string) => roleOptions.find((o) => o.value === r)?.label ?? r;
 
   const load = async () => {
     setLoading(true);
@@ -66,7 +68,12 @@ export default function AdminUserRoles() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    supabase.from('app_roles').select('role, label').order('label').then(({ data }) => {
+      if (data && data.length) setRoleOptions(data.map((r: any) => ({ value: r.role, label: r.label })));
+    });
+  }, []);
 
   const changeRole = async (row: Row, next: string) => {
     if (next === row.role) return;
@@ -166,7 +173,7 @@ export default function AdminUserRoles() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {ROLE_OPTIONS.map((o) => (
+                              {roleOptions.map((o) => (
                                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                               ))}
                             </SelectContent>
