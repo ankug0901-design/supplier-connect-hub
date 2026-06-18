@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -9,11 +8,12 @@ interface Props {
 }
 
 /**
- * Blocks the current user from accessing a page when that section is disabled
- * for their role in role_section_access. Super admins (role='admin') always pass.
+ * Blocks access when the section is disabled for the user's role,
+ * unless a per-user override (supplier_section_access) re-allows it.
+ * Super admins (role='admin') always pass.
  */
 export function SupplierSectionGuard({ sectionKey, children }: Props) {
-  const { isSuperAdmin, isAuthenticated, isLoading: authLoading, role } = useAuth();
+  const { isSuperAdmin, isAuthenticated, isLoading: authLoading, role, user } = useAuth();
   const [enabled, setEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -21,9 +21,21 @@ export function SupplierSectionGuard({ sectionKey, children }: Props) {
       setEnabled(true);
       return;
     }
-    if (!role) return;
+    if (!role || !user?.id) return;
     let cancelled = false;
     (async () => {
+      // Per-user override wins if set
+      const { data: override } = await supabase
+        .from('supplier_section_access')
+        .select('enabled')
+        .eq('user_id', user.id)
+        .eq('section_key', sectionKey)
+        .maybeSingle();
+      if (cancelled) return;
+      if (override) {
+        setEnabled(!!override.enabled);
+        return;
+      }
       const { data } = await supabase
         .from('role_section_access')
         .select('enabled')
@@ -31,11 +43,10 @@ export function SupplierSectionGuard({ sectionKey, children }: Props) {
         .eq('section_key', sectionKey)
         .maybeSingle();
       if (cancelled) return;
-      // default-allow if no row exists
       setEnabled(data ? !!data.enabled : true);
     })();
     return () => { cancelled = true; };
-  }, [isSuperAdmin, isAuthenticated, role, sectionKey]);
+  }, [isSuperAdmin, isAuthenticated, role, sectionKey, user?.id]);
 
   if (authLoading || enabled === null) {
     return (
