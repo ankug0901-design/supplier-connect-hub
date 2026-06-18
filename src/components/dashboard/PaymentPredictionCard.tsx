@@ -114,8 +114,8 @@ export function PaymentPredictionCard() {
             <div className="rounded-lg border bg-muted/30 p-3 text-sm">{data.narrative}</div>
 
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <Stat label="Avg days to pay" value={`${data.stats.avg_days_to_pay}d`} />
-              <Stat label="Median" value={`${data.stats.median_days_to_pay}d`} />
+              <Stat label="Payment term" value="45d" />
+              <Stat label="Basis" value="Received + 45d" />
               <Stat label="Pending invoices" value={String(data.stats.pending_invoice_count)} />
               <Stat label="Total pending" value={fmtINR(data.stats.total_pending_amount_inr)} />
             </div>
