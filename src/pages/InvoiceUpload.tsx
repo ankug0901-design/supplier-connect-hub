@@ -102,7 +102,7 @@ function LineItemsInput({
                   aria-label="Select all line items"
                 />
               </TableHead>
-              <TableHead className="min-w-[220px]">Item description</TableHead>
+              <TableHead className="min-w-[260px]">Item name &amp; description</TableHead>
               <TableHead className="w-28">HSN/SAC</TableHead>
               <TableHead className="w-20 text-right">PO Qty</TableHead>
               <TableHead className="w-24 text-right">Already Invoiced</TableHead>
