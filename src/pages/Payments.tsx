@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { exportToCsv } from '@/lib/exportCsv';
 import { toast } from 'sonner';
 
+type TabKey = 'received' | 'pending' | 'overdue';
+
 export default function Payments() {
   const { supplier, isAdmin } = useAuth();
   const [payments, setPayments] = useState<any[]>([]);
@@ -19,6 +21,7 @@ export default function Payments() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<TabKey>('received');
 
   useEffect(() => {
     if (!isAdmin && !supplier?.zoho_vendor_id) {
