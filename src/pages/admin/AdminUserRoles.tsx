@@ -173,7 +173,7 @@ export default function AdminUserRoles() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {ROLE_OPTIONS.map((o) => (
+                              {roleOptions.map((o) => (
                                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                               ))}
                             </SelectContent>
