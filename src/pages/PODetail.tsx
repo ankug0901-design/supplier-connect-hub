@@ -85,7 +85,7 @@ export default function PODetail() {
         const vendorId = found.supplierZohoVendorId || supplier?.zoho_vendor_id;
         if (vendorId) {
           try {
-            const livePos = await fetchPurchaseOrders(vendorId);
+            const livePos = await fetchLivePurchaseOrdersFromZoho(vendorId);
             const match = (livePos || []).find(
               (p: any) =>
                 String(p.id) === String(found!.id) ||
