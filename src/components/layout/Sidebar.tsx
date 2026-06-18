@@ -52,6 +52,7 @@ const adminNavigation: NavItem[] = [
   { name: 'Supplier Performance', href: '/admin/vendor-scores', icon: Award, sectionKey: 'admin-vendor-scores' },
   { name: 'User Roles', href: '/admin/user-roles', icon: UserCog, superAdminOnly: true },
   { name: 'Page Permissions', href: '/admin/page-permissions', icon: ShieldCheck, superAdminOnly: true },
+  { name: 'User Access Report', href: '/admin/user-access-report', icon: BarChart3, superAdminOnly: true },
 ];
 
 export function Sidebar() {
