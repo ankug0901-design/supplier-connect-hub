@@ -1,0 +1,9 @@
+# Supplier Connect
+
+> Supplier Connect Hub by Emboss Marketing — a private supplier portal where vendors manage purchase orders, invoices, payments, delivery challans, shipments, and RFQ responses.
+
+Supplier Connect is an authenticated B2B portal. Only the landing/sign-in page is publicly accessible; all dashboards and supplier data require a login issued by Emboss Marketing.
+
+## Pages
+
+- [Sign in](/): Landing page with sign-in and supplier registration.
