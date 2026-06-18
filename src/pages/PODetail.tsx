@@ -282,8 +282,8 @@ export default function PODetail() {
                       <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Unit Price</th>
                       <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Tax</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Delivery Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Dispatch Status</th>
                       <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total</th>
+
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
