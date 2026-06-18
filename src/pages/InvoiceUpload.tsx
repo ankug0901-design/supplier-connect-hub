@@ -13,7 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useAuth, useReadOnly } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, submitInvoice, fetchInvoicedQuantitiesForPo } from '@/services/api';
+import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, submitInvoice, fetchInvoicedQuantitiesForPo, fetchLivePurchaseOrdersFromZoho } from '@/services/api';
 import { preparePodFiles } from '@/lib/pod-files';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +25,8 @@ type LineItem = {
   item_name: string;
   description?: string;
   hsn?: string;
+  tax_rate?: number;
+  tax_name?: string;
   po_quantity?: number;
   invoiced_quantity?: number;
   quantity: number;
@@ -106,6 +108,7 @@ function LineItemsInput({
               <TableHead className="w-24 text-right">Already Invoiced</TableHead>
               <TableHead className="w-36 text-right">Invoice Qty</TableHead>
               <TableHead className="w-28 text-right">Rate (₹)</TableHead>
+              <TableHead className="w-24 text-right">Tax</TableHead>
               <TableHead className="w-44">Actual Delivery Date</TableHead>
               <TableHead className="w-24">Variance</TableHead>
               {!lockDetails && <TableHead className="w-10" />}
@@ -201,6 +204,33 @@ function LineItemsInput({
                         placeholder="0.00"
                         value={item.rate}
                         onChange={(e) => update(i, 'rate', parseFloat(e.target.value) || 0)}
+                        disabled={!isSelected}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell className="py-3 text-right">
+                    {lockDetails ? (
+                      <div className="text-sm">
+                        {item.tax_rate != null && !Number.isNaN(item.tax_rate) ? (
+                          <>
+                            <div className="font-medium">{Number(item.tax_rate).toFixed(2)}%</div>
+                            {item.tax_name && (
+                              <div className="text-xs text-muted-foreground">{item.tax_name}</div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    ) : (
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="text-right"
+                        placeholder="0"
+                        value={item.tax_rate ?? ''}
+                        onChange={(e) => update(i, 'tax_rate', parseFloat(e.target.value) || 0)}
                         disabled={!isSelected}
                       />
                     )}
@@ -475,14 +505,12 @@ export default function InvoiceUpload() {
     (async () => {
       let items: any[] = extractItems(po);
 
-      // If the selected PO has no synced line items, fetch the live PO list
-      // from Zoho for that supplier's vendor and pick up its items. Works for
-      // both admins (no vendor id on their own profile) and suppliers whose
-      // DB row wasn't synced with items.
+      // Always try to enrich with live Zoho PO data so we get HSN + tax_rate
+      // (these aren't persisted to our DB cache).
       const vendorIdForLive = po.supplierZohoVendorId || supplier?.zoho_vendor_id;
-      if (!items.length && vendorIdForLive) {
+      if (vendorIdForLive) {
         try {
-          const livePos = await fetchPurchaseOrders(vendorIdForLive);
+          const livePos = await fetchLivePurchaseOrdersFromZoho(vendorIdForLive);
           const match = (livePos || []).find(
             (p: any) =>
               p.id === po.id ||
@@ -492,10 +520,30 @@ export default function InvoiceUpload() {
           );
           const liveItems = extractItems(match);
           if (liveItems.length && !cancelled) {
-            items = liveItems;
-            // Cache + force re-render so poHasItems flips true.
+            // Merge live fields (hsn, tax_*) into existing items by line_item_id then name.
+            const liveByLineId: Record<string, any> = {};
+            const liveByName: Record<string, any> = {};
+            liveItems.forEach((li: any) => {
+              const lid = String(li.line_item_id || li.id || '');
+              if (lid) liveByLineId[lid] = li;
+              const nm = String(li.item_name || li.name || li.description || '').trim().toLowerCase();
+              if (nm) liveByName[nm] = li;
+            });
+            const base = items.length ? items : liveItems;
+            items = base.map((it: any) => {
+              const lid = String(it.line_item_id || it.zoho_line_item_id || '');
+              const nm = String(it.item_name || it.name || it.description || '').trim().toLowerCase();
+              const live = (lid && liveByLineId[lid]) || liveByName[nm] || {};
+              return {
+                ...live,
+                ...it,
+                hsn: it.hsn || live.hsn || live.hsn_or_sac || live.hsn_sac || live.sac,
+                tax_percentage: it.tax_percentage ?? live.tax_percentage ?? live.tax_rate,
+                tax_name: it.tax_name || live.tax_name,
+              };
+            });
             setPurchaseOrders((prev) =>
-              prev.map((p: any) => (p.id === po.id ? { ...p, items: liveItems } : p)),
+              prev.map((p: any) => (p.id === po.id ? { ...p, items } : p)),
             );
           }
         } catch (err) {
@@ -533,11 +581,15 @@ export default function InvoiceUpload() {
             const zohoLineId = it.line_item_id ?? it.lineItemId ?? it.zoho_line_item_id ?? '';
             const invoiced = invoicedMap[name.trim().toLowerCase()] || 0;
             const remaining = Math.max(qty - invoiced, 0);
+            const taxRateRaw = it.tax_percentage ?? it.tax_rate ?? it.taxPercent ?? it.tax_percent;
+            const taxRate = taxRateRaw != null && taxRateRaw !== '' ? Number(taxRateRaw) : undefined;
             return {
               line_item_id: zohoLineId ? String(zohoLineId) : undefined,
               item_name: name,
               description,
               hsn: it.hsn || it.hsn_or_sac || it.hsn_sac || it.sac || '',
+              tax_rate: taxRate != null && !Number.isNaN(taxRate) ? taxRate : undefined,
+              tax_name: it.tax_name || it.taxName || '',
               po_quantity: qty,
               invoiced_quantity: invoiced,
               quantity: remaining,
