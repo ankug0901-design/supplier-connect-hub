@@ -581,11 +581,15 @@ export default function InvoiceUpload() {
             const zohoLineId = it.line_item_id ?? it.lineItemId ?? it.zoho_line_item_id ?? '';
             const invoiced = invoicedMap[name.trim().toLowerCase()] || 0;
             const remaining = Math.max(qty - invoiced, 0);
+            const taxRateRaw = it.tax_percentage ?? it.tax_rate ?? it.taxPercent ?? it.tax_percent;
+            const taxRate = taxRateRaw != null && taxRateRaw !== '' ? Number(taxRateRaw) : undefined;
             return {
               line_item_id: zohoLineId ? String(zohoLineId) : undefined,
               item_name: name,
               description,
               hsn: it.hsn || it.hsn_or_sac || it.hsn_sac || it.sac || '',
+              tax_rate: taxRate != null && !Number.isNaN(taxRate) ? taxRate : undefined,
+              tax_name: it.tax_name || it.taxName || '',
               po_quantity: qty,
               invoiced_quantity: invoiced,
               quantity: remaining,
