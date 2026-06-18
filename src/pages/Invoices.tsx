@@ -203,9 +203,20 @@ export default function Invoices() {
     return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pagedInvoices = filteredInvoices.slice(pageStart, pageStart + PAGE_SIZE);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter]);
+
   const availableInvoiceStatuses = Array.from(
     new Set(invoices.map((i: any) => (i.status || '').toString().toLowerCase()).filter(Boolean)),
   ).sort();
+
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-IN', {
