@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, fetchInvoicedQuantitiesForPo } from '@/services/api';
+import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, fetchInvoicedQuantitiesForPo, fetchLivePurchaseOrdersFromZoho } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { DeliveryDateConfirmation } from '@/components/po/DeliveryDateConfirmation';
 import { cn } from '@/lib/utils';
@@ -85,7 +85,7 @@ export default function PODetail() {
         const vendorId = found.supplierZohoVendorId || supplier?.zoho_vendor_id;
         if (vendorId) {
           try {
-            const livePos = await fetchPurchaseOrders(vendorId);
+            const livePos = await fetchLivePurchaseOrdersFromZoho(vendorId);
             const match = (livePos || []).find(
               (p: any) =>
                 String(p.id) === String(found!.id) ||
@@ -282,14 +282,14 @@ export default function PODetail() {
                       <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Unit Price</th>
                       <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Tax</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Delivery Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Dispatch Status</th>
                       <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total</th>
+
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {(order.items || []).length === 0 && (
                       <tr>
-                        <td colSpan={10} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">
                           No line items available for this purchase order.
                         </td>
                       </tr>
@@ -311,26 +311,6 @@ export default function PODetail() {
                           ? `${Number(taxPct)}%${taxName ? ` (${taxName})` : ''}`
                           : taxName || '—';
                       const confirmed = item.confirmedDeliveryDate || item.confirmed_delivery_date;
-                      const dispatchStatus = (() => {
-                        if (invoiced >= qty && qty > 0) {
-                          return { label: 'Dispatched', cls: 'bg-success/10 text-success border-success/20' };
-                        }
-                        if (!order.deliveryDatesConfirmedAt || !confirmed) {
-                          return { label: 'Awaiting confirmation', cls: 'bg-muted text-muted-foreground border-border' };
-                        }
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const due = new Date(confirmed);
-                        due.setHours(0, 0, 0, 0);
-                        const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
-                        if (invoiced > 0 && invoiced < qty) {
-                          return { label: 'Partially dispatched', cls: 'bg-accent/10 text-accent border-accent/20' };
-                        }
-                        if (diff < 0) return { label: `Overdue by ${Math.abs(diff)}d`, cls: 'bg-destructive/10 text-destructive border-destructive/20' };
-                        if (diff === 0) return { label: 'Due today', cls: 'bg-warning/10 text-warning border-warning/20' };
-                        if (diff <= 3) return { label: `Due in ${diff}d`, cls: 'bg-warning/10 text-warning border-warning/20' };
-                        return { label: `Scheduled (${diff}d)`, cls: 'bg-info/10 text-info border-info/20' };
-                      })();
                       return (
                         <tr key={item.id ?? idx}>
                           <td className="px-4 py-4 text-sm">{name || '—'}</td>
@@ -341,11 +321,6 @@ export default function PODetail() {
                           <td className="px-4 py-4 text-right text-sm">{formatCurrency(rate)}</td>
                           <td className="px-4 py-4 text-right text-sm text-muted-foreground">{taxLabel}</td>
                           <td className="px-4 py-4 text-sm text-muted-foreground">{formatDate(confirmed)}</td>
-                          <td className="px-4 py-4 text-sm">
-                            <Badge variant="outline" className={cn('font-medium', dispatchStatus.cls)}>
-                              {dispatchStatus.label}
-                            </Badge>
-                          </td>
                           <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(total)}</td>
                         </tr>
                       );
@@ -356,20 +331,20 @@ export default function PODetail() {
                       <>
                         {order.subTotal != null && (
                           <tr>
-                            <td colSpan={9} className="px-4 py-2 text-right text-sm text-muted-foreground">Sub Total</td>
+                            <td colSpan={8} className="px-4 py-2 text-right text-sm text-muted-foreground">Sub Total</td>
                             <td className="px-4 py-2 text-right text-sm">{formatCurrency(Number(order.subTotal || 0))}</td>
                           </tr>
                         )}
                         {order.taxTotal != null && (
                           <tr>
-                            <td colSpan={9} className="px-4 py-2 text-right text-sm text-muted-foreground">Total Tax</td>
+                            <td colSpan={8} className="px-4 py-2 text-right text-sm text-muted-foreground">Total Tax</td>
                             <td className="px-4 py-2 text-right text-sm">{formatCurrency(Number(order.taxTotal || 0))}</td>
                           </tr>
                         )}
                       </>
                     )}
                     <tr className="bg-muted/50">
-                      <td colSpan={9} className="px-4 py-4 text-right font-semibold">Grand Total</td>
+                      <td colSpan={8} className="px-4 py-4 text-right font-semibold">Grand Total</td>
                       <td className="px-4 py-4 text-right font-bold text-primary">{formatCurrency(order.amount)}</td>
                     </tr>
                   </tfoot>
