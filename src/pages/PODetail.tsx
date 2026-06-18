@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, fetchInvoicedQuantitiesForPo } from '@/services/api';
+import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, fetchInvoicedQuantitiesForPo, fetchLivePurchaseOrdersFromZoho } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { DeliveryDateConfirmation } from '@/components/po/DeliveryDateConfirmation';
 import { cn } from '@/lib/utils';
