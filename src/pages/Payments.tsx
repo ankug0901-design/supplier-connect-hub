@@ -251,6 +251,7 @@ export default function Payments() {
           </div>
         ) : (
           <>
+            {activeTab === 'received' && (
             <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
               <div className="border-b border-border px-6 py-4">
                 <h3 className="text-lg font-semibold">
@@ -328,77 +329,90 @@ export default function Payments() {
                 </div>
               )}
             </div>
+            )}
 
-            {/* Outstanding Invoices */}
-            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-              <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                <div>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    Outstanding Invoices
-                  </h3>
-                  <p className="text-sm text-muted-foreground">Invoices awaiting payment</p>
-                </div>
-                <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
-                  {openInvoices.length} open
-                </Badge>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50">
-                      {['Invoice #', 'PO Number', 'Date', 'Due Date', 'Amount', 'Balance Due', 'Status'].map((h) => (
-                        <th key={h} className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {openInvoices.map((inv: any, index: number) => {
-                      const s = getInvoiceStatus(inv);
-                      const balance = Number(inv.balance ?? inv.amount ?? 0);
-                      return (
-                        <tr
-                          key={inv.id || inv.invoiceNumber}
-                          className="transition-colors hover:bg-muted/50 animate-slide-up"
-                          style={{ animationDelay: `${index * 30}ms` }}
-                        >
-                          <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
-                            {inv.invoiceNumber || '-'}
-                          </td>
-                          <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                            {inv.poNumber || inv.po_number || '-'}
-                          </td>
-                          <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                            {formatDate(inv.date)}
-                          </td>
-                          <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                            {formatDate(inv.dueDate)}
-                          </td>
-                          <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
-                            {formatCurrency(Number(inv.amount || 0))}
-                          </td>
-                          <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-destructive">
-                            {formatCurrency(balance)}
-                          </td>
-                          <td className="whitespace-nowrap px-6 py-4">
-                            <Badge variant="outline" className={cn('gap-1', s.cls)}>
-                              {s.label}
-                            </Badge>
-                          </td>
+            {(activeTab === 'pending' || activeTab === 'overdue') && (() => {
+              const list = activeTab === 'overdue' ? overdueInvoices : openInvoices;
+              const title = activeTab === 'overdue' ? 'Overdue Invoices' : 'Outstanding Invoices';
+              const subtitle = activeTab === 'overdue' ? 'Invoices past their due date' : 'Invoices awaiting payment';
+              const badgeText = activeTab === 'overdue' ? `${list.length} overdue` : `${list.length} open`;
+              const badgeCls = activeTab === 'overdue'
+                ? 'bg-destructive/10 text-destructive border-destructive/20'
+                : 'bg-warning/10 text-warning border-warning/20';
+              return (
+                <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+                  <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                    <div>
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                        {title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">{subtitle}</p>
+                    </div>
+                    <Badge variant="outline" className={badgeCls}>
+                      {badgeText}
+                    </Badge>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/50">
+                          {['Invoice #', 'PO Number', 'Date', 'Due Date', 'Amount', 'Balance Due', 'Status'].map((h) => (
+                            <th key={h} className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                              {h}
+                            </th>
+                          ))}
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {openInvoices.length === 0 && (
-                <div className="py-12 text-center text-muted-foreground">
-                  No outstanding invoices. You're all caught up! 🎉
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {list.map((inv: any, index: number) => {
+                          const s = getInvoiceStatus(inv);
+                          const balance = Number(inv.balance ?? inv.amount ?? 0);
+                          return (
+                            <tr
+                              key={inv.id || inv.invoiceNumber}
+                              className="transition-colors hover:bg-muted/50 animate-slide-up"
+                              style={{ animationDelay: `${index * 30}ms` }}
+                            >
+                              <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
+                                {inv.invoiceNumber || '-'}
+                              </td>
+                              <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                                {inv.poNumber || inv.po_number || '-'}
+                              </td>
+                              <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                                {formatDate(inv.date)}
+                              </td>
+                              <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                                {formatDate(inv.dueDate)}
+                              </td>
+                              <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
+                                {formatCurrency(Number(inv.amount || 0))}
+                              </td>
+                              <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-destructive">
+                                {formatCurrency(balance)}
+                              </td>
+                              <td className="whitespace-nowrap px-6 py-4">
+                                <Badge variant="outline" className={cn('gap-1', s.cls)}>
+                                  {s.label}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {list.length === 0 && (
+                    <div className="py-12 text-center text-muted-foreground">
+                      {activeTab === 'overdue'
+                        ? 'No overdue invoices. Great job staying on top of things! 🎉'
+                        : "No outstanding invoices. You're all caught up! 🎉"}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </>
         )}
       </div>
