@@ -118,7 +118,16 @@ export default function Payments() {
       <div className="space-y-6">
         {/* Summary Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-xl border border-success/20 bg-success/5 p-6 animate-slide-up">
+          <button
+            type="button"
+            onClick={() => setActiveTab('received')}
+            className={cn(
+              'text-left rounded-xl border p-6 animate-slide-up transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-success/40',
+              activeTab === 'received'
+                ? 'border-success bg-success/10 ring-2 ring-success/40'
+                : 'border-success/20 bg-success/5'
+            )}
+          >
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-success/20 p-2">
                 <CheckCircle className="h-5 w-5 text-success" />
@@ -128,8 +137,18 @@ export default function Payments() {
                 <p className="text-2xl font-bold text-success">{formatCurrency(totalReceived)}</p>
               </div>
             </div>
-          </div>
-          <div className="rounded-xl border border-warning/20 bg-warning/5 p-6 animate-slide-up" style={{ animationDelay: '100ms' }}>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('pending')}
+            className={cn(
+              'text-left rounded-xl border p-6 animate-slide-up transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-warning/40',
+              activeTab === 'pending'
+                ? 'border-warning bg-warning/10 ring-2 ring-warning/40'
+                : 'border-warning/20 bg-warning/5'
+            )}
+            style={{ animationDelay: '100ms' }}
+          >
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-warning/20 p-2">
                 <Clock className="h-5 w-5 text-warning" />
@@ -140,8 +159,18 @@ export default function Payments() {
                 <p className="text-xs text-muted-foreground">open invoice{dueCount === 1 ? '' : 's'}</p>
               </div>
             </div>
-          </div>
-          <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6 animate-slide-up" style={{ animationDelay: '200ms' }}>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('overdue')}
+            className={cn(
+              'text-left rounded-xl border p-6 animate-slide-up transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-destructive/40',
+              activeTab === 'overdue'
+                ? 'border-destructive bg-destructive/10 ring-2 ring-destructive/40'
+                : 'border-destructive/20 bg-destructive/5'
+            )}
+            style={{ animationDelay: '200ms' }}
+          >
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-destructive/20 p-2">
                 <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -152,7 +181,7 @@ export default function Payments() {
                 <p className="text-xs text-muted-foreground">past due date</p>
               </div>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Filters */}
