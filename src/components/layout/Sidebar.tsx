@@ -161,10 +161,16 @@ export function Sidebar() {
     );
   };
 
-  // Filter supplier items by access map (default-allow when key not yet loaded/missing)
-  const visibleSupplierItems = supplierNavigation.filter(
-    (i) => !i.sectionKey || sectionAccess[i.sectionKey] !== false
-  );
+  // Apply section access filter (super admin sees everything)
+  const isAllowed = (sectionKey?: string) => {
+    if (!sectionKey) return true;
+    if (isSuperAdmin) return true;
+    return sectionAccess[sectionKey] !== false;
+  };
+  const visibleSupplierItems = supplierNavigation.filter((i) => isAllowed(i.sectionKey));
+  const visibleAdminItems = adminNavigation
+    .filter((i) => !i.superAdminOnly || isSuperAdmin)
+    .filter((i) => isAllowed(i.sectionKey));
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -180,14 +186,18 @@ export function Sidebar() {
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {isAdmin ? (
             <div className="space-y-4">
-              <div className="space-y-1">
-                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Admin</p>
-                {adminNavigation.filter((i) => !i.superAdminOnly || isSuperAdmin).map(renderNavItem)}
-              </div>
-              <div className="space-y-1">
-                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Supplier Pages</p>
-                {supplierNavigation.map(renderNavItem)}
-              </div>
+              {visibleAdminItems.length > 0 && (
+                <div className="space-y-1">
+                  <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Admin</p>
+                  {visibleAdminItems.map(renderNavItem)}
+                </div>
+              )}
+              {visibleSupplierItems.length > 0 && (
+                <div className="space-y-1">
+                  <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Supplier Pages</p>
+                  {visibleSupplierItems.map(renderNavItem)}
+                </div>
+              )}
             </div>
           ) : (
             visibleSupplierItems.map(renderNavItem)
