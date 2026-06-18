@@ -68,8 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const r = profile.role ?? 'supplier';
     setRole(r);
     setIsSuperAdmin(r === 'admin');
-    // isAdmin = full admin UI access (admin OR super_user)
-    setIsAdmin(r === 'admin' || r === 'super_user');
+    // isAdmin = uses admin layout (admin, super_user, user) — actual page access still filtered by role_section_access
+    setIsAdmin(r === 'admin' || r === 'super_user' || r === 'user');
   }
 
   useEffect(() => {
