@@ -506,9 +506,17 @@ export default function InvoiceUpload() {
       let items: any[] = extractItems(po);
 
       // Always try to enrich with live Zoho PO data so we get HSN + tax_rate
-      // (these aren't persisted to our DB cache).
+      // (these aren't persisted to our DB cache). Skip if items already carry
+      // tax_percentage/hsn to avoid redundant calls.
+      const alreadyEnriched =
+        items.length > 0 &&
+        items.every(
+          (it: any) =>
+            (it.hsn || it.hsn_or_sac || it.hsn_sac) &&
+            (it.tax_percentage != null || it.tax_rate != null),
+        );
       const vendorIdForLive = po.supplierZohoVendorId || supplier?.zoho_vendor_id;
-      if (vendorIdForLive) {
+      if (!alreadyEnriched && vendorIdForLive) {
         try {
           const livePos = await fetchLivePurchaseOrdersFromZoho(vendorIdForLive);
           const match = (livePos || []).find(
@@ -542,9 +550,6 @@ export default function InvoiceUpload() {
                 tax_name: it.tax_name || live.tax_name,
               };
             });
-            setPurchaseOrders((prev) =>
-              prev.map((p: any) => (p.id === po.id ? { ...p, items } : p)),
-            );
           }
         } catch (err) {
           console.warn('Failed to fetch live PO items', err);
