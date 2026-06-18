@@ -32,14 +32,14 @@ type Row = {
   role: string;
 };
 
-const ROLE_OPTIONS = [
+type RoleOption = { value: string; label: string };
+
+const SYSTEM_FALLBACK: RoleOption[] = [
   { value: 'supplier', label: 'Supplier' },
+  { value: 'user', label: 'User' },
   { value: 'super_user', label: 'Super User' },
   { value: 'admin', label: 'Admin' },
 ];
-
-const roleLabel = (r: string) =>
-  ROLE_OPTIONS.find((o) => o.value === r)?.label ?? r;
 
 const roleVariant = (r: string): 'default' | 'secondary' | 'outline' =>
   r === 'admin' ? 'default' : r === 'super_user' ? 'secondary' : 'outline';
