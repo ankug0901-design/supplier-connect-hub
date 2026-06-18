@@ -529,14 +529,13 @@ Deno.serve(async (req) => {
       const today = new Date().toISOString().slice(0, 10);
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
-      const [{ data: suppliers }, { data: pendingRegs }, { data: pendingInvoices }, { data: openPos }, { data: allInvoicesForPos }, { data: latestScores }, { data: openRfqs }] = await Promise.all([
+      const [{ data: suppliers }, { data: pendingRegs }, { data: pendingInvoices }, { data: openPos }, { data: allInvoicesForPos }, { data: latestScores }] = await Promise.all([
         admin.from("suppliers").select("id, company, email, name").eq("role", "supplier"),
         admin.from("supplier_registrations").select("id, company, email, created_at, status").eq("status", "pending").lte("created_at", sevenDaysAgo),
         admin.from("invoices").select("id, supplier_id, invoice_number, amount, status, date, po_id").eq("status", "pending"),
         admin.from("purchase_orders").select("id, supplier_id, po_number, amount, status, expected_delivery").in("status", ["pending", "open"]),
         admin.from("invoices").select("id, po_id, amount, status"),
         admin.from("vendor_scores").select("supplier_id, score, grade, weaknesses, scored_at").order("scored_at", { ascending: false }).limit(500),
-        admin.from("rfq_portal_requests").select("id, rfq_id, product_name, supplier_id, supplier_email, supplier_company, status, response_deadline, quote_submitted_at, created_at").is("quote_submitted_at", null).in("status", ["pending", "open", "sent", "in_review"]),
       ]);
 
       const supById = new Map((suppliers || []).map((s: any) => [s.id, s]));
@@ -606,19 +605,7 @@ Deno.serve(async (req) => {
           push(sid, { type: "low_score", detail: `Performance score ${score.score} (${score.grade}). Weaknesses: ${(score.weaknesses || []).join("; ")}`, priority: "medium" });
         }
       }
-      // RFQ compliance — open RFQs awaiting supplier quote
-      for (const r of openRfqs || []) {
-        const sid = r.supplier_id || supByEmail.get(String(r.supplier_email || "").toLowerCase())?.id;
-        if (!sid) continue;
-        const overdue = r.response_deadline && String(r.response_deadline) < today;
-        push(sid, {
-          type: overdue ? "rfq_overdue_response" : "rfq_pending_response",
-          detail: overdue
-            ? `RFQ ${r.rfq_id} for "${r.product_name}" — quote was due by ${r.response_deadline} and is still not submitted`
-            : `RFQ ${r.rfq_id} for "${r.product_name}" is awaiting your quote${r.response_deadline ? ` (deadline ${r.response_deadline})` : ""}`,
-          priority: overdue ? "high" : "medium",
-        });
-      }
+      // RFQ pending quote reminders intentionally excluded from supplier nudges.
 
       // Stale registrations as their own nudges
       const regNudges = (pendingRegs || []).map((r: any) => ({
@@ -652,7 +639,7 @@ Deno.serve(async (req) => {
       // Ask AI to draft personalised nudge messages
       const { text } = await generateText({
         model,
-        system: "You draft short, friendly but firm reminder messages for B2B suppliers in India. For each supplier, write ONE concise email (subject + 3-5 sentence body) addressing the most important trigger. DO NOT mention overdue payments, money owed to the supplier, or payment delays — focus only on the triggers provided (pending invoices awaiting verification, delayed deliveries, low performance scores, pending RFQ quotes, stale registrations). Tone: professional, courteous, specific (cite invoice/PO/RFQ numbers and dates). Sign-off: 'Emboss Marketing Procurement Team'. Return ONLY a JSON array, one item per supplier in the same order: [{\"supplier_id\":\"...\",\"subject\":\"...\",\"body\":\"...\",\"channel\":\"email\",\"call_to_action\":\"...\"}]. No markdown.",
+        system: "You draft short, friendly but firm reminder messages for B2B suppliers in India. For each supplier, write ONE concise email (subject + 3-5 sentence body) addressing the most important trigger. DO NOT mention overdue payments, money owed to the supplier, payment delays, or pending RFQ quotes — focus only on the triggers provided (pending invoices awaiting verification, pending invoice submission for open POs, delayed deliveries, low performance scores, stale registrations). Tone: professional, courteous, specific (cite invoice/PO numbers and dates). Sign-off: 'Emboss Marketing Procurement Team'. Return ONLY a JSON array, one item per supplier in the same order: [{\"supplier_id\":\"...\",\"subject\":\"...\",\"body\":\"...\",\"channel\":\"email\",\"call_to_action\":\"...\"}]. No markdown.",
         prompt: `Generate nudge messages for these ${allCandidates.length} suppliers:\n${JSON.stringify(allCandidates, null, 2)}`,
       });
 
