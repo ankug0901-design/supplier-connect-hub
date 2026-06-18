@@ -172,6 +172,7 @@ export function Sidebar() {
   const isAllowed = (sectionKey?: string) => {
     if (!sectionKey) return true;
     if (isSuperAdmin) return true;
+    if (sectionKey in userOverrides) return userOverrides[sectionKey];
     return sectionAccess[sectionKey] !== false;
   };
   const visibleSupplierItems = supplierNavigation.filter((i) => isAllowed(i.sectionKey));
