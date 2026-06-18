@@ -96,11 +96,21 @@ Deno.serve(async (req) => {
     });
 
     const text = await res.text();
-    // Pass through JSON when possible, otherwise raw text
-    const contentType = res.headers.get('content-type') || 'application/json';
-    return new Response(text, {
+    const upstreamCT = res.headers.get('content-type') || '';
+    // The Supabase client (functions.invoke) always tries to JSON.parse the
+    // body. An empty upstream response (n8n sometimes returns 200 with no body)
+    // would throw "Unexpected end of JSON input" on the client. Normalise to
+    // valid JSON so callers always get a parseable response.
+    let outBody = text;
+    if (!text || !text.trim()) {
+      outBody = JSON.stringify({ ok: res.ok, status: res.status, message: '' });
+    } else if (!upstreamCT.includes('application/json')) {
+      // Wrap non-JSON text bodies so the client can still parse them.
+      outBody = JSON.stringify({ ok: res.ok, status: res.status, message: text });
+    }
+    return new Response(outBody, {
       status: res.status,
-      headers: { ...corsHeaders, 'Content-Type': contentType },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : 'Proxy error' }, 500);
