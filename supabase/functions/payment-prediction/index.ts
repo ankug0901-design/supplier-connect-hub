@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
 
     const { data: invoices } = await admin
       .from("invoices")
-      .select("id, invoice_number, date, due_date, payment_date, amount, status, balance, created_at")
+      .select("id, invoice_number, date, due_date, payment_date, amount, status, balance")
       .eq("supplier_id", supplierId)
       .order("date", { ascending: false })
       .limit(300);
@@ -77,31 +77,25 @@ Deno.serve(async (req) => {
     const paid = all.filter((i) => i.payment_date && i.date);
     const daysToPay = paid.map((i) => daysBetween(i.date as string, i.payment_date as string)).filter((d) => d >= 0 && d < 365);
 
-    const avgDays = daysToPay.length ? Math.round(daysToPay.reduce((s, v) => s + v, 0) / daysToPay.length) : 0;
+    const avgDays = daysToPay.length ? Math.round(daysToPay.reduce((s, v) => s + v, 0) / daysToPay.length) : 30;
     const p50 = Math.round(percentile(daysToPay, 0.5));
     const p90 = Math.round(percentile(daysToPay, 0.9));
-
-    // Fixed prediction policy: invoice received-on-portal date + 45 days
-    const PAYMENT_TERM_DAYS = 45;
 
     const today = new Date().toISOString().slice(0, 10);
     const pending = all.filter((i) => i.status !== "paid" && (Number(i.balance ?? i.amount) > 0));
 
     const predictions = pending.map((inv) => {
-      const receivedOnPortal = ((inv as any).created_at
-        ? new Date((inv as any).created_at).toISOString().slice(0, 10)
-        : (inv.date as string));
-      const expected = addDays(receivedOnPortal, PAYMENT_TERM_DAYS);
-      const earliest = addDays(receivedOnPortal, Math.max(0, PAYMENT_TERM_DAYS - 7));
-      const latest = addDays(receivedOnPortal, PAYMENT_TERM_DAYS + 7);
-      const overdue = expected < today;
+      const base = (inv.due_date as string) || (inv.date as string);
+      const expected = (inv.due_date as string) ? addDays(base, Math.max(0, avgDays - 30)) : addDays(base, avgDays);
+      const earliest = (inv.due_date as string) ? base : addDays(inv.date as string, Math.max(0, p50));
+      const latest = addDays(inv.date as string, Math.max(avgDays, p90 || avgDays));
+      const overdue = (inv.due_date as string) && (inv.due_date as string) < today;
       return {
         invoice_id: inv.id,
         invoice_number: inv.invoice_number,
         amount: Number(inv.amount),
         balance: Number(inv.balance ?? inv.amount),
         invoice_date: inv.date,
-        received_on_portal: receivedOnPortal,
         due_date: inv.due_date,
         predicted_payment_date: expected,
         earliest_date: earliest,
@@ -118,11 +112,10 @@ Deno.serve(async (req) => {
       avg_days_to_pay: avgDays,
       median_days_to_pay: p50,
       p90_days_to_pay: p90,
-      payment_term_days: PAYMENT_TERM_DAYS,
-      prediction_basis: "invoice_received_on_portal + 45 days",
       pending_invoice_count: pending.length,
       total_pending_amount_inr: Math.round(totalPending),
     };
+
 
     // AI narrative (short)
     let narrative = "";
@@ -132,8 +125,8 @@ Deno.serve(async (req) => {
         const model = gateway("google/gemini-2.5-flash-lite");
         const { text } = await generateText({
           model,
-          system: "You are a friendly cash-flow advisor for a B2B supplier. Predicted payment dates are calculated as the invoice received-on-portal date + 45 days (standard payment term). Write a SHORT (2-3 sentences) plain-English summary of when this supplier can expect their upcoming payments. Be specific with dates and amounts. No markdown.",
-          prompt: `Stats: ${JSON.stringify(stats)}. Next upcoming predicted payments (received_on_portal + 45 days):\n${JSON.stringify(predictions.slice(0, 5), null, 2)}`,
+          system: "You are a friendly cash-flow advisor for a B2B supplier. Write a SHORT (2-3 sentences) plain-English summary of when this supplier can expect payments, based on their historical payment patterns. Be specific with numbers. No markdown.",
+          prompt: `Stats: ${JSON.stringify(stats)}. Next upcoming predicted payments:\n${JSON.stringify(predictions.slice(0, 5), null, 2)}`,
         });
         narrative = text.trim();
       } catch (err) {
