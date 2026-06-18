@@ -505,14 +505,12 @@ export default function InvoiceUpload() {
     (async () => {
       let items: any[] = extractItems(po);
 
-      // If the selected PO has no synced line items, fetch the live PO list
-      // from Zoho for that supplier's vendor and pick up its items. Works for
-      // both admins (no vendor id on their own profile) and suppliers whose
-      // DB row wasn't synced with items.
+      // Always try to enrich with live Zoho PO data so we get HSN + tax_rate
+      // (these aren't persisted to our DB cache).
       const vendorIdForLive = po.supplierZohoVendorId || supplier?.zoho_vendor_id;
-      if (!items.length && vendorIdForLive) {
+      if (vendorIdForLive) {
         try {
-          const livePos = await fetchPurchaseOrders(vendorIdForLive);
+          const livePos = await fetchLivePurchaseOrdersFromZoho(vendorIdForLive);
           const match = (livePos || []).find(
             (p: any) =>
               p.id === po.id ||
@@ -522,10 +520,30 @@ export default function InvoiceUpload() {
           );
           const liveItems = extractItems(match);
           if (liveItems.length && !cancelled) {
-            items = liveItems;
-            // Cache + force re-render so poHasItems flips true.
+            // Merge live fields (hsn, tax_*) into existing items by line_item_id then name.
+            const liveByLineId: Record<string, any> = {};
+            const liveByName: Record<string, any> = {};
+            liveItems.forEach((li: any) => {
+              const lid = String(li.line_item_id || li.id || '');
+              if (lid) liveByLineId[lid] = li;
+              const nm = String(li.item_name || li.name || li.description || '').trim().toLowerCase();
+              if (nm) liveByName[nm] = li;
+            });
+            const base = items.length ? items : liveItems;
+            items = base.map((it: any) => {
+              const lid = String(it.line_item_id || it.zoho_line_item_id || '');
+              const nm = String(it.item_name || it.name || it.description || '').trim().toLowerCase();
+              const live = (lid && liveByLineId[lid]) || liveByName[nm] || {};
+              return {
+                ...live,
+                ...it,
+                hsn: it.hsn || live.hsn || live.hsn_or_sac || live.hsn_sac || live.sac,
+                tax_percentage: it.tax_percentage ?? live.tax_percentage ?? live.tax_rate,
+                tax_name: it.tax_name || live.tax_name,
+              };
+            });
             setPurchaseOrders((prev) =>
-              prev.map((p: any) => (p.id === po.id ? { ...p, items: liveItems } : p)),
+              prev.map((p: any) => (p.id === po.id ? { ...p, items } : p)),
             );
           }
         } catch (err) {
