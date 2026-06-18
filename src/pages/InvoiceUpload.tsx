@@ -534,14 +534,28 @@ export default function InvoiceUpload() {
       if (!alreadyEnriched && vendorIdForLive) {
         try {
           const livePos = await fetchLivePurchaseOrdersFromZoho(vendorIdForLive);
+          console.debug('[InvoiceUpload] live POs', {
+            count: (livePos || []).length,
+            sampleKeys: livePos?.[0] ? Object.keys(livePos[0]) : [],
+            targetId: po.id,
+            targetPoNumber: po.poNumber,
+          });
           const match = (livePos || []).find(
             (p: any) =>
               p.id === po.id ||
               String(p.id) === String(po.id) ||
+              String(p.purchaseorder_id || '') === String(po.id) ||
               p.poNumber === po.poNumber ||
               p.purchaseorder_number === po.poNumber,
           );
           const liveItems = extractItems(match);
+          console.debug('[InvoiceUpload] live match', {
+            matched: !!match,
+            matchKeys: match ? Object.keys(match) : [],
+            liveItemCount: liveItems.length,
+            firstItemKeys: liveItems[0] ? Object.keys(liveItems[0]) : [],
+            firstItem: liveItems[0],
+          });
           if (liveItems.length && !cancelled) {
             // Merge live fields (hsn, tax_*) into existing items by line_item_id then name.
             const liveByLineId: Record<string, any> = {};
@@ -557,11 +571,21 @@ export default function InvoiceUpload() {
               const lid = String(it.line_item_id || it.zoho_line_item_id || '');
               const nm = String(it.item_name || it.name || it.description || '').trim().toLowerCase();
               const live = (lid && liveByLineId[lid]) || liveByName[nm] || {};
+              const hsnVal =
+                it.hsn ||
+                it.hsn_or_sac ||
+                it.hsn_sac ||
+                live.hsn ||
+                live.hsn_or_sac ||
+                live.hsn_sac ||
+                live.sac ||
+                '';
               return {
                 ...live,
                 ...it,
-                hsn: it.hsn || live.hsn || live.hsn_or_sac || live.hsn_sac || live.sac,
-                tax_percentage: it.tax_percentage ?? live.tax_percentage ?? live.tax_rate,
+                hsn: hsnVal,
+                tax_percentage:
+                  it.tax_percentage ?? it.tax_rate ?? live.tax_percentage ?? live.tax_rate,
                 tax_name: it.tax_name || live.tax_name,
               };
             });
