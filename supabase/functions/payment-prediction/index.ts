@@ -125,8 +125,8 @@ Deno.serve(async (req) => {
         const model = gateway("google/gemini-2.5-flash-lite");
         const { text } = await generateText({
           model,
-          system: "You are a friendly cash-flow advisor for a B2B supplier. Predicted payment dates are calculated as the invoice received-on-portal date + 45 days (standard payment term). Write a SHORT (2-3 sentences) plain-English summary of when this supplier can expect their upcoming payments. Be specific with dates and amounts. No markdown.",
-          prompt: `Stats: ${JSON.stringify(stats)}. Next upcoming predicted payments (received_on_portal + 45 days):\n${JSON.stringify(predictions.slice(0, 5), null, 2)}`,
+          system: "You are a friendly cash-flow advisor for a B2B supplier. Write a SHORT (2-3 sentences) plain-English summary of when this supplier can expect payments, based on their historical payment patterns. Be specific with numbers. No markdown.",
+          prompt: `Stats: ${JSON.stringify(stats)}. Next upcoming predicted payments:\n${JSON.stringify(predictions.slice(0, 5), null, 2)}`,
         });
         narrative = text.trim();
       } catch (err) {
