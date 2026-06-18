@@ -289,7 +289,7 @@ export default function PODetail() {
                   <tbody className="divide-y divide-border">
                     {(order.items || []).length === 0 && (
                       <tr>
-                        <td colSpan={9} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">
                           No line items available for this purchase order.
                         </td>
                       </tr>
@@ -331,20 +331,20 @@ export default function PODetail() {
                       <>
                         {order.subTotal != null && (
                           <tr>
-                            <td colSpan={9} className="px-4 py-2 text-right text-sm text-muted-foreground">Sub Total</td>
+                            <td colSpan={8} className="px-4 py-2 text-right text-sm text-muted-foreground">Sub Total</td>
                             <td className="px-4 py-2 text-right text-sm">{formatCurrency(Number(order.subTotal || 0))}</td>
                           </tr>
                         )}
                         {order.taxTotal != null && (
                           <tr>
-                            <td colSpan={9} className="px-4 py-2 text-right text-sm text-muted-foreground">Total Tax</td>
+                            <td colSpan={8} className="px-4 py-2 text-right text-sm text-muted-foreground">Total Tax</td>
                             <td className="px-4 py-2 text-right text-sm">{formatCurrency(Number(order.taxTotal || 0))}</td>
                           </tr>
                         )}
                       </>
                     )}
                     <tr className="bg-muted/50">
-                      <td colSpan={9} className="px-4 py-4 text-right font-semibold">Grand Total</td>
+                      <td colSpan={8} className="px-4 py-4 text-right font-semibold">Grand Total</td>
                       <td className="px-4 py-4 text-right font-bold text-primary">{formatCurrency(order.amount)}</td>
                     </tr>
                   </tfoot>
