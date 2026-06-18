@@ -16,12 +16,11 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-lovable-signature, x-lovable-timestamp, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
-const INVITE_SUBJECT = "You're invited to Supplier Connect Hub | Emboss Marketing"
 const EMAIL_SUBJECTS: Record<string, string> = {
-  signup: 'Confirm your email | Supplier Connect Hub | Emboss Marketing',
-  invite: INVITE_SUBJECT,
+  signup: 'Confirm your email',
+  invite: "You've been invited",
   magiclink: 'Your login link',
-  recovery: 'Reset your password | Supplier Connect Hub | Emboss Marketing',
+  recovery: 'Reset your password',
   email_change: 'Confirm your new email',
   reauthentication: 'Your verification code',
 }
@@ -47,7 +46,7 @@ const FROM_DOMAIN = "notify.embossmarketing.in" // Domain shown in From address 
 // The sample email uses a fixed placeholder (RFC 6761 .test TLD) so the Go backend
 // can always find-and-replace it with the actual recipient when sending test emails,
 // even if the project's domain has changed since the template was scaffolded.
-const SAMPLE_PROJECT_URL = "https://supplierconnect.embossmarketing.in"
+const SAMPLE_PROJECT_URL = "https://embosssupplierportal.lovable.app"
 const SAMPLE_EMAIL = "user@example.test"
 const SAMPLE_DATA: Record<string, object> = {
   signup: {
@@ -210,18 +209,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   const emailType = payload.data.action_type
   console.log('Received auth event', { emailType, email: payload.data.email, run_id })
 
-  // Re-invite handling: when admin re-invites an existing user, Supabase uses
-  // the recovery flow. The admin function sets user_metadata.is_reinvite = true
-  // so we can render the Invite email instead of the Recovery email.
-  const isReinvite =
-    emailType === 'recovery' &&
-    (payload.data.user_metadata?.is_reinvite === true ||
-      payload.data.user_metadata?.is_reinvite === 'true')
-
-  const templateKey = isReinvite ? 'invite' : emailType
-  const subjectKey = isReinvite ? 'invite' : emailType
-
-  const EmailTemplate = EMAIL_TEMPLATES[templateKey]
+  const EmailTemplate = EMAIL_TEMPLATES[emailType]
   if (!EmailTemplate) {
     console.error('Unknown email type', { emailType, run_id })
     return new Response(
@@ -272,7 +260,7 @@ async function handleWebhook(req: Request): Promise<Response> {
       to: payload.data.email,
       from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
-      subject: EMAIL_SUBJECTS[subjectKey] || 'Notification',
+      subject: EMAIL_SUBJECTS[emailType] || 'Notification',
       html,
       text,
       purpose: 'transactional',
