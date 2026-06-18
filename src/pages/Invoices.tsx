@@ -69,11 +69,14 @@ function deriveStatusAndDays(inv: any): { status: string; daysInfo: string } {
   return { status, daysInfo };
 }
 
+const PAGE_SIZE = 15;
+
 export default function Invoices() {
   const { supplier, isAdmin } = useAuth();
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [enriching, setEnriching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
@@ -81,6 +84,8 @@ export default function Invoices() {
   const [attachment, setAttachment] = useState<BillAttachment | null>(null);
   const [attachmentInvoice, setAttachmentInvoice] = useState<any | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
 
   const closeAttachment = () => {
     setAttachment(null);
