@@ -233,10 +233,15 @@ export default function AdminSuppliers() {
                     </TableCell>
                     <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
-                        <Pencil className="h-4 w-4" />
-                        Edit
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setPermsFor(s)} disabled={!s.user_id} title={s.user_id ? 'Per-user permissions' : 'User has not signed in yet'}>
+                          <ShieldCheck className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
