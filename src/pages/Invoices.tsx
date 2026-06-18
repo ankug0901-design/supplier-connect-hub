@@ -441,8 +441,45 @@ export default function Invoices() {
                 No invoices found matching your criteria.
               </div>
             )}
+            {filteredInvoices.length > 0 && (
+              <div className="flex flex-col gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <span>
+                    Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filteredInvoices.length)} of {filteredInvoices.length}
+                  </span>
+                  {enriching && (
+                    <span className="flex items-center gap-1 text-xs">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading details…
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
+
       </div>
 
       {/* Invoice Details Modal */}
