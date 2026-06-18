@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Loader2, CheckCircle2, Minus, UserPlus, Pencil } from 'lucide-react';
+import { Loader2, CheckCircle2, Minus, UserPlus, Pencil, ShieldCheck } from 'lucide-react';
+import { UserPermissionsDialog } from '@/components/admin/UserPermissionsDialog';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface SupplierRow {
   id: string;
+  user_id: string | null;
   name: string;
   company: string;
   email: string;
@@ -46,13 +48,14 @@ export default function AdminSuppliers() {
   const [editing, setEditing] = useState<SupplierRow | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft>(emptyEdit);
   const [saving, setSaving] = useState(false);
+  const [permsFor, setPermsFor] = useState<SupplierRow | null>(null);
   const { toast } = useToast();
 
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('suppliers')
-      .select('id, name, company, email, phone, gst_number, address, zoho_vendor_id, role, created_at')
+      .select('id, user_id, name, company, email, phone, gst_number, address, zoho_vendor_id, role, created_at')
       .order('created_at', { ascending: false });
     if (!error && data) {
       setSuppliers(data as SupplierRow[]);
@@ -230,10 +233,15 @@ export default function AdminSuppliers() {
                     </TableCell>
                     <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
-                        <Pencil className="h-4 w-4" />
-                        Edit
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setPermsFor(s)} disabled={!s.user_id} title={s.user_id ? 'Per-user permissions' : 'User has not signed in yet'}>
+                          <ShieldCheck className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -294,6 +302,14 @@ export default function AdminSuppliers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <UserPermissionsDialog
+        open={!!permsFor}
+        onOpenChange={(o) => !o && setPermsFor(null)}
+        userId={permsFor?.user_id ?? null}
+        userLabel={permsFor ? `${permsFor.name} (${permsFor.email})` : ''}
+        role={permsFor?.role ?? 'supplier'}
+      />
     </DashboardLayout>
   );
 }

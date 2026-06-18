@@ -55,31 +55,38 @@ const adminNavigation: NavItem[] = [
 
 export function Sidebar() {
   const location = useLocation();
-  const { supplier, logout, isAdmin, isSuperAdmin, role } = useAuth();
+  const { supplier, logout, isAdmin, isSuperAdmin, role, user } = useAuth();
   const [pendingRegs, setPendingRegs] = useState(0);
   const [pendingRfqs, setPendingRfqs] = useState(0);
   const [pendingRfqsAll, setPendingRfqsAll] = useState(0);
   const [sectionAccess, setSectionAccess] = useState<Record<string, boolean>>({});
+  const [userOverrides, setUserOverrides] = useState<Record<string, boolean>>({});
 
-  // Load section access for the current user's role (super admin bypasses all checks)
+  // Load section access for the current user's role + per-user overrides
   useEffect(() => {
     if (isSuperAdmin || !role) return;
     const loadAccess = async () => {
-      const { data } = await supabase
-        .from('role_section_access')
-        .select('section_key, enabled')
-        .eq('role', role);
-      const map: Record<string, boolean> = {};
-      (data || []).forEach((r: any) => { map[r.section_key] = r.enabled; });
-      setSectionAccess(map);
+      const [{ data: roleRows }, { data: userRows }] = await Promise.all([
+        supabase.from('role_section_access').select('section_key, enabled').eq('role', role),
+        user?.id
+          ? supabase.from('supplier_section_access').select('section_key, enabled').eq('user_id', user.id)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const rmap: Record<string, boolean> = {};
+      (roleRows || []).forEach((r: any) => { rmap[r.section_key] = r.enabled; });
+      setSectionAccess(rmap);
+      const umap: Record<string, boolean> = {};
+      (userRows || []).forEach((r: any) => { umap[r.section_key] = r.enabled; });
+      setUserOverrides(umap);
     };
     loadAccess();
     const channel = supabase
       .channel('role_section_access_sidebar')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'role_section_access' }, () => loadAccess())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_section_access' }, () => loadAccess())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [isSuperAdmin, role]);
+  }, [isSuperAdmin, role, user?.id]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -165,6 +172,7 @@ export function Sidebar() {
   const isAllowed = (sectionKey?: string) => {
     if (!sectionKey) return true;
     if (isSuperAdmin) return true;
+    if (sectionKey in userOverrides) return userOverrides[sectionKey];
     return sectionAccess[sectionKey] !== false;
   };
   const visibleSupplierItems = supplierNavigation.filter((i) => isAllowed(i.sectionKey));
