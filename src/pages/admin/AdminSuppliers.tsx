@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Loader2, CheckCircle2, Minus, UserPlus, Pencil } from 'lucide-react';
+import { Loader2, CheckCircle2, Minus, UserPlus, Pencil, ShieldCheck } from 'lucide-react';
+import { UserPermissionsDialog } from '@/components/admin/UserPermissionsDialog';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
