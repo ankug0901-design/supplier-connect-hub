@@ -22,6 +22,7 @@ import AdminVendorScores from "./pages/admin/AdminVendorScores";
 import AdminThreeWayMatch from "./pages/admin/AdminThreeWayMatch";
 import AdminPagePermissions from "./pages/admin/AdminPagePermissions";
 import AdminUserRoles from "./pages/admin/AdminUserRoles";
+import AdminUserAccessReport from "./pages/admin/AdminUserAccessReport";
 import RfqRequests from "./pages/RfqRequests";
 import ResetPassword from "./pages/ResetPassword";
 import { SupplierSectionGuard } from "./components/SupplierSectionGuard";
