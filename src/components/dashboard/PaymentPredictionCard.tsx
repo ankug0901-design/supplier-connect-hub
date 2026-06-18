@@ -49,6 +49,7 @@ function fmtDate(d: string) {
 
 export function PaymentPredictionCard() {
   const { toast } = useToast();
+  const { isImpersonating, impersonatedSupplier } = useAuth();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<Data | null>(null);
 
@@ -57,6 +58,10 @@ export function PaymentPredictionCard() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
+      const body: Record<string, unknown> = {};
+      if (isImpersonating && impersonatedSupplier?.id) {
+        body.supplier_id = impersonatedSupplier.id;
+      }
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payment-prediction`, {
         method: 'POST',
         headers: {
@@ -64,7 +69,7 @@ export function PaymentPredictionCard() {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed');
@@ -78,7 +83,8 @@ export function PaymentPredictionCard() {
 
   useEffect(() => {
     load();
-  }, []);
+     
+  }, [isImpersonating, impersonatedSupplier?.id]);
 
   return (
     <Card>
