@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_roles: {
+        Row: {
+          created_at: string
+          is_system: boolean
+          label: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          is_system?: boolean
+          label: string
+          role: string
+        }
+        Update: {
+          created_at?: string
+          is_system?: boolean
+          label?: string
+          role?: string
+        }
+        Relationships: []
+      }
       awb: {
         Row: {
           awb_number: string
