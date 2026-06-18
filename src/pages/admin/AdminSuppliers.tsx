@@ -48,13 +48,14 @@ export default function AdminSuppliers() {
   const [editing, setEditing] = useState<SupplierRow | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft>(emptyEdit);
   const [saving, setSaving] = useState(false);
+  const [permsFor, setPermsFor] = useState<SupplierRow | null>(null);
   const { toast } = useToast();
 
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('suppliers')
-      .select('id, name, company, email, phone, gst_number, address, zoho_vendor_id, role, created_at')
+      .select('id, user_id, name, company, email, phone, gst_number, address, zoho_vendor_id, role, created_at')
       .order('created_at', { ascending: false });
     if (!error && data) {
       setSuppliers(data as SupplierRow[]);
