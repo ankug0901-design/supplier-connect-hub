@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, useReadOnly } from '@/contexts/AuthContext';
 import {
   fetchPurchaseOrders,
   generateChallans,
@@ -22,6 +22,7 @@ type GeneratedChallan = { dc_number: string; deliver_to: string; total: string }
 export default function DeliveryChallan() {
   const { toast } = useToast();
   const { supplier, isAdmin } = useAuth();
+  const isReadOnly = useReadOnly();
   const [selectedPO, setSelectedPO] = useState('');
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -196,17 +197,18 @@ export default function DeliveryChallan() {
 
               <Button
                 onClick={handleGenerate}
-                disabled={!excelFile || isGenerating || (logisticsScope === 'client' && !selectedPO)}
+                disabled={!excelFile || isGenerating || isReadOnly || (logisticsScope === 'client' && !selectedPO)}
                 className="w-full gap-2"
                 variant="accent"
                 size="lg"
+                title={isReadOnly ? 'Read-only: exit "View as" to generate challans' : undefined}
               >
                 {isGenerating ? (
                   <>Generating Challans...</>
                 ) : (
                   <>
                     <Upload className="h-4 w-4" />
-                    Generate Delivery Challans
+                    {isReadOnly ? 'Generate (disabled in View-as mode)' : 'Generate Delivery Challans'}
                   </>
                 )}
               </Button>

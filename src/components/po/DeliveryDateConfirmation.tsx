@@ -3,7 +3,9 @@ import { Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useReadOnly } from '@/contexts/AuthContext';
 import { confirmPoDeliveryDates } from '@/services/api';
+
 
 type Item = {
   id: string;
@@ -27,6 +29,7 @@ export function DeliveryDateConfirmation({
   onSaved: () => void;
 }) {
   const { toast } = useToast();
+  const isReadOnly = useReadOnly();
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -133,8 +136,11 @@ export function DeliveryDateConfirmation({
         </table>
       </div>
 
-      <div className="mt-4 flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
+      <div className="mt-4 flex items-center justify-end gap-3">
+        {isReadOnly && (
+          <span className="text-xs text-warning">Read-only (viewing as supplier)</span>
+        )}
+        <Button onClick={handleSave} disabled={saving || isReadOnly} title={isReadOnly ? 'Read-only: exit "View as" to save' : undefined}>
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {confirmed ? 'Update dates' : 'Save delivery dates'}
         </Button>

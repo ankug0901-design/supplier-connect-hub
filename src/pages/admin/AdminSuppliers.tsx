@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Loader2, CheckCircle2, Minus, UserPlus, Pencil, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Loader2, CheckCircle2, Minus, UserPlus, Pencil, ShieldCheck, Eye } from 'lucide-react';
 import { UserPermissionsDialog } from '@/components/admin/UserPermissionsDialog';
+import { useAuth } from '@/contexts/AuthContext';
+
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -50,6 +53,28 @@ export default function AdminSuppliers() {
   const [saving, setSaving] = useState(false);
   const [permsFor, setPermsFor] = useState<SupplierRow | null>(null);
   const { toast } = useToast();
+  const { startImpersonation, realIsAdmin } = useAuth();
+  const navigate = useNavigate();
+
+  const handleViewAs = (s: SupplierRow) => {
+    startImpersonation({
+      id: s.id,
+      user_id: s.user_id,
+      name: s.name,
+      email: s.email,
+      phone: s.phone || '',
+      company: s.company,
+      gstNumber: s.gst_number || '',
+      address: s.address || '',
+      zoho_vendor_id: s.zoho_vendor_id || '',
+      role: s.role || 'supplier',
+    });
+    toast({
+      title: 'Viewing as supplier',
+      description: `${s.company || s.name} — read-only mode. Use the banner to exit.`,
+    });
+    navigate('/dashboard');
+  };
 
   const load = async () => {
     setLoading(true);
@@ -234,6 +259,16 @@ export default function AdminSuppliers() {
                     <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewAs(s)}
+                          disabled={!realIsAdmin || s.role === 'admin'}
+                          title={s.role === 'admin' ? 'Cannot impersonate an admin' : 'View portal as this supplier (read-only)'}
+                        >
+                          <Eye className="h-4 w-4" />
+                          View as
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => setPermsFor(s)} disabled={!s.user_id} title={s.user_id ? 'Per-user permissions' : 'User has not signed in yet'}>
                           <ShieldCheck className="h-4 w-4" />
                         </Button>

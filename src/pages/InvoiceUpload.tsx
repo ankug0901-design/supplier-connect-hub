@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, useReadOnly } from '@/contexts/AuthContext';
 import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, submitInvoice, fetchInvoicedQuantitiesForPo } from '@/services/api';
 import { preparePodFiles } from '@/lib/pod-files';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
@@ -309,6 +309,7 @@ export default function InvoiceUpload() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { supplier, isAdmin } = useAuth();
+  const isReadOnly = useReadOnly();
   const preselectedPO = searchParams.get('po');
 
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
@@ -595,6 +596,14 @@ export default function InvoiceUpload() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isReadOnly) {
+      toast({
+        title: 'Read-only mode',
+        description: 'You are viewing this portal as a supplier. Submitting invoices is disabled.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!supplier) return;
     const selectedPOData = purchaseOrders.find((po: any) => po.id === selectedPO);
     if (!selectedPOData) return;
@@ -954,10 +963,15 @@ export default function InvoiceUpload() {
             const selectedPoData = purchaseOrders.find((p: any) => p.id === selectedPO);
             const deliveryPending = !!selectedPoData && !selectedPoData.deliveryDatesConfirmedAt;
             if (deliveryPending) missing.push('Confirmed delivery dates on the PO');
-            const disabled = missing.length > 0 || isSubmitting;
+            const disabled = missing.length > 0 || isSubmitting || isReadOnly;
             return (
               <div className="flex flex-col items-end gap-3">
-                {missing.length > 0 && (
+                {isReadOnly && (
+                  <p className="text-xs text-warning">
+                    Read-only mode (viewing as supplier) — submission is disabled.
+                  </p>
+                )}
+                {!isReadOnly && missing.length > 0 && (
                   <p className="text-xs text-destructive">
                     Missing: {missing.join(', ')}
                   </p>
@@ -968,7 +982,7 @@ export default function InvoiceUpload() {
                       Cancel
                     </Button>
                   </Link>
-                  <Button type="submit" variant="accent" size="lg" disabled={disabled}>
+                  <Button type="submit" variant="accent" size="lg" disabled={disabled} title={isReadOnly ? 'Read-only: exit "View as" to submit' : undefined}>
                     {isSubmitting ? 'Submitting...' : 'Submit Invoice'}
                   </Button>
                 </div>
