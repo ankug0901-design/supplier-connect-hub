@@ -233,13 +233,43 @@ export default function Invoices() {
               </SelectContent>
             </Select>
           </div>
-          <Link to="/invoices/upload">
-            <Button variant="accent" className="gap-2">
-              <Plus className="h-4 w-4" />
-              Upload Invoice
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={filteredInvoices.length === 0}
+              onClick={() => {
+                const rows = filteredInvoices.map((i: any) => ({
+                  invoiceNumber: i.invoiceNumber || '',
+                  supplier: i.supplierName || '',
+                  poNumber: i.poNumber || '',
+                  invoiceDate: i.date ? new Date(i.date).toLocaleDateString('en-IN') : '',
+                  submittedOn: i.submittedOn ? new Date(i.submittedOn).toLocaleDateString('en-IN') : '',
+                  amount: Number(i.amount || 0),
+                  status: i.status || '',
+                }));
+                exportToCsv(`invoices-${new Date().toISOString().slice(0,10)}.csv`, rows, [
+                  { key: 'invoiceNumber', header: 'Invoice #' },
+                  { key: 'supplier', header: 'Supplier' },
+                  { key: 'poNumber', header: 'PO #' },
+                  { key: 'invoiceDate', header: 'Invoice Date' },
+                  { key: 'submittedOn', header: 'Submitted On' },
+                  { key: 'amount', header: 'Amount (INR)' },
+                  { key: 'status', header: 'Status' },
+                ]);
+                toast({ title: 'Exported', description: `${rows.length} invoices downloaded.` });
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Export
             </Button>
-          </Link>
-        </div>
+            <Link to="/invoices/upload">
+              <Button variant="accent" className="gap-2">
+                <Plus className="h-4 w-4" />
+                Upload Invoice
+              </Button>
+            </Link>
+          </div>
 
         {/* Table */}
         {isLoading ? (
