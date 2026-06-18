@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: callerSupplier } = await admin.from('suppliers').select('role').eq('user_id', userRes.user.id).maybeSingle();
-    if (callerSupplier?.role !== 'admin') {
+    if (callerSupplier?.role !== 'admin' && callerSupplier?.role !== 'super_user') {
       return new Response(JSON.stringify({ error: 'Forbidden - admin only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
