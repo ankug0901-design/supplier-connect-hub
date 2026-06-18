@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface SupplierRow {
   id: string;
+  user_id: string | null;
   name: string;
   company: string;
   email: string;
