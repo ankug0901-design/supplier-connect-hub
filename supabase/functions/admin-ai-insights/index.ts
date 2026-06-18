@@ -605,19 +605,7 @@ Deno.serve(async (req) => {
           push(sid, { type: "low_score", detail: `Performance score ${score.score} (${score.grade}). Weaknesses: ${(score.weaknesses || []).join("; ")}`, priority: "medium" });
         }
       }
-      // RFQ compliance — open RFQs awaiting supplier quote
-      for (const r of openRfqs || []) {
-        const sid = r.supplier_id || supByEmail.get(String(r.supplier_email || "").toLowerCase())?.id;
-        if (!sid) continue;
-        const overdue = r.response_deadline && String(r.response_deadline) < today;
-        push(sid, {
-          type: overdue ? "rfq_overdue_response" : "rfq_pending_response",
-          detail: overdue
-            ? `RFQ ${r.rfq_id} for "${r.product_name}" — quote was due by ${r.response_deadline} and is still not submitted`
-            : `RFQ ${r.rfq_id} for "${r.product_name}" is awaiting your quote${r.response_deadline ? ` (deadline ${r.response_deadline})` : ""}`,
-          priority: overdue ? "high" : "medium",
-        });
-      }
+      // RFQ pending quote reminders intentionally excluded from supplier nudges.
 
       // Stale registrations as their own nudges
       const regNudges = (pendingRegs || []).map((r: any) => ({
