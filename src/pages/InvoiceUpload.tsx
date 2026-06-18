@@ -309,6 +309,7 @@ export default function InvoiceUpload() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { supplier, isAdmin } = useAuth();
+  const isReadOnly = useReadOnly();
   const preselectedPO = searchParams.get('po');
 
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
@@ -595,6 +596,14 @@ export default function InvoiceUpload() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isReadOnly) {
+      toast({
+        title: 'Read-only mode',
+        description: 'You are viewing this portal as a supplier. Submitting invoices is disabled.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!supplier) return;
     const selectedPOData = purchaseOrders.find((po: any) => po.id === selectedPO);
     if (!selectedPOData) return;
