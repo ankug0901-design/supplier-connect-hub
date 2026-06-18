@@ -208,6 +208,33 @@ function LineItemsInput({
                       />
                     )}
                   </TableCell>
+                  <TableCell className="py-3 text-right">
+                    {lockDetails ? (
+                      <div className="text-sm">
+                        {item.tax_rate != null && !Number.isNaN(item.tax_rate) ? (
+                          <>
+                            <div className="font-medium">{Number(item.tax_rate).toFixed(2)}%</div>
+                            {item.tax_name && (
+                              <div className="text-xs text-muted-foreground">{item.tax_name}</div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    ) : (
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="text-right"
+                        placeholder="0"
+                        value={item.tax_rate ?? ''}
+                        onChange={(e) => update(i, 'tax_rate', parseFloat(e.target.value) || 0)}
+                        disabled={!isSelected}
+                      />
+                    )}
+                  </TableCell>
                   <TableCell className="py-3">
                     <Popover>
                       <PopoverTrigger asChild>
