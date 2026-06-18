@@ -51,6 +51,8 @@ export default function AdminUserRoles() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>(SYSTEM_FALLBACK);
+  const roleLabel = (r: string) => roleOptions.find((o) => o.value === r)?.label ?? r;
 
   const load = async () => {
     setLoading(true);
