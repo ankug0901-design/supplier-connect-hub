@@ -69,7 +69,7 @@ function deriveStatusAndDays(inv: any): { status: string; daysInfo: string } {
   return { status, daysInfo };
 }
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 export default function Invoices() {
   const { supplier, isAdmin } = useAuth();
