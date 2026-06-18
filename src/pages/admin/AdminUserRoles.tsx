@@ -68,7 +68,12 @@ export default function AdminUserRoles() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    supabase.from('app_roles').select('role, label').order('label').then(({ data }) => {
+      if (data && data.length) setRoleOptions(data.map((r: any) => ({ value: r.role, label: r.label })));
+    });
+  }, []);
 
   const changeRole = async (row: Row, next: string) => {
     if (next === row.role) return;
