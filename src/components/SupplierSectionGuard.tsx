@@ -45,6 +45,15 @@ export function SupplierSectionGuard({ sectionKey, children }: Props) {
     );
   }
 
-  if (!enabled) return <Navigate to="/dashboard" replace />;
+  if (!enabled) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center">
+        <h1 className="text-2xl font-bold mb-2">Access restricted</h1>
+        <p className="text-muted-foreground max-w-md">
+          Your role does not have access to this page. Please contact an administrator if you believe this is a mistake.
+        </p>
+      </div>
+    );
+  }
   return <>{children}</>;
 }
