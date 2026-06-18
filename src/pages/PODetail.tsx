@@ -311,6 +311,26 @@ export default function PODetail() {
                           ? `${Number(taxPct)}%${taxName ? ` (${taxName})` : ''}`
                           : taxName || '—';
                       const confirmed = item.confirmedDeliveryDate || item.confirmed_delivery_date;
+                      const dispatchStatus = (() => {
+                        if (invoiced >= qty && qty > 0) {
+                          return { label: 'Dispatched', cls: 'bg-success/10 text-success border-success/20' };
+                        }
+                        if (!order.deliveryDatesConfirmedAt || !confirmed) {
+                          return { label: 'Awaiting confirmation', cls: 'bg-muted text-muted-foreground border-border' };
+                        }
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const due = new Date(confirmed);
+                        due.setHours(0, 0, 0, 0);
+                        const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
+                        if (invoiced > 0 && invoiced < qty) {
+                          return { label: 'Partially dispatched', cls: 'bg-accent/10 text-accent border-accent/20' };
+                        }
+                        if (diff < 0) return { label: `Overdue by ${Math.abs(diff)}d`, cls: 'bg-destructive/10 text-destructive border-destructive/20' };
+                        if (diff === 0) return { label: 'Due today', cls: 'bg-warning/10 text-warning border-warning/20' };
+                        if (diff <= 3) return { label: `Due in ${diff}d`, cls: 'bg-warning/10 text-warning border-warning/20' };
+                        return { label: `Scheduled (${diff}d)`, cls: 'bg-info/10 text-info border-info/20' };
+                      })();
                       return (
                         <tr key={item.id ?? idx}>
                           <td className="px-4 py-4 text-sm">{name || '—'}</td>
@@ -321,6 +341,11 @@ export default function PODetail() {
                           <td className="px-4 py-4 text-right text-sm">{formatCurrency(rate)}</td>
                           <td className="px-4 py-4 text-right text-sm text-muted-foreground">{taxLabel}</td>
                           <td className="px-4 py-4 text-sm text-muted-foreground">{formatDate(confirmed)}</td>
+                          <td className="px-4 py-4 text-sm">
+                            <Badge variant="outline" className={cn('font-medium', dispatchStatus.cls)}>
+                              {dispatchStatus.label}
+                            </Badge>
+                          </td>
                           <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(total)}</td>
                         </tr>
                       );
