@@ -529,14 +529,13 @@ Deno.serve(async (req) => {
       const today = new Date().toISOString().slice(0, 10);
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
-      const [{ data: suppliers }, { data: pendingRegs }, { data: pendingInvoices }, { data: openPos }, { data: allInvoicesForPos }, { data: latestScores }, { data: openRfqs }] = await Promise.all([
+      const [{ data: suppliers }, { data: pendingRegs }, { data: pendingInvoices }, { data: openPos }, { data: allInvoicesForPos }, { data: latestScores }] = await Promise.all([
         admin.from("suppliers").select("id, company, email, name").eq("role", "supplier"),
         admin.from("supplier_registrations").select("id, company, email, created_at, status").eq("status", "pending").lte("created_at", sevenDaysAgo),
         admin.from("invoices").select("id, supplier_id, invoice_number, amount, status, date, po_id").eq("status", "pending"),
         admin.from("purchase_orders").select("id, supplier_id, po_number, amount, status, expected_delivery").in("status", ["pending", "open"]),
         admin.from("invoices").select("id, po_id, amount, status"),
         admin.from("vendor_scores").select("supplier_id, score, grade, weaknesses, scored_at").order("scored_at", { ascending: false }).limit(500),
-        admin.from("rfq_portal_requests").select("id, rfq_id, product_name, supplier_id, supplier_email, supplier_company, status, response_deadline, quote_submitted_at, created_at").is("quote_submitted_at", null).in("status", ["pending", "open", "sent", "in_review"]),
       ]);
 
       const supById = new Map((suppliers || []).map((s: any) => [s.id, s]));
