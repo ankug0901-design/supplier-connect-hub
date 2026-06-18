@@ -136,16 +136,36 @@ export default function Invoices() {
         const data = isAdmin
           ? await fetchInvoicesFromDb()
           : await fetchInvoices(supplier!.zoho_vendor_id!);
-        // Merge supplier submission timestamps from invoice_line_items
+
+        // First paint: show invoices immediately (with derived status), so the
+        // first 15 rows render right away.
+        const baseEnriched = (data || []).map((i: any) => {
+          const derived = deriveStatusAndDays(i);
+          return {
+            ...i,
+            status: derived.status,
+            daysInfo: i.daysInfo || derived.daysInfo,
+            submittedAt: null as string | null,
+          };
+        });
+        if (cancelled) return;
+        setInvoices(baseEnriched);
+        setIsLoading(false);
+
+        // Background: fetch supplier submission timestamps from invoice_line_items
+        // and merge them in once available. This does not block the first paint.
         const invoiceNumbers = Array.from(
-          new Set((data || []).map((i: any) => i.invoiceNumber).filter(Boolean)),
+          new Set(baseEnriched.map((i: any) => i.invoiceNumber).filter(Boolean)),
         ) as string[];
-        let submissionByNumber: Record<string, string> = {};
-        if (invoiceNumbers.length) {
+        if (!invoiceNumbers.length) return;
+        setEnriching(true);
+        try {
           const { data: liData } = await supabase
             .from('invoice_line_items')
             .select('invoice_number, created_at')
             .in('invoice_number', invoiceNumbers);
+          if (cancelled) return;
+          const submissionByNumber: Record<string, string> = {};
           (liData || []).forEach((row: any) => {
             const k = row.invoice_number;
             if (!k) return;
@@ -153,20 +173,18 @@ export default function Invoices() {
               submissionByNumber[k] = row.created_at;
             }
           });
+          if (cancelled) return;
+          setInvoices((prev) =>
+            prev.map((i: any) => ({
+              ...i,
+              submittedAt: submissionByNumber[i.invoiceNumber] || i.submittedAt || null,
+            })),
+          );
+        } finally {
+          if (!cancelled) setEnriching(false);
         }
-        const enriched = (data || []).map((i: any) => {
-          const derived = deriveStatusAndDays(i);
-          return {
-            ...i,
-            status: derived.status,
-            daysInfo: i.daysInfo || derived.daysInfo,
-            submittedAt: submissionByNumber[i.invoiceNumber] || null,
-          };
-        });
-        if (!cancelled) setInvoices(enriched);
       } catch (err) {
         console.error('Failed to load invoices', err);
-      } finally {
         if (!cancelled) setIsLoading(false);
       }
     })();
@@ -174,6 +192,7 @@ export default function Invoices() {
       cancelled = true;
     };
   }, [supplier?.zoho_vendor_id, isAdmin]);
+
 
   const filteredInvoices = invoices.filter((invoice: any) => {
     const matchesSearch =
