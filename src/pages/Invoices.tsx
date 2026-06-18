@@ -69,11 +69,14 @@ function deriveStatusAndDays(inv: any): { status: string; daysInfo: string } {
   return { status, daysInfo };
 }
 
+const PAGE_SIZE = 15;
+
 export default function Invoices() {
   const { supplier, isAdmin } = useAuth();
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [enriching, setEnriching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
@@ -81,6 +84,8 @@ export default function Invoices() {
   const [attachment, setAttachment] = useState<BillAttachment | null>(null);
   const [attachmentInvoice, setAttachmentInvoice] = useState<any | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
 
   const closeAttachment = () => {
     setAttachment(null);
@@ -131,16 +136,36 @@ export default function Invoices() {
         const data = isAdmin
           ? await fetchInvoicesFromDb()
           : await fetchInvoices(supplier!.zoho_vendor_id!);
-        // Merge supplier submission timestamps from invoice_line_items
+
+        // First paint: show invoices immediately (with derived status), so the
+        // first 15 rows render right away.
+        const baseEnriched = (data || []).map((i: any) => {
+          const derived = deriveStatusAndDays(i);
+          return {
+            ...i,
+            status: derived.status,
+            daysInfo: i.daysInfo || derived.daysInfo,
+            submittedAt: null as string | null,
+          };
+        });
+        if (cancelled) return;
+        setInvoices(baseEnriched);
+        setIsLoading(false);
+
+        // Background: fetch supplier submission timestamps from invoice_line_items
+        // and merge them in once available. This does not block the first paint.
         const invoiceNumbers = Array.from(
-          new Set((data || []).map((i: any) => i.invoiceNumber).filter(Boolean)),
+          new Set(baseEnriched.map((i: any) => i.invoiceNumber).filter(Boolean)),
         ) as string[];
-        let submissionByNumber: Record<string, string> = {};
-        if (invoiceNumbers.length) {
+        if (!invoiceNumbers.length) return;
+        setEnriching(true);
+        try {
           const { data: liData } = await supabase
             .from('invoice_line_items')
             .select('invoice_number, created_at')
             .in('invoice_number', invoiceNumbers);
+          if (cancelled) return;
+          const submissionByNumber: Record<string, string> = {};
           (liData || []).forEach((row: any) => {
             const k = row.invoice_number;
             if (!k) return;
@@ -148,20 +173,18 @@ export default function Invoices() {
               submissionByNumber[k] = row.created_at;
             }
           });
+          if (cancelled) return;
+          setInvoices((prev) =>
+            prev.map((i: any) => ({
+              ...i,
+              submittedAt: submissionByNumber[i.invoiceNumber] || i.submittedAt || null,
+            })),
+          );
+        } finally {
+          if (!cancelled) setEnriching(false);
         }
-        const enriched = (data || []).map((i: any) => {
-          const derived = deriveStatusAndDays(i);
-          return {
-            ...i,
-            status: derived.status,
-            daysInfo: i.daysInfo || derived.daysInfo,
-            submittedAt: submissionByNumber[i.invoiceNumber] || null,
-          };
-        });
-        if (!cancelled) setInvoices(enriched);
       } catch (err) {
         console.error('Failed to load invoices', err);
-      } finally {
         if (!cancelled) setIsLoading(false);
       }
     })();
@@ -169,6 +192,7 @@ export default function Invoices() {
       cancelled = true;
     };
   }, [supplier?.zoho_vendor_id, isAdmin]);
+
 
   const filteredInvoices = invoices.filter((invoice: any) => {
     const matchesSearch =
@@ -179,9 +203,20 @@ export default function Invoices() {
     return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pagedInvoices = filteredInvoices.slice(pageStart, pageStart + PAGE_SIZE);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter]);
+
   const availableInvoiceStatuses = Array.from(
     new Set(invoices.map((i: any) => (i.status || '').toString().toLowerCase()).filter(Boolean)),
   ).sort();
+
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-IN', {
@@ -302,7 +337,7 @@ export default function Invoices() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredInvoices.map((invoice: any, index: number) => {
+                  {pagedInvoices.map((invoice: any, index: number) => {
                     const balance = Number(invoice.balance ?? 0);
                     const status = invoice.status || 'pending';
                     const cfg = statusConfig[status] || { label: status, className: 'bg-muted text-muted-foreground border-border' };
@@ -406,8 +441,45 @@ export default function Invoices() {
                 No invoices found matching your criteria.
               </div>
             )}
+            {filteredInvoices.length > 0 && (
+              <div className="flex flex-col gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <span>
+                    Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filteredInvoices.length)} of {filteredInvoices.length}
+                  </span>
+                  {enriching && (
+                    <span className="flex items-center gap-1 text-xs">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading details…
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
+
       </div>
 
       {/* Invoice Details Modal */}
