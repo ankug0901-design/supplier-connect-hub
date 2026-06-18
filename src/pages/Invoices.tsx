@@ -337,7 +337,7 @@ export default function Invoices() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredInvoices.map((invoice: any, index: number) => {
+                  {pagedInvoices.map((invoice: any, index: number) => {
                     const balance = Number(invoice.balance ?? 0);
                     const status = invoice.status || 'pending';
                     const cfg = statusConfig[status] || { label: status, className: 'bg-muted text-muted-foreground border-border' };
