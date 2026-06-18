@@ -119,6 +119,7 @@ function AppRoutes() {
       <Route path="/admin/three-way-match" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-three-way-match"><AdminThreeWayMatch /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/admin/user-roles" element={<SuperAdminRoute><AdminUserRoles /></SuperAdminRoute>} />
       <Route path="/admin/page-permissions" element={<SuperAdminRoute><AdminPagePermissions /></SuperAdminRoute>} />
+      <Route path="/admin/user-access-report" element={<SuperAdminRoute><AdminUserAccessReport /></SuperAdminRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
