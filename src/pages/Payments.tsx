@@ -179,7 +179,34 @@ export default function Payments() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" className="gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            disabled={filteredPayments.length === 0}
+            onClick={() => {
+              const rows = filteredPayments.map((p: any) => ({
+                paymentNumber: p.paymentNumber || '',
+                poNumber: p.poNumber || '',
+                invoiceNumber: p.invoiceNumber || '',
+                date: p.date ? formatDate(p.date) : '',
+                amount: Number(p.amount || 0),
+                paymentMode: p.paymentMode || '',
+                account: p.account || '',
+                status: p.status || '',
+              }));
+              exportToCsv(`payments-${new Date().toISOString().slice(0,10)}.csv`, rows, [
+                { key: 'paymentNumber', header: 'Payment #' },
+                { key: 'poNumber', header: 'PO #' },
+                { key: 'invoiceNumber', header: 'Invoice #' },
+                { key: 'date', header: 'Date' },
+                { key: 'amount', header: 'Amount (INR)' },
+                { key: 'paymentMode', header: 'Mode' },
+                { key: 'account', header: 'Account' },
+                { key: 'status', header: 'Status' },
+              ]);
+              toast.success(`Exported ${rows.length} payments.`);
+            }}
+          >
             <Download className="h-4 w-4" />
             Export Statement
           </Button>
