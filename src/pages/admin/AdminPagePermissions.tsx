@@ -205,18 +205,23 @@ export default function AdminPagePermissions() {
             ))}
           </TabsList>
 
-          {roles.map((r) => (
-            <TabsContent key={r.role} value={r.role} className="space-y-6 mt-6">
-              <div>
-                <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Admin pages</h3>
-                {renderSectionList(r.role, ADMIN_SECTIONS)}
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Supplier pages</h3>
-                {renderSectionList(r.role, SUPPLIER_SECTIONS)}
-              </div>
-            </TabsContent>
-          ))}
+          {roles.map((r) => {
+            const showAdmin = r.role !== 'supplier';
+            return (
+              <TabsContent key={r.role} value={r.role} className="space-y-6 mt-6">
+                {showAdmin && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Admin pages</h3>
+                    {renderSectionList(r.role, ADMIN_SECTIONS)}
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Supplier pages</h3>
+                  {renderSectionList(r.role, SUPPLIER_SECTIONS)}
+                </div>
+              </TabsContent>
+            );
+          })}
         </Tabs>
       )}
     </DashboardLayout>
