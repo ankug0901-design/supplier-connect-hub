@@ -102,7 +102,7 @@ function LineItemsInput({
                   aria-label="Select all line items"
                 />
               </TableHead>
-              <TableHead className="min-w-[220px]">Item description</TableHead>
+              <TableHead className="min-w-[260px]">Item name &amp; description</TableHead>
               <TableHead className="w-28">HSN/SAC</TableHead>
               <TableHead className="w-20 text-right">PO Qty</TableHead>
               <TableHead className="w-24 text-right">Already Invoiced</TableHead>
@@ -136,14 +136,29 @@ function LineItemsInput({
                   </TableCell>
                   <TableCell className="py-3">
                     {lockDetails ? (
-                      <div className="text-sm font-medium">{item.description || item.item_name || '—'}</div>
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-medium">{item.item_name || '—'}</div>
+                        {item.description && item.description !== item.item_name && (
+                          <div className="text-xs text-muted-foreground whitespace-pre-wrap">
+                            {item.description}
+                          </div>
+                        )}
+                      </div>
                     ) : (
-                      <Input
-                        placeholder="Item description"
-                        value={item.item_name}
-                        onChange={(e) => update(i, 'item_name', e.target.value)}
-                        disabled={!isSelected}
-                      />
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Item name"
+                          value={item.item_name}
+                          onChange={(e) => update(i, 'item_name', e.target.value)}
+                          disabled={!isSelected}
+                        />
+                        <Input
+                          placeholder="Description (optional)"
+                          value={item.description || ''}
+                          onChange={(e) => update(i, 'description', e.target.value)}
+                          disabled={!isSelected}
+                        />
+                      </div>
                     )}
                   </TableCell>
                   <TableCell className="py-3">
