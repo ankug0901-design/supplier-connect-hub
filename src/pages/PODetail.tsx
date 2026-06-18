@@ -49,6 +49,11 @@ const formatAddress = (addr: any): string => {
   return parts.join('\n');
 };
 
+const formatDate = (d?: string | null) =>
+  d
+    ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—';
+
 
 export default function PODetail() {
   const { id } = useParams();
@@ -77,9 +82,8 @@ export default function PODetail() {
         ) || null;
 
       if (found) {
-        const needsEnrichment = !extractItems(found).length || !found.deliveryAddress;
         const vendorId = found.supplierZohoVendorId || supplier?.zoho_vendor_id;
-        if (needsEnrichment && vendorId) {
+        if (vendorId) {
           try {
             const livePos = await fetchPurchaseOrders(vendorId);
             const match = (livePos || []).find(
@@ -90,9 +94,37 @@ export default function PODetail() {
             );
             if (match) {
               const liveItems = extractItems(match);
+              const existingItems = extractItems(found);
+              // Merge live Zoho item fields (HSN, tax, etc.) into our DB items,
+              // matched by zoho line_item_id first, then by item name.
+              const liveByLineId: Record<string, any> = {};
+              const liveByName: Record<string, any> = {};
+              liveItems.forEach((li: any) => {
+                const lid = String(li.line_item_id || li.id || '');
+                if (lid) liveByLineId[lid] = li;
+                const nm = String(li.item_name || li.name || li.description || '').trim().toLowerCase();
+                if (nm) liveByName[nm] = li;
+              });
+              const baseItems = existingItems.length ? existingItems : liveItems;
+              const mergedItems = baseItems.map((it: any) => {
+                const lid = String(it.line_item_id || it.zoho_line_item_id || '');
+                const nm = String(it.item_name || it.name || it.description || '').trim().toLowerCase();
+                const live = (lid && liveByLineId[lid]) || liveByName[nm] || {};
+                return {
+                  ...live,
+                  ...it,
+                  hsn: it.hsn || live.hsn || live.hsn_or_sac || live.hsn_sac || live.sac,
+                  tax_percentage: it.tax_percentage ?? live.tax_percentage ?? live.tax_rate,
+                  tax_name: it.tax_name || live.tax_name,
+                  item_tax_amount: it.item_tax_amount ?? live.item_tax_amount ?? live.tax_amount,
+                };
+              });
               found = {
                 ...found,
-                items: liveItems.length ? liveItems : found.items,
+                items: mergedItems,
+                taxTotal:
+                  match.taxTotal ?? match.tax_total ?? match.tax_amount ?? (found as any).taxTotal,
+                subTotal: match.subTotal ?? match.sub_total ?? (found as any).subTotal,
                 deliveryAddress:
                   found.deliveryAddress ||
                   match.deliveryAddress ||
@@ -173,6 +205,17 @@ export default function PODetail() {
     }).format(amount);
   };
 
+  // Aggregate confirmed delivery dates across items for summary in the sidebar
+  const confirmedDates: string[] = (order.items || [])
+    .map((it: any) => it.confirmedDeliveryDate || it.confirmed_delivery_date)
+    .filter(Boolean);
+  const earliestConfirmed = confirmedDates.length
+    ? confirmedDates.reduce((a, b) => (new Date(a) < new Date(b) ? a : b))
+    : null;
+  const latestConfirmed = confirmedDates.length
+    ? confirmedDates.reduce((a, b) => (new Date(a) > new Date(b) ? a : b))
+    : null;
+
   return (
     <DashboardLayout title={order.poNumber} subtitle="Purchase Order Details">
       <div className="space-y-6">
@@ -237,13 +280,15 @@ export default function PODetail() {
                       <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Invoiced</th>
                       <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Pending</th>
                       <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Unit Price</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Tax</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Delivery Date</th>
                       <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {(order.items || []).length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        <td colSpan={9} className="px-4 py-8 text-center text-sm text-muted-foreground">
                           No line items available for this purchase order.
                         </td>
                       </tr>
@@ -258,6 +303,13 @@ export default function PODetail() {
                       const invoiced = isFullyBilled ? qty : tracked;
                       const pending = Math.max(qty - invoiced, 0);
                       const total = Number(item.total ?? qty * rate);
+                      const taxPct = item.tax_percentage ?? item.tax_rate;
+                      const taxName = item.tax_name;
+                      const taxLabel =
+                        taxPct != null && taxPct !== ''
+                          ? `${Number(taxPct)}%${taxName ? ` (${taxName})` : ''}`
+                          : taxName || '—';
+                      const confirmed = item.confirmedDeliveryDate || item.confirmed_delivery_date;
                       return (
                         <tr key={item.id ?? idx}>
                           <td className="px-4 py-4 text-sm">{name || '—'}</td>
@@ -266,14 +318,32 @@ export default function PODetail() {
                           <td className="px-4 py-4 text-right text-sm">{invoiced}</td>
                           <td className="px-4 py-4 text-right text-sm font-medium">{pending}</td>
                           <td className="px-4 py-4 text-right text-sm">{formatCurrency(rate)}</td>
+                          <td className="px-4 py-4 text-right text-sm text-muted-foreground">{taxLabel}</td>
+                          <td className="px-4 py-4 text-sm text-muted-foreground">{formatDate(confirmed)}</td>
                           <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(total)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                   <tfoot>
+                    {(order.subTotal != null || order.taxTotal != null) && (
+                      <>
+                        {order.subTotal != null && (
+                          <tr>
+                            <td colSpan={8} className="px-4 py-2 text-right text-sm text-muted-foreground">Sub Total</td>
+                            <td className="px-4 py-2 text-right text-sm">{formatCurrency(Number(order.subTotal || 0))}</td>
+                          </tr>
+                        )}
+                        {order.taxTotal != null && (
+                          <tr>
+                            <td colSpan={8} className="px-4 py-2 text-right text-sm text-muted-foreground">Total Tax</td>
+                            <td className="px-4 py-2 text-right text-sm">{formatCurrency(Number(order.taxTotal || 0))}</td>
+                          </tr>
+                        )}
+                      </>
+                    )}
                     <tr className="bg-muted/50">
-                      <td colSpan={6} className="px-4 py-4 text-right font-semibold">Grand Total</td>
+                      <td colSpan={8} className="px-4 py-4 text-right font-semibold">Grand Total</td>
                       <td className="px-4 py-4 text-right font-bold text-primary">{formatCurrency(order.amount)}</td>
                     </tr>
                   </tfoot>
@@ -300,30 +370,32 @@ export default function PODetail() {
                   <Calendar className="mt-0.5 h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Order Date</p>
-                    <p className="text-sm font-medium">
-                      {new Date(order.date).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
-                    </p>
+                    <p className="text-sm font-medium">{formatDate(order.date)}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Calendar className="mt-0.5 h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Expected Delivery</p>
-                    <p className="text-sm font-medium">
-                      {order.expectedDelivery
-                        ? new Date(order.expectedDelivery).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: 'long',
-                            year: 'numeric',
-                          })
-                        : '—'}
-                    </p>
+                    <p className="text-sm font-medium">{formatDate(order.expectedDelivery)}</p>
                   </div>
                 </div>
+                {order.deliveryDatesConfirmedAt && earliestConfirmed && (
+                  <div className="flex items-start gap-3">
+                    <Calendar className="mt-0.5 h-4 w-4 text-success" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Confirmed Delivery</p>
+                      <p className="text-sm font-medium">
+                        {earliestConfirmed === latestConfirmed
+                          ? formatDate(earliestConfirmed)
+                          : `${formatDate(earliestConfirmed)} – ${formatDate(latestConfirmed)}`}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Confirmed on {formatDate(order.deliveryDatesConfirmedAt)}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-start gap-3">
                   <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
                   <div>
