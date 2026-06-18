@@ -42,33 +42,33 @@ const supplierNavigation: NavItem[] = [
 ];
 
 const adminNavigation: NavItem[] = [
-  { name: 'Admin Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'All Suppliers', href: '/admin/suppliers', icon: Users },
-  { name: 'Registrations', href: '/admin/registrations', icon: ClipboardList, badgeKey: 'pending_regs' },
-  { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all' },
-  { name: '3-Way Matching', href: '/admin/three-way-match', icon: GitCompareArrows },
-  { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles },
-  { name: 'Supplier Performance', href: '/admin/vendor-scores', icon: Award },
+  { name: 'Admin Dashboard', href: '/admin', icon: LayoutDashboard, sectionKey: 'admin-dashboard' },
+  { name: 'All Suppliers', href: '/admin/suppliers', icon: Users, sectionKey: 'admin-suppliers' },
+  { name: 'Registrations', href: '/admin/registrations', icon: ClipboardList, badgeKey: 'pending_regs', sectionKey: 'admin-registrations' },
+  { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all', sectionKey: 'admin-rfq' },
+  { name: '3-Way Matching', href: '/admin/three-way-match', icon: GitCompareArrows, sectionKey: 'admin-three-way-match' },
+  { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles, sectionKey: 'admin-ai-insights' },
+  { name: 'Supplier Performance', href: '/admin/vendor-scores', icon: Award, sectionKey: 'admin-vendor-scores' },
   { name: 'User Roles', href: '/admin/user-roles', icon: UserCog, superAdminOnly: true },
   { name: 'Page Permissions', href: '/admin/page-permissions', icon: ShieldCheck, superAdminOnly: true },
 ];
 
 export function Sidebar() {
   const location = useLocation();
-  const { supplier, logout, isAdmin, isSuperAdmin } = useAuth();
+  const { supplier, logout, isAdmin, isSuperAdmin, role } = useAuth();
   const [pendingRegs, setPendingRegs] = useState(0);
   const [pendingRfqs, setPendingRfqs] = useState(0);
   const [pendingRfqsAll, setPendingRfqsAll] = useState(0);
   const [sectionAccess, setSectionAccess] = useState<Record<string, boolean>>({});
 
-  // Load supplier-section access map (used for non-admin users to filter sidebar)
+  // Load section access for the current user's role (super admin bypasses all checks)
   useEffect(() => {
-    if (isAdmin) return;
+    if (isSuperAdmin || !role) return;
     const loadAccess = async () => {
       const { data } = await supabase
         .from('role_section_access')
         .select('section_key, enabled')
-        .eq('role', 'supplier');
+        .eq('role', role);
       const map: Record<string, boolean> = {};
       (data || []).forEach((r: any) => { map[r.section_key] = r.enabled; });
       setSectionAccess(map);
@@ -79,7 +79,7 @@ export function Sidebar() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'role_section_access' }, () => loadAccess())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [isAdmin]);
+  }, [isSuperAdmin, role]);
 
   useEffect(() => {
     if (isAdmin) {
