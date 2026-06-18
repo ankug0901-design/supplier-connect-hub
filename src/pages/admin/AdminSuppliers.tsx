@@ -302,6 +302,14 @@ export default function AdminSuppliers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <UserPermissionsDialog
+        open={!!permsFor}
+        onOpenChange={(o) => !o && setPermsFor(null)}
+        userId={permsFor?.user_id ?? null}
+        userLabel={permsFor ? `${permsFor.name} (${permsFor.email})` : ''}
+        role={permsFor?.role ?? 'supplier'}
+      />
     </DashboardLayout>
   );
 }
