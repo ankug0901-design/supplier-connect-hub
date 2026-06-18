@@ -25,6 +25,8 @@ type LineItem = {
   item_name: string;
   description?: string;
   hsn?: string;
+  tax_rate?: number;
+  tax_name?: string;
   po_quantity?: number;
   invoiced_quantity?: number;
   quantity: number;
