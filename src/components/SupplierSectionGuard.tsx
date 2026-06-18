@@ -13,7 +13,7 @@ interface Props {
  * Super admins (role='admin') always pass.
  */
 export function SupplierSectionGuard({ sectionKey, children }: Props) {
-  const { isSuperAdmin, isAuthenticated, isLoading: authLoading, role, user } = useAuth();
+  const { isSuperAdmin, isAuthenticated, isLoading: authLoading, role, effectiveUserId } = useAuth();
   const [enabled, setEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -21,14 +21,14 @@ export function SupplierSectionGuard({ sectionKey, children }: Props) {
       setEnabled(true);
       return;
     }
-    if (!role || !user?.id) return;
+    if (!role || !effectiveUserId) return;
     let cancelled = false;
     (async () => {
       // Per-user override wins if set
       const { data: override } = await supabase
         .from('supplier_section_access')
         .select('enabled')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .eq('section_key', sectionKey)
         .maybeSingle();
       if (cancelled) return;
@@ -46,7 +46,8 @@ export function SupplierSectionGuard({ sectionKey, children }: Props) {
       setEnabled(data ? !!data.enabled : true);
     })();
     return () => { cancelled = true; };
-  }, [isSuperAdmin, isAuthenticated, role, sectionKey, user?.id]);
+  }, [isSuperAdmin, isAuthenticated, role, sectionKey, effectiveUserId]);
+
 
   if (authLoading || enabled === null) {
     return (

@@ -57,7 +57,7 @@ const adminNavigation: NavItem[] = [
 
 export function Sidebar() {
   const location = useLocation();
-  const { supplier, logout, isAdmin, isSuperAdmin, role, user } = useAuth();
+  const { supplier, logout, isAdmin, isSuperAdmin, role, effectiveUserId } = useAuth();
   const [pendingRegs, setPendingRegs] = useState(0);
   const [pendingRfqs, setPendingRfqs] = useState(0);
   const [pendingRfqsAll, setPendingRfqsAll] = useState(0);
@@ -70,8 +70,8 @@ export function Sidebar() {
     const loadAccess = async () => {
       const [{ data: roleRows }, { data: userRows }] = await Promise.all([
         supabase.from('role_section_access').select('section_key, enabled').eq('role', role),
-        user?.id
-          ? supabase.from('supplier_section_access').select('section_key, enabled').eq('user_id', user.id)
+        effectiveUserId
+          ? supabase.from('supplier_section_access').select('section_key, enabled').eq('user_id', effectiveUserId)
           : Promise.resolve({ data: [] as any[] }),
       ]);
       const rmap: Record<string, boolean> = {};
@@ -88,7 +88,8 @@ export function Sidebar() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_section_access' }, () => loadAccess())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [isSuperAdmin, role, user?.id]);
+  }, [isSuperAdmin, role, effectiveUserId]);
+
 
   useEffect(() => {
     if (isAdmin) {
