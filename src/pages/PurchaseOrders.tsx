@@ -256,24 +256,42 @@ export default function PurchaseOrders() {
                       </td>
                       <td className="px-6 py-4 text-sm text-muted-foreground max-w-xs">
                         {(() => {
-                          const names = (order.items || [])
-                            .map((it: any) => (it.item_name || it.description || '').trim())
-                            .filter(Boolean);
-                          if (names.length === 0) return <span>—</span>;
-                          const preview = names.slice(0, 2).join(', ');
-                          const extra = names.length - 2;
+                          const rows = (order.items || [])
+                            .map((it: any) => ({
+                              name: (it.item_name || '').trim(),
+                              description: (it.description || '').trim(),
+                            }))
+                            .filter((r: any) => r.name || r.description);
+                          if (rows.length === 0) return <span>—</span>;
+                          const shown = rows.slice(0, 2);
+                          const extra = rows.length - shown.length;
+                          const tooltip = rows
+                            .map((r: any) =>
+                              r.description && r.description !== r.name
+                                ? `${r.name || r.description}\n  ${r.description}`
+                                : r.name || r.description,
+                            )
+                            .join('\n');
                           return (
-                            <span
-                              className="block truncate text-foreground"
-                              title={names.join('\n')}
-                            >
-                              {preview}
+                            <div className="flex flex-col gap-1" title={tooltip}>
+                              {shown.map((r: any, i: number) => (
+                                <div key={i} className="leading-tight">
+                                  <div className="truncate text-foreground">
+                                    {r.name || r.description}
+                                  </div>
+                                  {r.description && r.description !== r.name && (
+                                    <div className="truncate text-xs text-muted-foreground">
+                                      {r.description}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
                               {extra > 0 && (
-                                <span className="ml-1 text-xs text-muted-foreground">
+                                <div className="text-xs text-muted-foreground">
                                   +{extra} more
-                                </span>
+                                </div>
                               )}
-                            </span>
+                            </div>
                           );
                         })()}
                       </td>
