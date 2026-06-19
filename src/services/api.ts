@@ -262,7 +262,7 @@ async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string) {
   if (!supplier?.id) return [];
   const { data, error } = await supabase
     .from('purchase_orders')
-    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at')
+    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at, delivery_first_notified_at, exception_requested_at, exception_approved_at, exception_rejected_at')
     .eq('supplier_id', supplier.id)
     .order('date', { ascending: false });
   if (error) throw error;
@@ -314,7 +314,7 @@ export async function fetchPurchaseOrdersFromDb(forceSync = false) {
   if (forceSync) triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('purchase_orders')
-    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at')
+    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at, delivery_first_notified_at, exception_requested_at, exception_approved_at, exception_rejected_at')
     .order('date', { ascending: false });
   if (error) throw error;
   const poIds = (data || []).map((p: any) => p.id);
