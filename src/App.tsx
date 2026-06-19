@@ -23,6 +23,7 @@ import AdminThreeWayMatch from "./pages/admin/AdminThreeWayMatch";
 import AdminPagePermissions from "./pages/admin/AdminPagePermissions";
 import AdminUserRoles from "./pages/admin/AdminUserRoles";
 import AdminUserAccessReport from "./pages/admin/AdminUserAccessReport";
+import AdminExceptionRequests from "./pages/admin/AdminExceptionRequests";
 import RfqRequests from "./pages/RfqRequests";
 import ResetPassword from "./pages/ResetPassword";
 import { SupplierSectionGuard } from "./components/SupplierSectionGuard";
