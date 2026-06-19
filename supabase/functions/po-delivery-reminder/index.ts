@@ -158,13 +158,19 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Admin/super_user CC list
+  // Admin/super_user CC list + fixed internal recipients
   const { data: ccRows } = await admin
     .from("suppliers")
     .select("email,role")
     .in("role", ["admin", "super_user"]);
+  const FIXED_CC = ["info@embossmarketing.in", "pooja.rathee@embossmarketing.in"];
   const ccList = Array.from(
-    new Set((ccRows || []).map((r: any) => String(r.email || "").toLowerCase()).filter(Boolean)),
+    new Set(
+      [
+        ...(ccRows || []).map((r: any) => String(r.email || "").toLowerCase()),
+        ...FIXED_CC.map((e) => e.toLowerCase()),
+      ].filter(Boolean),
+    ),
   );
 
   let sent = 0;
