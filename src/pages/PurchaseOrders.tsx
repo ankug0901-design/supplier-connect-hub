@@ -300,13 +300,20 @@ export default function PurchaseOrders() {
                           <Badge variant="outline" className={cn('capitalize w-fit', statusStyles[order.status] || '')}>
                             {order.status}
                           </Badge>
-                          {order.needsDeliveryConfirmation && (
+                          {order.needsDeliveryConfirmation && !order.exceptionApprovedAt && (
                             <Link
                               to={`/purchase-orders/${order.id}`}
                               className="text-xs font-medium text-warning hover:underline"
                             >
-                              Confirm delivery dates
+                              {order.exceptionPending
+                                ? 'Exception requested'
+                                : order.needsExceptionRequest
+                                  ? 'Request exception'
+                                  : 'Confirm delivery dates'}
                             </Link>
+                          )}
+                          {order.exceptionApprovedAt && !order.deliveryDatesConfirmedAt && (
+                            <span className="text-xs font-medium text-success">Exception approved</span>
                           )}
                         </div>
                       </td>
@@ -321,19 +328,19 @@ export default function PurchaseOrders() {
                                 order.id,
                                 order.poNumber,
                                 order.supplierZohoVendorId,
-                                !!order.deliveryDatesConfirmedAt,
+                                !!order.unlockedForActions,
                               )
                             }
-                            disabled={downloadingId === order.id || !order.deliveryDatesConfirmedAt}
+                            disabled={downloadingId === order.id || !order.unlockedForActions}
                             title={
-                              order.deliveryDatesConfirmedAt
+                              order.unlockedForActions
                                 ? 'Download PO'
-                                : 'Confirm delivery dates first'
+                                : 'Confirm delivery dates or get exception approval first'
                             }
                           >
                             {downloadingId === order.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : order.deliveryDatesConfirmedAt ? (
+                            ) : order.unlockedForActions ? (
                               <Download className="h-4 w-4" />
                             ) : (
                               <Lock className="h-4 w-4" />
@@ -345,7 +352,7 @@ export default function PurchaseOrders() {
                             </Button>
                           </Link>
                           {order.status === 'pending' &&
-                            (order.deliveryDatesConfirmedAt ? (
+                            (order.unlockedForActions ? (
                               <Link to={`/invoices/upload?po=${order.id}`}>
                                 <Button variant="accent" size="sm" className="gap-1">
                                   <Upload className="h-3 w-3" />
@@ -353,7 +360,7 @@ export default function PurchaseOrders() {
                                 </Button>
                               </Link>
                             ) : (
-                              <Button variant="accent" size="sm" className="gap-1" disabled title="Confirm delivery dates first">
+                              <Button variant="accent" size="sm" className="gap-1" disabled title="Confirm delivery dates or get exception approval first">
                                 <Lock className="h-3 w-3" />
                                 Upload Invoice
                               </Button>

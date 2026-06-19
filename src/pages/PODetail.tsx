@@ -228,7 +228,7 @@ export default function PODetail() {
             </Button>
           </Link>
           {order.status === 'pending' &&
-            (order.deliveryDatesConfirmedAt ? (
+            (order.unlockedForActions ? (
               <Link to={`/invoices/upload?po=${order.id}`}>
                 <Button variant="accent" className="gap-2">
                   <Upload className="h-4 w-4" />
@@ -236,7 +236,7 @@ export default function PODetail() {
                 </Button>
               </Link>
             ) : (
-              <Button variant="accent" className="gap-2" disabled title="Confirm delivery dates first">
+              <Button variant="accent" className="gap-2" disabled title="Confirm delivery dates or get exception approval first">
                 <Lock className="h-4 w-4" />
                 Upload Invoice
               </Button>
@@ -352,12 +352,19 @@ export default function PODetail() {
               </div>
             </div>
 
-            {/* Delivery Date Confirmation */}
+            {/* Delivery Date Confirmation + Exception Request */}
             <DeliveryDateConfirmation
               poDbId={order.dbId || order.id}
+              poNumber={order.poNumber}
               items={(order.items || []) as any}
               deliveryDatesConfirmedAt={order.deliveryDatesConfirmedAt || null}
               expectedDelivery={order.expectedDelivery}
+              releaseAt={order.releaseAt || null}
+              daysSinceRelease={order.daysSinceRelease || 0}
+              exceptionPending={!!order.exceptionPending}
+              exceptionApprovedAt={order.exceptionApprovedAt || null}
+              exceptionRejectedAt={order.exceptionRejectedAt || null}
+              needsExceptionRequest={!!order.needsExceptionRequest}
               onSaved={() => void loadOrder()}
             />
           </div>

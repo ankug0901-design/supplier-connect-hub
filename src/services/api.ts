@@ -67,6 +67,41 @@ export async function confirmPoDeliveryDates(
   return data as any;
 }
 
+export async function requestPoException(poId: string, reason: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('po-exception-request', {
+    body: { po_id: poId, reason },
+  });
+  if (error) throw new Error(error.message || 'Failed to submit exception request');
+  if ((data as any)?.error) throw new Error((data as any).error);
+  return (data as any)?.request_id as string;
+}
+
+export async function reviewPoException(
+  requestId: string,
+  decision: 'approved' | 'rejected',
+  adminNotes?: string,
+): Promise<{ po_id: string; status: string }> {
+  const { data, error } = await supabase.rpc('review_po_exception', {
+    _request_id: requestId,
+    _decision: decision,
+    _admin_notes: adminNotes || null,
+  });
+  if (error) throw error;
+  return data as any;
+}
+
+export async function fetchPoExceptionRequests(filter: { status?: string; poId?: string } = {}) {
+  let q = supabase
+    .from('po_exception_requests')
+    .select('id, po_id, supplier_id, reason, status, admin_notes, reviewed_by, reviewed_at, created_at')
+    .order('created_at', { ascending: false });
+  if (filter.status) q = q.eq('status', filter.status);
+  if (filter.poId) q = q.eq('po_id', filter.poId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
 async function fetchPurchaseOrdersByIds(poIds: string[]) {
   if (!poIds.length) return {} as Record<string, any>;
   const { data, error } = await supabase
@@ -152,12 +187,26 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
     confirmedDeliveryDate: it.confirmed_delivery_date || null,
   }));
   const rawStatus = (p.status || 'pending').toLowerCase();
-  const blockingStatuses = new Set(['closed', 'cancelled', 'rejected', 'completed', 'void']);
-  // Only "open" POs need delivery confirmation
+  const blockingStatuses = new Set(['closed', 'cancelled', 'rejected', 'completed', 'void', 'invoiced']);
+  // Only "open" POs with no invoices yet need delivery confirmation
   const needsDeliveryConfirmation =
     !blockingStatuses.has(rawStatus) &&
+    invoiced <= 0 &&
     !p.delivery_dates_confirmed_at &&
     mappedItems.length > 0;
+  const releaseAt: string | null =
+    p.delivery_first_notified_at || (p.date ? new Date(p.date + 'T00:00:00Z').toISOString() : null);
+  const daysSinceRelease = releaseAt
+    ? Math.floor((Date.now() - new Date(releaseAt).getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+  const exceptionApprovedAt = p.exception_approved_at || null;
+  const exceptionRequestedAt = p.exception_requested_at || null;
+  const exceptionRejectedAt = p.exception_rejected_at || null;
+  const exceptionPending = !!exceptionRequestedAt && !exceptionApprovedAt && !exceptionRejectedAt;
+  const needsExceptionRequest =
+    needsDeliveryConfirmation && daysSinceRelease >= 3 && !exceptionApprovedAt && !exceptionPending;
+  // Download / invoice upload are unlocked when dates confirmed OR exception approved
+  const unlockedForActions = !!p.delivery_dates_confirmed_at || !!exceptionApprovedAt;
   return {
     id: p.zoho_id || p.id,
     dbId: p.id,
@@ -177,6 +226,14 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
     supplierZohoVendorId: supplier?.zoho_vendor_id,
     deliveryDatesConfirmedAt: p.delivery_dates_confirmed_at || null,
     needsDeliveryConfirmation,
+    releaseAt,
+    daysSinceRelease,
+    exceptionRequestedAt,
+    exceptionApprovedAt,
+    exceptionRejectedAt,
+    exceptionPending,
+    needsExceptionRequest,
+    unlockedForActions,
     items: mappedItems,
   };
 };
@@ -227,7 +284,7 @@ async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string) {
   if (!supplier?.id) return [];
   const { data, error } = await supabase
     .from('purchase_orders')
-    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at')
+    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at, delivery_first_notified_at, exception_requested_at, exception_approved_at, exception_rejected_at')
     .eq('supplier_id', supplier.id)
     .order('date', { ascending: false });
   if (error) throw error;
@@ -279,7 +336,7 @@ export async function fetchPurchaseOrdersFromDb(forceSync = false) {
   if (forceSync) triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('purchase_orders')
-    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at')
+    .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at, delivery_first_notified_at, exception_requested_at, exception_approved_at, exception_rejected_at')
     .order('date', { ascending: false });
   if (error) throw error;
   const poIds = (data || []).map((p: any) => p.id);

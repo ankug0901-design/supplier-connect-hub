@@ -67,6 +67,11 @@ function buildHtml(opts: {
       Please log in to the supplier portal and confirm the expected delivery date for each line item below.
       Until these dates are recorded, you <strong>cannot download the PO</strong> or <strong>upload invoices</strong> against it.
     </p>
+    <div style="margin:0 0 14px;padding:12px 14px;border:1px solid #fbbf24;background:#fffbeb;border-radius:6px;color:#92400e;font-size:14px;line-height:1.6;">
+      <strong>Important:</strong> If you cannot confirm delivery dates within <strong>3 days of PO release</strong>,
+      you must submit an <strong>Exception Request</strong> through the supplier portal (from the PO detail page) in
+      order to download the PO or upload invoices. Otherwise these actions will remain locked.
+    </div>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;border:1px solid #e5e7eb;">
       <thead>
         <tr style="background:#f3f4f6;">
