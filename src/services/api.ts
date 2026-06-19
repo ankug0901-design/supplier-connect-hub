@@ -184,6 +184,9 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
     rate: Number(it.unit_price || 0),
     unitPrice: Number(it.unit_price || 0),
     total: Number(it.total || 0),
+    hsn: it.hsn || null,
+    tax_percentage: it.tax_percentage ?? null,
+    tax_name: it.tax_name || null,
     confirmedDeliveryDate: it.confirmed_delivery_date || null,
   }));
   const rawStatus = (p.status || 'pending').toLowerCase();
