@@ -352,12 +352,19 @@ export default function PODetail() {
               </div>
             </div>
 
-            {/* Delivery Date Confirmation */}
+            {/* Delivery Date Confirmation + Exception Request */}
             <DeliveryDateConfirmation
               poDbId={order.dbId || order.id}
+              poNumber={order.poNumber}
               items={(order.items || []) as any}
               deliveryDatesConfirmedAt={order.deliveryDatesConfirmedAt || null}
               expectedDelivery={order.expectedDelivery}
+              releaseAt={order.releaseAt || null}
+              daysSinceRelease={order.daysSinceRelease || 0}
+              exceptionPending={!!order.exceptionPending}
+              exceptionApprovedAt={order.exceptionApprovedAt || null}
+              exceptionRejectedAt={order.exceptionRejectedAt || null}
+              needsExceptionRequest={!!order.needsExceptionRequest}
               onSaved={() => void loadOrder()}
             />
           </div>
