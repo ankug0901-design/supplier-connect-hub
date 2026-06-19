@@ -227,6 +227,7 @@ Deno.serve(async (req) => {
         poDate: po.date,
         items: (items || []).map((it: any) => ({
           name: it.item_name || it.description || "—",
+          description: it.description || "",
           qty: Number(it.quantity || 0),
         })),
         reminderCount,
