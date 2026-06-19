@@ -1,0 +1,4 @@
+ALTER TABLE public.po_items
+  ADD COLUMN IF NOT EXISTS hsn TEXT,
+  ADD COLUMN IF NOT EXISTS tax_percentage NUMERIC,
+  ADD COLUMN IF NOT EXISTS tax_name TEXT;

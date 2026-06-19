@@ -501,10 +501,13 @@ export type Database = {
           confirmed_delivery_date: string | null
           created_at: string
           description: string
+          hsn: string | null
           id: string
           item_name: string | null
           po_id: string
           quantity: number
+          tax_name: string | null
+          tax_percentage: number | null
           total: number
           unit_price: number
           zoho_line_item_id: string | null
@@ -515,10 +518,13 @@ export type Database = {
           confirmed_delivery_date?: string | null
           created_at?: string
           description: string
+          hsn?: string | null
           id?: string
           item_name?: string | null
           po_id: string
           quantity?: number
+          tax_name?: string | null
+          tax_percentage?: number | null
           total?: number
           unit_price?: number
           zoho_line_item_id?: string | null
@@ -529,10 +535,13 @@ export type Database = {
           confirmed_delivery_date?: string | null
           created_at?: string
           description?: string
+          hsn?: string | null
           id?: string
           item_name?: string | null
           po_id?: string
           quantity?: number
+          tax_name?: string | null
+          tax_percentage?: number | null
           total?: number
           unit_price?: number
           zoho_line_item_id?: string | null
