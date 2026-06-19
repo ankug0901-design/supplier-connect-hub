@@ -49,7 +49,7 @@ async function fetchPoItemsByPoIds(poIds: string[]) {
   if (!poIds.length) return {} as Record<string, any[]>;
   const { data, error } = await supabase
     .from('po_items')
-    .select('id, po_id, description, item_name, zoho_line_item_id, quantity, unit_price, total, confirmed_delivery_date')
+    .select('id, po_id, description, item_name, zoho_line_item_id, quantity, unit_price, total, confirmed_delivery_date, hsn, tax_percentage, tax_name')
     .in('po_id', poIds);
   if (error) throw error;
   return groupBy(data || [], 'po_id');
