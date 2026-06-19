@@ -50,6 +50,7 @@ const adminNavigation: NavItem[] = [
   { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all', sectionKey: 'admin-rfq' },
   { name: '3-Way Matching', href: '/admin/three-way-match', icon: GitCompareArrows, sectionKey: 'admin-three-way-match' },
   { name: 'AI Insights', href: '/admin/ai-insights', icon: Sparkles, sectionKey: 'admin-ai-insights' },
+  { name: 'Exception Requests', href: '/admin/exception-requests', icon: AlertTriangle },
   { name: 'Supplier Performance', href: '/admin/vendor-scores', icon: Award, sectionKey: 'admin-vendor-scores' },
   { name: 'User Roles', href: '/admin/user-roles', icon: UserCog, superAdminOnly: true },
   { name: 'Page Permissions', href: '/admin/page-permissions', icon: ShieldCheck, superAdminOnly: true },
