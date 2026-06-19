@@ -437,6 +437,63 @@ export type Database = {
           },
         ]
       }
+      po_exception_requests: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          po_id: string
+          reason: string
+          requested_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          po_id: string
+          reason: string
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          po_id?: string
+          reason?: string
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_exception_requests_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_exception_requests_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       po_items: {
         Row: {
           confirmed_at: string | null
@@ -500,6 +557,9 @@ export type Database = {
           delivery_first_notified_at: string | null
           delivery_notification_sent_at: string | null
           delivery_reminder_count: number
+          exception_approved_at: string | null
+          exception_rejected_at: string | null
+          exception_requested_at: string | null
           expected_delivery: string | null
           id: string
           po_number: string
@@ -517,6 +577,9 @@ export type Database = {
           delivery_first_notified_at?: string | null
           delivery_notification_sent_at?: string | null
           delivery_reminder_count?: number
+          exception_approved_at?: string | null
+          exception_rejected_at?: string | null
+          exception_requested_at?: string | null
           expected_delivery?: string | null
           id?: string
           po_number: string
@@ -534,6 +597,9 @@ export type Database = {
           delivery_first_notified_at?: string | null
           delivery_notification_sent_at?: string | null
           delivery_reminder_count?: number
+          exception_approved_at?: string | null
+          exception_rejected_at?: string | null
+          exception_requested_at?: string | null
           expected_delivery?: string | null
           id?: string
           po_number?: string
@@ -1106,6 +1172,14 @@ export type Database = {
           _supplier_id: string
         }
         Returns: number
+      }
+      request_po_exception: {
+        Args: { _po_id: string; _reason: string }
+        Returns: string
+      }
+      review_po_exception: {
+        Args: { _admin_notes: string; _decision: string; _request_id: string }
+        Returns: Json
       }
     }
     Enums: {
