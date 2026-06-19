@@ -90,10 +90,15 @@ export default function PurchaseOrders() {
   ).sort();
 
   const filteredOrders = purchaseOrders.filter((order: any) => {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     const matchesSearch =
+      !q ||
       order.poNumber?.toLowerCase().includes(q) ||
-      order.supplierName?.toLowerCase().includes(q);
+      order.supplierName?.toLowerCase().includes(q) ||
+      (order.items || []).some((it: any) =>
+        (it.item_name || '').toLowerCase().includes(q) ||
+        (it.description || '').toLowerCase().includes(q),
+      );
     const orderStatus = (order.status || '').toString().toLowerCase();
     const matchesStatus = statusFilter === 'all' || orderStatus === statusFilter;
     return matchesSearch && matchesStatus;
