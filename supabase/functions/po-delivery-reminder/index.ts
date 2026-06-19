@@ -24,17 +24,24 @@ function buildHtml(opts: {
   supplierName: string;
   poNumber: string;
   poDate: string;
-  items: { name: string; qty: number }[];
+  items: { name: string; description?: string; qty: number }[];
   reminderCount: number;
   poUrl: string;
 }) {
   const itemsRows = opts.items
-    .map(
-      (it) => `<tr>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#1f2937;">${escapeHtml(it.name || "—")}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#1f2937;text-align:right;">${it.qty}</td>
-      </tr>`,
-    )
+    .map((it) => {
+      const name = escapeHtml(it.name || "—");
+      const desc =
+        it.description && it.description.trim() && it.description.trim() !== (it.name || "").trim()
+          ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${escapeHtml(it.description)}</div>`
+          : "";
+      return `<tr>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#1f2937;">
+          <div style="font-weight:600;">${name}</div>${desc}
+        </td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#1f2937;text-align:right;vertical-align:top;">${it.qty}</td>
+      </tr>`;
+    })
     .join("");
 
   const heading =
