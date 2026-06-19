@@ -233,10 +233,16 @@ Deno.serve(async (req) => {
         reminderCount,
         poUrl,
       });
+      const itemNames = (items || [])
+        .map((it: any) => String(it.item_name || it.description || "").trim())
+        .filter(Boolean);
+      const itemHint = itemNames.length
+        ? ` – ${itemNames.slice(0, 2).join(", ")}${itemNames.length > 2 ? ` +${itemNames.length - 2} more` : ""}`
+        : "";
       const subject =
         reminderCount === 0
-          ? `Action required: confirm delivery dates for PO ${po.po_number}`
-          : `Reminder: confirm delivery dates for PO ${po.po_number}`;
+          ? `New PO ${po.po_number}${itemHint} – confirm delivery dates`
+          : `Reminder: confirm delivery dates for PO ${po.po_number}${itemHint}`;
 
       const unsubscribeToken = await getOrCreateUnsubscribeToken(admin, sup.email);
       const messageId = `po-delivery-${po.id}-${new Date().toISOString().slice(0, 10)}`;
