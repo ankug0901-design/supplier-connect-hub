@@ -67,6 +67,41 @@ export async function confirmPoDeliveryDates(
   return data as any;
 }
 
+export async function requestPoException(poId: string, reason: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('po-exception-request', {
+    body: { po_id: poId, reason },
+  });
+  if (error) throw new Error(error.message || 'Failed to submit exception request');
+  if ((data as any)?.error) throw new Error((data as any).error);
+  return (data as any)?.request_id as string;
+}
+
+export async function reviewPoException(
+  requestId: string,
+  decision: 'approved' | 'rejected',
+  adminNotes?: string,
+): Promise<{ po_id: string; status: string }> {
+  const { data, error } = await supabase.rpc('review_po_exception', {
+    _request_id: requestId,
+    _decision: decision,
+    _admin_notes: adminNotes || null,
+  });
+  if (error) throw error;
+  return data as any;
+}
+
+export async function fetchPoExceptionRequests(filter: { status?: string; poId?: string } = {}) {
+  let q = supabase
+    .from('po_exception_requests')
+    .select('id, po_id, supplier_id, reason, status, admin_notes, reviewed_by, reviewed_at, created_at')
+    .order('created_at', { ascending: false });
+  if (filter.status) q = q.eq('status', filter.status);
+  if (filter.poId) q = q.eq('po_id', filter.poId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
 async function fetchPurchaseOrdersByIds(poIds: string[]) {
   if (!poIds.length) return {} as Record<string, any>;
   const { data, error } = await supabase
