@@ -187,12 +187,26 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
     confirmedDeliveryDate: it.confirmed_delivery_date || null,
   }));
   const rawStatus = (p.status || 'pending').toLowerCase();
-  const blockingStatuses = new Set(['closed', 'cancelled', 'rejected', 'completed', 'void']);
-  // Only "open" POs need delivery confirmation
+  const blockingStatuses = new Set(['closed', 'cancelled', 'rejected', 'completed', 'void', 'invoiced']);
+  // Only "open" POs with no invoices yet need delivery confirmation
   const needsDeliveryConfirmation =
     !blockingStatuses.has(rawStatus) &&
+    invoiced <= 0 &&
     !p.delivery_dates_confirmed_at &&
     mappedItems.length > 0;
+  const releaseAt: string | null =
+    p.delivery_first_notified_at || (p.date ? new Date(p.date + 'T00:00:00Z').toISOString() : null);
+  const daysSinceRelease = releaseAt
+    ? Math.floor((Date.now() - new Date(releaseAt).getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+  const exceptionApprovedAt = p.exception_approved_at || null;
+  const exceptionRequestedAt = p.exception_requested_at || null;
+  const exceptionRejectedAt = p.exception_rejected_at || null;
+  const exceptionPending = !!exceptionRequestedAt && !exceptionApprovedAt && !exceptionRejectedAt;
+  const needsExceptionRequest =
+    needsDeliveryConfirmation && daysSinceRelease >= 3 && !exceptionApprovedAt && !exceptionPending;
+  // Download / invoice upload are unlocked when dates confirmed OR exception approved
+  const unlockedForActions = !!p.delivery_dates_confirmed_at || !!exceptionApprovedAt;
   return {
     id: p.zoho_id || p.id,
     dbId: p.id,
@@ -212,6 +226,14 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
     supplierZohoVendorId: supplier?.zoho_vendor_id,
     deliveryDatesConfirmedAt: p.delivery_dates_confirmed_at || null,
     needsDeliveryConfirmation,
+    releaseAt,
+    daysSinceRelease,
+    exceptionRequestedAt,
+    exceptionApprovedAt,
+    exceptionRejectedAt,
+    exceptionPending,
+    needsExceptionRequest,
+    unlockedForActions,
     items: mappedItems,
   };
 };
