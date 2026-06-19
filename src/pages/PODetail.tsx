@@ -295,7 +295,9 @@ export default function PODetail() {
                       </tr>
                     )}
                     {(order.items || []).map((item: any, idx: number) => {
-                      const name = item.item_name || item.name || item.description || item.item_description || '';
+                      const name = item.item_name || item.name || '';
+                      const description = item.description || item.item_description || '';
+                      const showDescription = description && description.trim() && description.trim() !== name.trim();
                       const hsn = item.hsn || item.hsn_or_sac || item.hsn_sac || item.sac || '—';
                       const qty = Number(item.quantity ?? item.qty ?? 0) || 0;
                       const rate = Number(item.unitPrice ?? item.rate ?? item.unit_price ?? item.price ?? 0) || 0;
@@ -304,22 +306,36 @@ export default function PODetail() {
                       const invoiced = isFullyBilled ? qty : tracked;
                       const pending = Math.max(qty - invoiced, 0);
                       const total = Number(item.total ?? qty * rate);
-                      const taxPct = item.tax_percentage ?? item.tax_rate;
+                      const taxPctRaw = item.tax_percentage ?? item.tax_rate;
+                      const taxPct = taxPctRaw == null || taxPctRaw === '' ? null : Number(taxPctRaw);
                       const taxName = item.tax_name;
-                      const taxLabel =
-                        taxPct != null && taxPct !== ''
-                          ? `${Number(taxPct)}%${taxName ? ` (${taxName})` : ''}`
-                          : taxName || '—';
+                      const taxAmount = taxPct != null && !Number.isNaN(taxPct) ? (qty * rate * taxPct) / 100 : null;
                       const confirmed = item.confirmedDeliveryDate || item.confirmed_delivery_date;
                       return (
                         <tr key={item.id ?? idx}>
-                          <td className="px-4 py-4 text-sm">{name || '—'}</td>
+                          <td className="px-4 py-4 text-sm">
+                            <div className="font-medium">{name || '—'}</div>
+                            {showDescription && (
+                              <div className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap">{description}</div>
+                            )}
+                          </td>
                           <td className="px-4 py-4 text-sm text-muted-foreground">{hsn}</td>
                           <td className="px-4 py-4 text-right text-sm">{qty}</td>
                           <td className="px-4 py-4 text-right text-sm">{invoiced}</td>
                           <td className="px-4 py-4 text-right text-sm font-medium">{pending}</td>
                           <td className="px-4 py-4 text-right text-sm">{formatCurrency(rate)}</td>
-                          <td className="px-4 py-4 text-right text-sm text-muted-foreground">{taxLabel}</td>
+                          <td className="px-4 py-4 text-right text-sm text-muted-foreground">
+                            {taxPct != null && !Number.isNaN(taxPct) ? (
+                              <div>
+                                <div>{taxPct}%{taxName ? ` (${taxName})` : ''}</div>
+                                {taxAmount != null && (
+                                  <div className="text-xs">{formatCurrency(taxAmount)}</div>
+                                )}
+                              </div>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
                           <td className="px-4 py-4 text-sm text-muted-foreground">{formatDate(confirmed)}</td>
                           <td className="px-4 py-4 text-right text-sm font-medium">{formatCurrency(total)}</td>
                         </tr>
