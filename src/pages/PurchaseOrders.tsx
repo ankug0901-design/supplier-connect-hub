@@ -254,8 +254,28 @@ export default function PurchaseOrders() {
                       <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
                         {formatCurrency(Number(order.amount || 0))}
                       </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                        {order.items?.length ?? 0} items
+                      <td className="px-6 py-4 text-sm text-muted-foreground max-w-xs">
+                        {(() => {
+                          const names = (order.items || [])
+                            .map((it: any) => (it.item_name || it.description || '').trim())
+                            .filter(Boolean);
+                          if (names.length === 0) return <span>—</span>;
+                          const preview = names.slice(0, 2).join(', ');
+                          const extra = names.length - 2;
+                          return (
+                            <span
+                              className="block truncate text-foreground"
+                              title={names.join('\n')}
+                            >
+                              {preview}
+                              {extra > 0 && (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  +{extra} more
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         <div className="flex flex-col gap-1">
