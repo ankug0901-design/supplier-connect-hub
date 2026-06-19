@@ -90,10 +90,15 @@ export default function PurchaseOrders() {
   ).sort();
 
   const filteredOrders = purchaseOrders.filter((order: any) => {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     const matchesSearch =
+      !q ||
       order.poNumber?.toLowerCase().includes(q) ||
-      order.supplierName?.toLowerCase().includes(q);
+      order.supplierName?.toLowerCase().includes(q) ||
+      (order.items || []).some((it: any) =>
+        (it.item_name || '').toLowerCase().includes(q) ||
+        (it.description || '').toLowerCase().includes(q),
+      );
     const orderStatus = (order.status || '').toString().toLowerCase();
     const matchesStatus = statusFilter === 'all' || orderStatus === statusFilter;
     return matchesSearch && matchesStatus;
@@ -124,7 +129,7 @@ export default function PurchaseOrders() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={isAdmin ? "Search by PO number or supplier..." : "Search by PO number..."}
+                placeholder={isAdmin ? "Search by PO #, supplier, or item..." : "Search by PO # or item..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -249,8 +254,28 @@ export default function PurchaseOrders() {
                       <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
                         {formatCurrency(Number(order.amount || 0))}
                       </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                        {order.items?.length ?? 0} items
+                      <td className="px-6 py-4 text-sm text-muted-foreground max-w-xs">
+                        {(() => {
+                          const names = (order.items || [])
+                            .map((it: any) => (it.item_name || it.description || '').trim())
+                            .filter(Boolean);
+                          if (names.length === 0) return <span>—</span>;
+                          const preview = names.slice(0, 2).join(', ');
+                          const extra = names.length - 2;
+                          return (
+                            <span
+                              className="block truncate text-foreground"
+                              title={names.join('\n')}
+                            >
+                              {preview}
+                              {extra > 0 && (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  +{extra} more
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         <div className="flex flex-col gap-1">
