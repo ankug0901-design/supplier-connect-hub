@@ -140,6 +140,10 @@ Deno.serve(async (req) => {
               const zohoLineId = it.line_item_id ?? it.lineItemId ?? it.line_id ?? it.item_id ?? null;
               const zohoName = it.item_name ?? it.name ?? null;
               const zohoDescription = it.description ?? it.item_description ?? zohoName ?? "Item";
+              const hsn = it.hsn_or_sac ?? it.hsn ?? it.sac ?? it.hsn_sac ?? null;
+              const taxPctRaw = it.tax_percentage ?? it.tax_rate ?? it.tax_percent ?? null;
+              const taxPct = taxPctRaw === null || taxPctRaw === '' ? null : Number(taxPctRaw);
+              const taxName = it.tax_name ?? it.tax_type ?? null;
               return {
                 po_id: poId,
                 description: zohoDescription,
@@ -148,6 +152,9 @@ Deno.serve(async (req) => {
                 quantity: Math.max(1, Math.round(quantity || 1)),
                 unit_price: unitPrice,
                 total: Number(it.total ?? it.item_total ?? quantity * unitPrice ?? 0),
+                hsn: hsn ? String(hsn) : null,
+                tax_percentage: Number.isFinite(taxPct as number) ? taxPct : null,
+                tax_name: taxName ? String(taxName) : null,
               };
             });
           });
