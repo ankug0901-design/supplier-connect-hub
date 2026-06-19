@@ -228,7 +228,7 @@ export default function PODetail() {
             </Button>
           </Link>
           {order.status === 'pending' &&
-            (order.deliveryDatesConfirmedAt ? (
+            (order.unlockedForActions ? (
               <Link to={`/invoices/upload?po=${order.id}`}>
                 <Button variant="accent" className="gap-2">
                   <Upload className="h-4 w-4" />
@@ -236,7 +236,7 @@ export default function PODetail() {
                 </Button>
               </Link>
             ) : (
-              <Button variant="accent" className="gap-2" disabled title="Confirm delivery dates first">
+              <Button variant="accent" className="gap-2" disabled title="Confirm delivery dates or get exception approval first">
                 <Lock className="h-4 w-4" />
                 Upload Invoice
               </Button>
