@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, CheckCircle2, Minus, UserPlus, Pencil, ShieldCheck, Eye } from 'lucide-react';
+import { Loader2, CheckCircle2, Minus, UserPlus, Pencil, ShieldCheck, Eye, KeyRound } from 'lucide-react';
 import { UserPermissionsDialog } from '@/components/admin/UserPermissionsDialog';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -52,9 +52,39 @@ export default function AdminSuppliers() {
   const [editDraft, setEditDraft] = useState<EditDraft>(emptyEdit);
   const [saving, setSaving] = useState(false);
   const [permsFor, setPermsFor] = useState<SupplierRow | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
   const { toast } = useToast();
   const { startImpersonation, realIsAdmin } = useAuth();
   const navigate = useNavigate();
+
+  const handleResetPassword = async (s: SupplierRow) => {
+    if (!confirm(`Send a password reset / invite email to ${s.email}?`)) return;
+    setResettingId(s.id);
+    const { data, error } = await supabase.functions.invoke('admin-invite-supplier', {
+      body: {
+        email: s.email,
+        name: s.name,
+        company: s.company,
+        phone: s.phone || '',
+        gst_number: s.gst_number || '',
+        zoho_vendor_id: s.zoho_vendor_id || '',
+        redirect_to: `${window.location.origin}/reset-password`,
+      },
+    });
+    setResettingId(null);
+    if (error || (data as any)?.error) {
+      toast({
+        title: 'Could not send reset email',
+        description: (data as any)?.error || error?.message || 'Unknown error',
+        variant: 'destructive',
+      });
+      return;
+    }
+    toast({
+      title: 'Reset email sent',
+      description: `${s.email} will receive a fresh link to set their password.`,
+    });
+  };
 
   const handleViewAs = (s: SupplierRow) => {
     startImpersonation({
@@ -271,6 +301,20 @@ export default function AdminSuppliers() {
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => setPermsFor(s)} disabled={!s.user_id} title={s.user_id ? 'Per-user permissions' : 'User has not signed in yet'}>
                           <ShieldCheck className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleResetPassword(s)}
+                          disabled={resettingId === s.id}
+                          title="Send a fresh password reset / invite email"
+                        >
+                          {resettingId === s.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <KeyRound className="h-4 w-4" />
+                          )}
+                          Reset
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
                           <Pencil className="h-4 w-4" />
