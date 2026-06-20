@@ -20,25 +20,65 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    // Supabase sends users here with a recovery/invite token in the URL hash.
-    // The client auto-exchanges it for a session. Wait for that to land.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' || (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION'))) {
         setReady(true);
       }
     });
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-      else {
-        // Give the URL token a moment to exchange
-        setTimeout(async () => {
-          const { data: d2 } = await supabase.auth.getSession();
-          if (d2.session) setReady(true);
-          else setError('This link is invalid or has expired. Please request a new one.');
-        }, 1500);
+    (async () => {
+      try {
+        const url = new URL(window.location.href);
+        const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+        // Error in URL (e.g. otp_expired)
+        const errDesc = url.searchParams.get('error_description') || hash.get('error_description');
+        if (errDesc) {
+          setError(decodeURIComponent(errDesc));
+          return;
+        }
+
+        // 1) PKCE code flow: ?code=...
+        const code = url.searchParams.get('code');
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          setReady(true);
+          return;
+        }
+
+        // 2) Token hash flow: ?token_hash=...&type=recovery
+        const tokenHash = url.searchParams.get('token_hash') || hash.get('token_hash');
+        const type = (url.searchParams.get('type') || hash.get('type')) as any;
+        if (tokenHash && type) {
+          const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
+          if (error) throw error;
+          setReady(true);
+          return;
+        }
+
+        // 3) Implicit flow: #access_token=...&refresh_token=...
+        const accessToken = hash.get('access_token');
+        const refreshToken = hash.get('refresh_token');
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          if (error) throw error;
+          setReady(true);
+          return;
+        }
+
+        // 4) Maybe session already exists
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          setReady(true);
+          return;
+        }
+
+        setError('This link is invalid or has expired. Please request a new one.');
+      } catch (e: any) {
+        setError(e?.message || 'This link is invalid or has expired. Please request a new one.');
       }
-    });
+    })();
 
     return () => subscription.unsubscribe();
   }, []);
