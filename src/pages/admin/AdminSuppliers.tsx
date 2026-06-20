@@ -302,6 +302,20 @@ export default function AdminSuppliers() {
                         <Button variant="ghost" size="sm" onClick={() => setPermsFor(s)} disabled={!s.user_id} title={s.user_id ? 'Per-user permissions' : 'User has not signed in yet'}>
                           <ShieldCheck className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleResetPassword(s)}
+                          disabled={resettingId === s.id}
+                          title="Send a fresh password reset / invite email"
+                        >
+                          {resettingId === s.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <KeyRound className="h-4 w-4" />
+                          )}
+                          Reset
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
                           <Pencil className="h-4 w-4" />
                           Edit
