@@ -52,9 +52,39 @@ export default function AdminSuppliers() {
   const [editDraft, setEditDraft] = useState<EditDraft>(emptyEdit);
   const [saving, setSaving] = useState(false);
   const [permsFor, setPermsFor] = useState<SupplierRow | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
   const { toast } = useToast();
   const { startImpersonation, realIsAdmin } = useAuth();
   const navigate = useNavigate();
+
+  const handleResetPassword = async (s: SupplierRow) => {
+    if (!confirm(`Send a password reset / invite email to ${s.email}?`)) return;
+    setResettingId(s.id);
+    const { data, error } = await supabase.functions.invoke('admin-invite-supplier', {
+      body: {
+        email: s.email,
+        name: s.name,
+        company: s.company,
+        phone: s.phone || '',
+        gst_number: s.gst_number || '',
+        zoho_vendor_id: s.zoho_vendor_id || '',
+        redirect_to: `${window.location.origin}/reset-password`,
+      },
+    });
+    setResettingId(null);
+    if (error || (data as any)?.error) {
+      toast({
+        title: 'Could not send reset email',
+        description: (data as any)?.error || error?.message || 'Unknown error',
+        variant: 'destructive',
+      });
+      return;
+    }
+    toast({
+      title: 'Reset email sent',
+      description: `${s.email} will receive a fresh link to set their password.`,
+    });
+  };
 
   const handleViewAs = (s: SupplierRow) => {
     startImpersonation({
