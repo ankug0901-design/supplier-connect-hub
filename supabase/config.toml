@@ -7,5 +7,7 @@ project_id = "agrhkarauqxkgyvfthvc"
     verify_jwt = true
   [functions.three-way-match-upsert]
     verify_jwt = false
+  [functions.rfq-portal-request-upsert]
+    verify_jwt = false
   [functions.zoho-sync]
     verify_jwt = true
