@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getPasswordResetRedirectUrl } from '@/lib/authRedirects';
 
 interface SupplierRow {
   id: string;
@@ -68,7 +69,7 @@ export default function AdminSuppliers() {
         phone: s.phone || '',
         gst_number: s.gst_number || '',
         zoho_vendor_id: s.zoho_vendor_id || '',
-        redirect_to: `${window.location.origin}/reset-password`,
+        redirect_to: getPasswordResetRedirectUrl(),
       },
     });
     setResettingId(null);
@@ -165,7 +166,7 @@ export default function AdminSuppliers() {
     }
     setInviting(true);
     const { data, error } = await supabase.functions.invoke('admin-invite-supplier', {
-      body: { ...invite, redirect_to: `${window.location.origin}/reset-password` },
+      body: { ...invite, redirect_to: getPasswordResetRedirectUrl() },
     });
     setInviting(false);
     if (error || (data as any)?.error) {

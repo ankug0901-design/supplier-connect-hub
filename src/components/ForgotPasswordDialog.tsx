@@ -8,6 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { getPasswordResetRedirectUrl } from '@/lib/authRedirects';
 
 interface Props {
   open: boolean;
@@ -25,7 +26,7 @@ export function ForgotPasswordDialog({ open, onOpenChange, defaultEmail = '' }: 
     if (!email) return;
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: getPasswordResetRedirectUrl(),
     });
     setLoading(false);
     if (error) {
