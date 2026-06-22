@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
       } catch (e: any) {
         summary.errors.push(`Payment ${sup.id}: ${e.message}`);
       }
-    }
+    }));
 
     // Fire-and-forget: trigger PO delivery confirmation reminder for any newly
     // synced POs that still need confirmation. The function itself deduplicates
