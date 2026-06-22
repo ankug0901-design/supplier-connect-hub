@@ -35,8 +35,8 @@ async function enqueueAuthEmail(admin: any, opts: {
   const { error } = await admin.rpc('enqueue_email', {
     queue_name: 'auth_emails',
     payload: {
-      run_id: messageId,
       message_id: messageId,
+      idempotency_key: `${opts.type}-${opts.email.toLowerCase()}-${messageId}`,
       to: opts.email,
       from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
