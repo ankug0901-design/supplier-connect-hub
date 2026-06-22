@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
 
     await Promise.all((suppliers || []).map(async (sup) => {
       const vendorId = sup.zoho_vendor_id as string;
-      if (!vendorId) continue;
+      if (!vendorId) return;
       summary.suppliers++;
 
       // ---- Purchase Orders ----
