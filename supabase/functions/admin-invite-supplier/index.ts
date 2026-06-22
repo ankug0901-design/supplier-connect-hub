@@ -43,7 +43,7 @@ async function enqueueAuthEmail(admin: any, opts: {
       subject,
       html,
       text,
-      purpose: 'transactional',
+      purpose: 'auth',
       label: opts.type,
       queued_at: new Date().toISOString(),
     },
