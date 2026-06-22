@@ -26,6 +26,10 @@ function isForbidden(error: unknown): boolean {
   return error instanceof Error && error.message.includes('403')
 }
 
+function isMissingUnsubscribe(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('missing_unsubscribe')
+}
+
 // Extract Retry-After seconds from a structured EmailAPIError, or default to 60s.
 function getRetryAfterSeconds(error: unknown): number {
   if (error && typeof error === 'object' && 'retryAfterSeconds' in error) {
@@ -249,21 +253,30 @@ Deno.serve(async (req) => {
       }
 
       try {
+        const emailRequest: Record<string, unknown> = {
+          to: payload.to,
+          from: payload.from,
+          sender_domain: payload.sender_domain,
+          subject: payload.subject,
+          html: payload.html,
+          text: payload.text,
+          purpose: payload.purpose,
+          label: payload.label,
+          idempotency_key: payload.idempotency_key,
+          unsubscribe_token: payload.unsubscribe_token,
+          message_id: payload.message_id,
+        }
+
+        if (queue === 'auth_emails' && emailRequest.purpose === 'transactional' && !payload.unsubscribe_token) {
+          emailRequest.purpose = 'auth'
+        }
+
+        if (payload.run_id) {
+          emailRequest.run_id = payload.run_id
+        }
+
         await sendLovableEmail(
-          {
-            run_id: payload.run_id,
-            to: payload.to,
-            from: payload.from,
-            sender_domain: payload.sender_domain,
-            subject: payload.subject,
-            html: payload.html,
-            text: payload.text,
-            purpose: payload.purpose,
-            label: payload.label,
-            idempotency_key: payload.idempotency_key,
-            unsubscribe_token: payload.unsubscribe_token,
-            message_id: payload.message_id,
-          },
+          emailRequest,
           // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
           // falls back to the default Lovable API endpoint (https://api.lovable.dev).
           // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
@@ -335,6 +348,21 @@ Deno.serve(async (req) => {
         }
 
         // Log non-429 failures to track real retry attempts.
+        if (isMissingUnsubscribe(error) && queue === 'auth_emails' && payload?.purpose === 'transactional') {
+          payload.purpose = 'auth'
+          const { error: requeueError } = await supabase.rpc('enqueue_email', {
+            queue_name: queue,
+            payload,
+          })
+          if (!requeueError) {
+            await supabase.rpc('delete_email', {
+              queue_name: queue,
+              message_id: msg.msg_id,
+            })
+            continue
+          }
+        }
+
         await supabase.from('email_send_log').insert({
           message_id: payload.message_id,
           template_name: payload.label || queue,

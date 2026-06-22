@@ -8,6 +8,29 @@ const SITE_NAME = 'embosssupplierportal';
 const SENDER_DOMAIN = 'notify.embossmarketing.in';
 const FROM_DOMAIN = 'notify.embossmarketing.in';
 
+async function getOrCreateUnsubscribeToken(admin: any, email: string): Promise<string> {
+  const lower = String(email).toLowerCase();
+  const { data: existing } = await admin
+    .from('email_unsubscribe_tokens')
+    .select('token')
+    .eq('email', lower)
+    .maybeSingle();
+  if (existing?.token) return existing.token as string;
+
+  const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+  const { error } = await admin.from('email_unsubscribe_tokens').insert({ email: lower, token });
+  if (error) {
+    const { data: again } = await admin
+      .from('email_unsubscribe_tokens')
+      .select('token')
+      .eq('email', lower)
+      .maybeSingle();
+    if (again?.token) return again.token as string;
+    throw error;
+  }
+  return token;
+}
+
 async function enqueueAuthEmail(admin: any, opts: {
   type: 'recovery' | 'invite';
   email: string;
@@ -24,6 +47,7 @@ async function enqueueAuthEmail(admin: any, opts: {
   const text = await renderAsync(React.createElement(Template, props), { plainText: true });
   const messageId = crypto.randomUUID();
   const subject = opts.type === 'invite' ? "You've been invited" : 'Reset your password';
+  const unsubscribeToken = await getOrCreateUnsubscribeToken(admin, opts.email);
 
   await admin.from('email_send_log').insert({
     message_id: messageId,
@@ -35,8 +59,8 @@ async function enqueueAuthEmail(admin: any, opts: {
   const { error } = await admin.rpc('enqueue_email', {
     queue_name: 'auth_emails',
     payload: {
-      run_id: messageId,
       message_id: messageId,
+      idempotency_key: `${opts.type}-${opts.email.toLowerCase()}-${messageId}`,
       to: opts.email,
       from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
@@ -45,6 +69,7 @@ async function enqueueAuthEmail(admin: any, opts: {
       text,
       purpose: 'transactional',
       label: opts.type,
+      unsubscribe_token: unsubscribeToken,
       queued_at: new Date().toISOString(),
     },
   });
@@ -94,7 +119,7 @@ Deno.serve(async (req) => {
 
     // Look up existing user
     const { data: existingSupplier } = await admin
-      .from('suppliers').select('user_id').eq('email', email).maybeSingle();
+      .from('suppliers').select('user_id, role').eq('email', email).maybeSingle();
     let existingUserId: string | undefined = existingSupplier?.user_id ?? undefined;
 
     let userId: string | undefined;
@@ -152,7 +177,7 @@ Deno.serve(async (req) => {
           phone: phone || null,
           gst_number: gst_number || null,
           zoho_vendor_id: zoho_vendor_id || null,
-          role: 'supplier',
+          role: existingSupplier?.role || 'supplier',
         },
         { onConflict: 'user_id' }
       );
