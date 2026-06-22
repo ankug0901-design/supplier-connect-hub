@@ -66,12 +66,15 @@ Deno.serve(async (req) => {
           await admin.auth.admin.updateUserById(existingUserId, { user_metadata: mergedMeta });
         }
 
-        const { error: linkErr } = await admin.auth.admin.generateLink({
-          type: 'recovery',
-          email,
-          options: { redirectTo },
+        // IMPORTANT: admin.generateLink() only generates a token, it does NOT
+        // send the email. Use the public auth endpoint via the anon client so
+        // Supabase actually dispatches the recovery email (which then flows
+        // through our auth-email-hook).
+        const anonClient = createClient(SUPABASE_URL, ANON_KEY);
+        const { error: resetErr } = await anonClient.auth.resetPasswordForEmail(email, {
+          redirectTo,
         });
-        if (linkErr) throw linkErr;
+        if (resetErr) throw resetErr;
         userId = existingUserId;
       } else {
         throw inviteErr;
