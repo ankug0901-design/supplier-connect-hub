@@ -95,9 +95,9 @@ Deno.serve(async (req) => {
     const { data: suppliers, error: sErr } = await supplierQuery;
     if (sErr) throw sErr;
 
-    for (const sup of suppliers || []) {
+    await Promise.all((suppliers || []).map(async (sup) => {
       const vendorId = sup.zoho_vendor_id as string;
-      if (!vendorId) continue;
+      if (!vendorId) return;
       summary.suppliers++;
 
       // ---- Purchase Orders ----
@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
       } catch (e: any) {
         summary.errors.push(`Payment ${sup.id}: ${e.message}`);
       }
-    }
+    }));
 
     // Fire-and-forget: trigger PO delivery confirmation reminder for any newly
     // synced POs that still need confirmation. The function itself deduplicates
