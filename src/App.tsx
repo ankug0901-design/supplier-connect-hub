@@ -16,6 +16,7 @@ const ADMIN_LANDING_ORDER = [
   "admin-three-way-match",
   "admin-vendor-scores",
   "admin-ai-insights",
+  "admin-exception-requests",
 ] as const;
 const ADMIN_PATH: Record<string, string> = {
   "admin-dashboard": "/admin",
@@ -25,6 +26,7 @@ const ADMIN_PATH: Record<string, string> = {
   "admin-three-way-match": "/admin/three-way-match",
   "admin-vendor-scores": "/admin/vendor-scores",
   "admin-ai-insights": "/admin/ai-insights",
+  "admin-exception-requests": "/admin/exception-requests",
 };
 
 function AdminLanding() {
@@ -45,7 +47,7 @@ function AdminLanding() {
       const roleMap = new Map((roleAccess || []).map((r: any) => [r.section_key, r.enabled]));
       const first = ADMIN_LANDING_ORDER.find((k) => {
         if (ovMap.has(k)) return ovMap.get(k) === true;
-        return roleMap.has(k) ? roleMap.get(k) === true : true;
+        return roleMap.has(k) ? roleMap.get(k) === true : false;
       });
       setTarget(first ? ADMIN_PATH[first] : "/admin");
     })();
@@ -181,7 +183,7 @@ function AppRoutes() {
       <Route path="/admin/user-roles" element={<SuperAdminRoute><AdminUserRoles /></SuperAdminRoute>} />
       <Route path="/admin/page-permissions" element={<SuperAdminRoute><AdminPagePermissions /></SuperAdminRoute>} />
       <Route path="/admin/user-access-report" element={<SuperAdminRoute><AdminUserAccessReport /></SuperAdminRoute>} />
-      <Route path="/admin/exception-requests" element={<AdminRoute><AdminExceptionRequests /></AdminRoute>} />
+      <Route path="/admin/exception-requests" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-exception-requests"><AdminExceptionRequests /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
