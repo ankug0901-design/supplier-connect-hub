@@ -9,7 +9,8 @@ export type N8nPath =
   | 'rfq-manage'
   | 'rfq-send-attachment'
   | 'rfq-issue-po'
-  | 'bulk-register-suppliers';
+  | 'bulk-register-suppliers'
+  | 'rfq-tca-report';
 
 export interface N8nResult {
   ok: boolean;

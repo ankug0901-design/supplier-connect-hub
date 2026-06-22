@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import jsPDF from 'jspdf';
@@ -130,6 +130,26 @@ export default function AdminRfq() {
   const [summaryMarkdown, setSummaryMarkdown] = useState<string>('');
   const [pdfBusy, setPdfBusy] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
+  const [tcaBusyId, setTcaBusyId] = useState<string | null>(null);
+
+  const generateTcaReport = async (rfq_id: string) => {
+    setTcaBusyId(rfq_id);
+    try {
+      const res = await n8nPost('rfq-tca-report', {
+        rfq_id,
+        requested_by: user?.email || supplier?.name || 'admin',
+      });
+      // n8n's "lastNode" response mode returns 500 with "No item to return"
+      // when the final node (email) emits nothing. The workflow still ran.
+      const benign = !res.ok && /no item to return/i.test(res.text || '');
+      if (!res.ok && !benign) throw new Error(res.text || `HTTP ${res.status}`);
+      toast.success('TCA report triggered — check procurement inbox shortly.');
+    } catch (e: any) {
+      toast.error(`TCA report failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setTcaBusyId(null);
+    }
+  };
 
   const generateSummary = async (rfq_id: string) => {
     setSummaryRfqId(rfq_id);
@@ -543,6 +563,20 @@ export default function AdminRfq() {
                           onClick={() => generateSummary(rfq_id)}
                         >
                           <Sparkles className="mr-1 h-3.5 w-3.5" /> AI Client Summary
+                        </Button>
+                      )}
+                      {submitted.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                          disabled={tcaBusyId === rfq_id}
+                          onClick={() => generateTcaReport(rfq_id)}
+                        >
+                          {tcaBusyId === rfq_id
+                            ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                            : <FileBarChart className="mr-1 h-3.5 w-3.5" />}
+                          Generate TCA Report
                         </Button>
                       )}
                       {!decided && !isClosed && (

@@ -19,6 +19,7 @@ const ALLOWED_PATHS = new Set([
   'rfq-send-attachment',
   'rfq-issue-po',
   'bulk-register-suppliers',
+  'rfq-tca-report',
 ]);
 
 // Subset of paths that only top-tier admins are allowed to invoke.
@@ -32,6 +33,7 @@ const ADMIN_ONLY_PATHS = new Set([
 const RFQ_MANAGEMENT_PATHS = new Set([
   'rfq-manage',
   'rfq-quote-accepted',
+  'rfq-tca-report',
 ]);
 
 Deno.serve(async (req) => {
