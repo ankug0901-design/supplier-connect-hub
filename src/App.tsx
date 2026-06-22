@@ -3,7 +3,67 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+
+// Admin landing order — first allowed section is used as the redirect target.
+const ADMIN_LANDING_ORDER = [
+  "admin-dashboard",
+  "admin-rfq",
+  "admin-suppliers",
+  "admin-registrations",
+  "admin-three-way-match",
+  "admin-vendor-scores",
+  "admin-ai-insights",
+] as const;
+const ADMIN_PATH: Record<string, string> = {
+  "admin-dashboard": "/admin",
+  "admin-rfq": "/admin/rfq",
+  "admin-suppliers": "/admin/suppliers",
+  "admin-registrations": "/admin/registrations",
+  "admin-three-way-match": "/admin/three-way-match",
+  "admin-vendor-scores": "/admin/vendor-scores",
+  "admin-ai-insights": "/admin/ai-insights",
+};
+
+function AdminLanding() {
+  const { isSuperAdmin, role, effectiveUserId } = useAuth();
+  const [target, setTarget] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isSuperAdmin) { setTarget("/admin"); return; }
+    if (!role || !effectiveUserId) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: overrides }, { data: roleAccess }] = await Promise.all([
+        supabase.from("supplier_section_access").select("section_key, enabled").eq("user_id", effectiveUserId),
+        supabase.from("role_section_access").select("section_key, enabled").eq("role", role),
+      ]);
+      if (cancelled) return;
+      const ovMap = new Map((overrides || []).map((r: any) => [r.section_key, r.enabled]));
+      const roleMap = new Map((roleAccess || []).map((r: any) => [r.section_key, r.enabled]));
+      const first = ADMIN_LANDING_ORDER.find((k) => {
+        if (ovMap.has(k)) return ovMap.get(k) === true;
+        return roleMap.has(k) ? roleMap.get(k) === true : true;
+      });
+      setTarget(first ? ADMIN_PATH[first] : "/admin");
+    })();
+    return () => { cancelled = true; };
+  }, [isSuperAdmin, role, effectiveUserId]);
+
+  if (!target) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      </div>
+    );
+  }
+  if (target === "/admin") {
+    return <SupplierSectionGuard sectionKey="admin-dashboard"><AdminDashboard /></SupplierSectionGuard>;
+  }
+  return <Navigate to={target} replace />;
+}
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import PurchaseOrders from "./pages/PurchaseOrders";
