@@ -26,6 +26,10 @@ function isForbidden(error: unknown): boolean {
   return error instanceof Error && error.message.includes('403')
 }
 
+function isMissingUnsubscribe(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('missing_unsubscribe')
+}
+
 // Extract Retry-After seconds from a structured EmailAPIError, or default to 60s.
 function getRetryAfterSeconds(error: unknown): number {
   if (error && typeof error === 'object' && 'retryAfterSeconds' in error) {
@@ -263,6 +267,10 @@ Deno.serve(async (req) => {
           message_id: payload.message_id,
         }
 
+        if (queue === 'auth_emails' && emailRequest.purpose === 'transactional' && !payload.unsubscribe_token) {
+          emailRequest.purpose = 'auth'
+        }
+
         if (payload.run_id) {
           emailRequest.run_id = payload.run_id
         }
@@ -340,6 +348,20 @@ Deno.serve(async (req) => {
         }
 
         // Log non-429 failures to track real retry attempts.
+        if (isMissingUnsubscribe(error) && queue === 'auth_emails' && payload?.purpose === 'transactional') {
+          payload.purpose = 'auth'
+          const { error: requeueError } = await supabase.rpc('enqueue_email', {
+            queue_name: queue,
+            payload,
+          })
+          if (!requeueError) {
+            await supabase.rpc('delete_email', {
+              queue_name: queue,
+              message_id: msg.msg_id,
+            })
+          }
+        }
+
         await supabase.from('email_send_log').insert({
           message_id: payload.message_id,
           template_name: payload.label || queue,
