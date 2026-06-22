@@ -138,19 +138,22 @@ Deno.serve(async (req) => {
 
     const text = await res.text();
     const upstreamCT = res.headers.get('content-type') || '';
-    // The Supabase client (functions.invoke) always tries to JSON.parse the
-    // body. An empty upstream response (n8n sometimes returns 200 with no body)
-    // would throw "Unexpected end of JSON input" on the client. Normalise to
-    // valid JSON so callers always get a parseable response.
     let outBody = text;
-    if (!text || !text.trim()) {
+    let outStatus = res.status;
+    // n8n "lastNode" response mode returns HTTP 500 with
+    // {"code":0,"message":"No item to return was found"} when the terminal
+    // node emits nothing (e.g. an email/send node). The workflow itself ran
+    // successfully, so surface this to the client as a 200.
+    if (!res.ok && /no item to return was found/i.test(text)) {
+      outStatus = 200;
+      outBody = JSON.stringify({ ok: true, status: 200, message: 'Workflow executed (no response payload).' });
+    } else if (!text || !text.trim()) {
       outBody = JSON.stringify({ ok: res.ok, status: res.status, message: '' });
     } else if (!upstreamCT.includes('application/json')) {
-      // Wrap non-JSON text bodies so the client can still parse them.
       outBody = JSON.stringify({ ok: res.ok, status: res.status, message: text });
     }
     return new Response(outBody, {
-      status: res.status,
+      status: outStatus,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
