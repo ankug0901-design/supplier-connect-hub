@@ -22,6 +22,7 @@ const ADMIN_SECTIONS: Section[] = [
   { key: 'admin-three-way-match', label: '3-Way Matching', description: 'PO / Invoice / Payment reconciliation' },
   { key: 'admin-ai-insights', label: 'AI Insights', description: 'AI-generated recommendations & nudges' },
   { key: 'admin-vendor-scores', label: 'Supplier Performance', description: 'Vendor scorecards' },
+  { key: 'admin-exception-requests', label: 'Exception Requests', description: 'Review PO exception requests' },
 ];
 
 const SUPPLIER_SECTIONS: Section[] = [
@@ -126,7 +127,7 @@ export default function AdminPagePermissions() {
   const renderSectionList = (role: string, sections: Section[]) => (
     <Card className="divide-y">
       {sections.map((s) => {
-        const enabled = access[role]?.[s.key] ?? true;
+        const enabled = access[role]?.[s.key] ?? false;
         const sid = `${role}:${s.key}`;
         const isAdminRole = role === 'admin';
         return (
