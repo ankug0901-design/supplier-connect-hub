@@ -21,12 +21,16 @@ const ALLOWED_PATHS = new Set([
   'bulk-register-suppliers',
 ]);
 
-// Subset of paths that only admins are allowed to invoke.
+// Subset of paths that only top-tier admins are allowed to invoke.
 const ADMIN_ONLY_PATHS = new Set([
-  'rfq-manage',
   'rfq-issue-po',
   'bulk-register-suppliers',
   'rfq-send-attachment',
+]);
+
+// RFQ operators may invoke these when they have RFQ Management page access.
+const RFQ_MANAGEMENT_PATHS = new Set([
+  'rfq-manage',
   'rfq-quote-accepted',
 ]);
 
@@ -82,6 +86,41 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (callerRow?.role !== 'admin') {
         return json({ error: 'Forbidden - admin only' }, 403);
+      }
+    }
+
+    // Enforce RFQ-management access server-side for RFQ actions
+    if (RFQ_MANAGEMENT_PATHS.has(path)) {
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      );
+      const { data: callerRow } = await adminClient
+        .from('suppliers')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const role = callerRow?.role;
+      if (role !== 'admin') {
+        const { data: override } = await adminClient
+          .from('supplier_section_access')
+          .select('enabled')
+          .eq('user_id', user.id)
+          .eq('section_key', 'admin-rfq')
+          .maybeSingle();
+        let allowed = override?.enabled === true;
+        if (override == null && role) {
+          const { data: roleAccess } = await adminClient
+            .from('role_section_access')
+            .select('enabled')
+            .eq('role', role)
+            .eq('section_key', 'admin-rfq')
+            .maybeSingle();
+          allowed = roleAccess?.enabled === true;
+        }
+        if (!allowed) {
+          return json({ error: 'Forbidden - RFQ Management access required' }, 403);
+        }
       }
     }
 
