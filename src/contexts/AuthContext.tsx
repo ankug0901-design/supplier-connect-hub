@@ -162,8 +162,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
+    setIsLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setIsLoading(false);
+      return { error: error.message };
+    }
+    if (data.user) {
+      setUser(data.user);
+      await fetchSupplierProfile(data.user.id);
+      profileUserIdRef.current = data.user.id;
+      initialSessionResolvedRef.current = true;
+    }
+    setIsLoading(false);
     return { error: null };
   };
 

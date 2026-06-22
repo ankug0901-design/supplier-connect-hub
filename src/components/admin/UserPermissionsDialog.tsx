@@ -19,6 +19,7 @@ const ADMIN_SECTIONS: Section[] = [
   { key: 'admin-three-way-match', label: '3-Way Matching' },
   { key: 'admin-ai-insights', label: 'AI Insights' },
   { key: 'admin-vendor-scores', label: 'Supplier Performance' },
+  { key: 'admin-exception-requests', label: 'Exception Requests' },
 ];
 
 const SUPPLIER_SECTIONS: Section[] = [
