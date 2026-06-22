@@ -29,12 +29,17 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { email, name, company, phone, gst_number, zoho_vendor_id, redirect_to } = body || {};
+    const { email, name, company, phone, gst_number, zoho_vendor_id } = body || {};
     if (!email || !name || !company) {
       return new Response(JSON.stringify({ error: 'email, name and company are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const redirectTo = redirect_to || 'https://supplierconnect.embossmarketing.in/reset-password';
+    // ALWAYS use the production URL — never trust client-supplied redirect_to.
+    // If the admin invokes this from a preview/lovable.app origin, Supabase would
+    // reject that redirect (not in the allowlist) and fall back to its default
+    // site URL, landing the user on a generic signup page instead of our
+    // /reset-password page. That breaks both the branding and the login flow.
+    const redirectTo = 'https://supplierconnect.embossmarketing.in/reset-password';
 
     // Send invite (creates user + emails them a link to set password)
     const { data: inviteData, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
