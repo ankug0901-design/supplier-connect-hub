@@ -8,6 +8,28 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
+const RESET_SESSION_KEY = 'passwordResetSessionReadyAt';
+const RESET_SESSION_MAX_AGE_MS = 30 * 60 * 1000;
+
+function markResetSessionReady() {
+  sessionStorage.setItem(RESET_SESSION_KEY, String(Date.now()));
+}
+
+function hasRecentResetSession() {
+  const readyAt = Number(sessionStorage.getItem(RESET_SESSION_KEY) || 0);
+  return readyAt > 0 && Date.now() - readyAt < RESET_SESSION_MAX_AGE_MS;
+}
+
+function getUrlParams() {
+  const url = new URL(window.location.href);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return {
+    search: url.searchParams,
+    hash,
+    get: (key: string) => url.searchParams.get(key) || hash.get(key),
+  };
+}
+
 export default function ResetPassword() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -21,55 +43,62 @@ export default function ResetPassword() {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION'))) {
+      if (event === 'PASSWORD_RECOVERY' && session) {
+        markResetSessionReady();
         setReady(true);
       }
     });
 
     (async () => {
       try {
-        const url = new URL(window.location.href);
-        const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const params = getUrlParams();
 
         // Error in URL (e.g. otp_expired)
-        const errDesc = url.searchParams.get('error_description') || hash.get('error_description');
+        const errDesc = params.get('error_description') || params.get('error_code');
         if (errDesc) {
           setError(decodeURIComponent(errDesc));
           return;
         }
 
         // 1) PKCE code flow: ?code=...
-        const code = url.searchParams.get('code');
+        const code = params.get('code');
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
+          markResetSessionReady();
+          window.history.replaceState({}, document.title, '/reset-password');
           setReady(true);
           return;
         }
 
-        // 2) Token hash flow: ?token_hash=...&type=recovery
-        const tokenHash = url.searchParams.get('token_hash') || hash.get('token_hash');
-        const type = (url.searchParams.get('type') || hash.get('type')) as any;
+        // 2) Token hash flow: ?token_hash=...&type=recovery|invite
+        const tokenHash = params.get('token_hash');
+        const type = params.get('type') as 'recovery' | 'invite' | null;
         if (tokenHash && type) {
+          if (type !== 'recovery' && type !== 'invite') throw new Error('This link is not a password reset link.');
           const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
           if (error) throw error;
+          markResetSessionReady();
+          window.history.replaceState({}, document.title, '/reset-password');
           setReady(true);
           return;
         }
 
         // 3) Implicit flow: #access_token=...&refresh_token=...
-        const accessToken = hash.get('access_token');
-        const refreshToken = hash.get('refresh_token');
+        const accessToken = params.hash.get('access_token');
+        const refreshToken = params.hash.get('refresh_token');
         if (accessToken && refreshToken) {
           const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
           if (error) throw error;
+          markResetSessionReady();
+          window.history.replaceState({}, document.title, '/reset-password');
           setReady(true);
           return;
         }
 
-        // 4) Maybe session already exists
+        // 4) Allow refresh only after this tab has already validated a reset/invite link.
         const { data } = await supabase.auth.getSession();
-        if (data.session) {
+        if (data.session && hasRecentResetSession()) {
           setReady(true);
           return;
         }
@@ -95,6 +124,7 @@ export default function ResetPassword() {
       setError(error.message);
       return;
     }
+    sessionStorage.removeItem(RESET_SESSION_KEY);
     setSuccess(true);
     toast({ title: 'Password set', description: 'You can now sign in with your new password.' });
     setTimeout(() => navigate('/', { replace: true }), 1500);
