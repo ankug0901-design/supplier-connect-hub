@@ -565,6 +565,20 @@ export default function AdminRfq() {
                           <Sparkles className="mr-1 h-3.5 w-3.5" /> AI Client Summary
                         </Button>
                       )}
+                      {submitted.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                          disabled={tcaBusyId === rfq_id}
+                          onClick={() => generateTcaReport(rfq_id)}
+                        >
+                          {tcaBusyId === rfq_id
+                            ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                            : <FileBarChart className="mr-1 h-3.5 w-3.5" />}
+                          Generate TCA Report
+                        </Button>
+                      )}
                       {!decided && !isClosed && (
                         <Button size="sm" variant="destructive" disabled={!!busyId} onClick={() => setForceCloseTarget(rfq_id)}>
                           Force Close
