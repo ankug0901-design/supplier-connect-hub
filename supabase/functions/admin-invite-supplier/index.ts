@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
 
     // Look up existing user
     const { data: existingSupplier } = await admin
-      .from('suppliers').select('user_id').eq('email', email).maybeSingle();
+      .from('suppliers').select('user_id, role').eq('email', email).maybeSingle();
     let existingUserId: string | undefined = existingSupplier?.user_id ?? undefined;
 
     let userId: string | undefined;
@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
           phone: phone || null,
           gst_number: gst_number || null,
           zoho_vendor_id: zoho_vendor_id || null,
-          role: 'supplier',
+          role: existingSupplier?.role || 'supplier',
         },
         { onConflict: 'user_id' }
       );
