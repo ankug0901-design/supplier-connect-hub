@@ -130,6 +130,26 @@ export default function AdminRfq() {
   const [summaryMarkdown, setSummaryMarkdown] = useState<string>('');
   const [pdfBusy, setPdfBusy] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
+  const [tcaBusyId, setTcaBusyId] = useState<string | null>(null);
+
+  const generateTcaReport = async (rfq_id: string) => {
+    setTcaBusyId(rfq_id);
+    try {
+      const res = await n8nPost('rfq-tca-report', {
+        rfq_id,
+        requested_by: user?.email || supplier?.name || 'admin',
+      });
+      // n8n's "lastNode" response mode returns 500 with "No item to return"
+      // when the final node (email) emits nothing. The workflow still ran.
+      const benign = !res.ok && /no item to return/i.test(res.text || '');
+      if (!res.ok && !benign) throw new Error(res.text || `HTTP ${res.status}`);
+      toast.success('TCA report triggered — check procurement inbox shortly.');
+    } catch (e: any) {
+      toast.error(`TCA report failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setTcaBusyId(null);
+    }
+  };
 
   const generateSummary = async (rfq_id: string) => {
     setSummaryRfqId(rfq_id);
