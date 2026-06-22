@@ -1,4 +1,55 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import * as React from 'npm:react@18.3.1';
+import { renderAsync } from 'npm:@react-email/components@0.0.22';
+import { RecoveryEmail } from '../_shared/email-templates/recovery.tsx';
+import { InviteEmail } from '../_shared/email-templates/invite.tsx';
+
+const SITE_NAME = 'embosssupplierportal';
+const SENDER_DOMAIN = 'notify.embossmarketing.in';
+const FROM_DOMAIN = 'notify.embossmarketing.in';
+
+async function enqueueAuthEmail(admin: any, opts: {
+  type: 'recovery' | 'invite';
+  email: string;
+  url: string;
+}) {
+  const Template = opts.type === 'invite' ? InviteEmail : RecoveryEmail;
+  const props: any = {
+    siteName: SITE_NAME,
+    siteUrl: 'https://supplierconnect.embossmarketing.in',
+    recipient: opts.email,
+    confirmationUrl: opts.url,
+  };
+  const html = await renderAsync(React.createElement(Template, props));
+  const text = await renderAsync(React.createElement(Template, props), { plainText: true });
+  const messageId = crypto.randomUUID();
+  const subject = opts.type === 'invite' ? "You've been invited" : 'Reset your password';
+
+  await admin.from('email_send_log').insert({
+    message_id: messageId,
+    template_name: opts.type,
+    recipient_email: opts.email,
+    status: 'pending',
+  });
+
+  const { error } = await admin.rpc('enqueue_email', {
+    queue_name: 'auth_emails',
+    payload: {
+      run_id: messageId,
+      message_id: messageId,
+      to: opts.email,
+      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+      sender_domain: SENDER_DOMAIN,
+      subject,
+      html,
+      text,
+      purpose: 'transactional',
+      label: opts.type,
+      queued_at: new Date().toISOString(),
+    },
+  });
+  if (error) throw error;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
