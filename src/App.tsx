@@ -171,7 +171,7 @@ function AppRoutes() {
       <Route path="/delivery-challan" element={<ProtectedRoute><SupplierSectionGuard sectionKey="delivery-challan"><DeliveryChallan /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/shipments" element={<ProtectedRoute><SupplierSectionGuard sectionKey="shipments"><Shipments /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/awb" element={<Navigate to="/shipments" replace />} />
-      <Route path="/admin" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-dashboard"><AdminDashboard /></SupplierSectionGuard></AdminRoute>} />
+      <Route path="/admin" element={<AdminRoute><AdminLanding /></AdminRoute>} />
       <Route path="/admin/suppliers" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-suppliers"><AdminSuppliers /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/admin/registrations" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-registrations"><AdminRegistrations /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/admin/rfq" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-rfq"><AdminRfq /></SupplierSectionGuard></AdminRoute>} />
