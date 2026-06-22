@@ -92,50 +92,54 @@ Deno.serve(async (req) => {
     // /reset-password page. That breaks both the branding and the login flow.
     const redirectTo = 'https://supplierconnect.embossmarketing.in/reset-password';
 
-    // Send invite (creates user + emails them a link to set password)
-    const { data: inviteData, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo,
-      data: { name, company },
-    });
+    // Look up existing user
+    const { data: existingSupplier } = await admin
+      .from('suppliers').select('user_id').eq('email', email).maybeSingle();
+    let existingUserId: string | undefined = existingSupplier?.user_id ?? undefined;
 
-    let userId = inviteData?.user?.id;
+    let userId: string | undefined;
 
-    // If user already exists, fall back to a password reset email
-    if (inviteErr) {
-      const msg = inviteErr.message?.toLowerCase() || '';
-      if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
-        // Look up the existing user so we can flag this as a re-invite via
-        // user_metadata. The auth-email-hook reads is_reinvite from
-        // payload.data.user_metadata and renders the Invite email instead of
-        // the Recovery email when true.
-        const { data: existing } = await admin.from('suppliers').select('user_id').eq('email', email).maybeSingle();
-        const existingUserId = existing?.user_id;
-
-        if (existingUserId) {
-          const { data: userRecord } = await admin.auth.admin.getUserById(existingUserId);
-          const mergedMeta = {
-            ...(userRecord?.user?.user_metadata || {}),
-            name,
-            company,
-            is_reinvite: true,
-          };
-          await admin.auth.admin.updateUserById(existingUserId, { user_metadata: mergedMeta });
+    if (!existingUserId) {
+      // Create user with no auto email — we send our own via the queue (avoids rate limits)
+      const { data: created, error: createErr } = await admin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: { name, company },
+      });
+      if (createErr) {
+        const msg = createErr.message?.toLowerCase() || '';
+        if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
+          const { data: list } = await admin.auth.admin.listUsers();
+          const found = list?.users?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+          existingUserId = found?.id;
+        } else {
+          throw createErr;
         }
-
-        // IMPORTANT: admin.generateLink() only generates a token, it does NOT
-        // send the email. Use the public auth endpoint via the anon client so
-        // Supabase actually dispatches the recovery email (which then flows
-        // through our auth-email-hook).
-        const anonClient = createClient(SUPABASE_URL, ANON_KEY);
-        const { error: resetErr } = await anonClient.auth.resetPasswordForEmail(email, {
-          redirectTo,
-        });
-        if (resetErr) throw resetErr;
-        userId = existingUserId;
       } else {
-        throw inviteErr;
+        userId = created.user?.id;
       }
     }
+
+    if (existingUserId) {
+      const { data: userRecord } = await admin.auth.admin.getUserById(existingUserId);
+      const mergedMeta = { ...(userRecord?.user?.user_metadata || {}), name, company };
+      await admin.auth.admin.updateUserById(existingUserId, { user_metadata: mergedMeta });
+    }
+
+    // Generate link via admin API (NOT rate-limited), then enqueue our own email.
+    const linkType: 'invite' | 'recovery' = existingUserId ? 'recovery' : 'invite';
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+      type: linkType,
+      email,
+      options: { redirectTo },
+    });
+    if (linkErr) throw linkErr;
+    const actionLink = linkData?.properties?.action_link;
+    if (!actionLink) throw new Error('Failed to generate action link');
+
+    await enqueueAuthEmail(admin, { type: linkType, email, url: actionLink });
+
+    userId = userId || existingUserId;
 
     // Upsert supplier row with provided details
     if (userId) {
