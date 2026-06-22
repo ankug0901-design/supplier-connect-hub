@@ -359,6 +359,7 @@ Deno.serve(async (req) => {
               queue_name: queue,
               message_id: msg.msg_id,
             })
+            continue
           }
         }
 
