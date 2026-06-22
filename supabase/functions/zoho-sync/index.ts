@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     const { data: suppliers, error: sErr } = await supplierQuery;
     if (sErr) throw sErr;
 
-    for (const sup of suppliers || []) {
+    await Promise.all((suppliers || []).map(async (sup) => {
       const vendorId = sup.zoho_vendor_id as string;
       if (!vendorId) continue;
       summary.suppliers++;
