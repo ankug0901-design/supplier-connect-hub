@@ -1154,6 +1154,7 @@ export type Database = {
           total_quantity: number
         }[]
       }
+      has_section_access: { Args: { _section_key: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       move_to_dlq: {
