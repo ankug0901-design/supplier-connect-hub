@@ -204,8 +204,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setImpersonatedSupplier(null);
   }, []);
 
-  // Effective values: only impersonate when the real user is an admin
+  // Effective values: only impersonate when the real user is an admin.
+  // Preserve internal-user admin access while impersonating so admins can verify
+  // role/section permissions exactly as that user sees them, still read-only.
   const isImpersonating = !!impersonatedSupplier && realIsAdmin;
+  const impersonatedRole = impersonatedSupplier?.role || 'supplier';
+  const impersonatedIsAdmin = ['admin', 'super_user', 'user'].includes(impersonatedRole);
   const effectiveSupplier: Supplier | null = isImpersonating
     ? {
         id: impersonatedSupplier!.id,
@@ -218,9 +222,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         zoho_vendor_id: impersonatedSupplier!.zoho_vendor_id || '',
       }
     : realSupplier;
-  const effectiveIsAdmin = isImpersonating ? false : realIsAdmin;
+  const effectiveIsAdmin = isImpersonating ? impersonatedIsAdmin : realIsAdmin;
   const effectiveIsSuperAdmin = isImpersonating ? false : realIsSuperAdmin;
-  const effectiveRole = isImpersonating ? (impersonatedSupplier!.role || 'supplier') : realRole;
+  const effectiveRole = isImpersonating ? impersonatedRole : realRole;
   const effectiveUserId = isImpersonating
     ? (impersonatedSupplier!.user_id || user?.id || null)
     : (user?.id || null);
