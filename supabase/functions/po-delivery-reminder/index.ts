@@ -146,13 +146,15 @@ Deno.serve(async (req) => {
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const explicitPoId: string | undefined = body?.po_id;
 
-  // POs needing reminders: not yet delivery-confirmed, not closed/cancelled/rejected,
-  // not fully paid (we use status not in completed/closed/cancelled/rejected).
+  // POs needing reminders: not yet delivery-confirmed, not in a terminal/partial state.
+  // We exclude 'partial' because the supplier has already moved past the delivery-confirmation
+  // stage (invoicing has started). We also skip POs older than 45 days, and POs that already
+  // have at least one invoice recorded (the supplier is clearly working on it).
   let q = admin
     .from("purchase_orders")
     .select("id, po_number, date, supplier_id, status, delivery_dates_confirmed_at, delivery_notification_sent_at, delivery_reminder_count, delivery_first_notified_at")
     .is("delivery_dates_confirmed_at", null)
-    .not("status", "in", "(closed,cancelled,rejected,completed,void)");
+    .not("status", "in", "(closed,cancelled,rejected,completed,void,partial,paid)");
   if (explicitPoId) q = q.eq("id", explicitPoId);
 
   const { data: pos, error: poErr } = await q;
