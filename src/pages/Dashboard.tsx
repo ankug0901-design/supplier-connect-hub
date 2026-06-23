@@ -200,6 +200,21 @@ export default function Dashboard() {
   return (
     <DashboardLayout title="Dashboard" subtitle="Welcome back! Here's your business overview.">
       <div className="space-y-6">
+        {pendingPOs > 0 && (
+          <div className="animate-slide-up">
+            <div className="rounded-xl border border-warning/30 bg-warning/5 p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-warning" />
+                <div>
+                  <h4 className="font-medium text-foreground">Action Required</h4>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    You have {pendingPOs} purchase orders pending invoice submission. Please upload invoices to avoid delays in payment processing.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {awaitingDeliveryConfirm.length > 0 && (
           <div className="rounded-xl border border-warning/40 bg-warning/5 p-4 animate-slide-up">
             <div className="flex items-start gap-3">
