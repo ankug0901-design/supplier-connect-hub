@@ -186,6 +186,9 @@ Deno.serve(async (req) => {
       try {
         const invR = await zoho("get_bills", vendorId);
         const invs = invR.invoices || [];
+        const activeInvoiceNumbers = new Set<string>(
+          invs.map((i: any) => i.invoiceNumber).filter((n: any) => !!n)
+        );
         const invRows = invs.map((i: any) => {
           const poId = i.poNumber ? poByNumber.get(i.poNumber) : null;
           if (!poId) return null;
@@ -211,6 +214,30 @@ Deno.serve(async (req) => {
             .upsert(invRows, { onConflict: "supplier_id,invoice_number" });
           if (error) throw error;
           summary.invoices_upserted += invRows.length;
+        }
+
+        // Reconcile deletions: invoices previously synced from Zoho (zoho_id set)
+        // that no longer appear in Zoho's response have been deleted upstream.
+        // Remove them locally along with their line items and payments so PO
+        // "Invoiced" quantities stay accurate.
+        const { data: localSynced } = await supabase
+          .from("invoices")
+          .select("id, invoice_number")
+          .eq("supplier_id", sup.id)
+          .not("zoho_id", "is", null);
+        const stale = (localSynced || []).filter(
+          (row: any) => !activeInvoiceNumbers.has(row.invoice_number)
+        );
+        if (stale.length) {
+          const staleIds = stale.map((r: any) => r.id);
+          const staleNumbers = stale.map((r: any) => r.invoice_number);
+          await supabase.from("payments").delete().in("invoice_id", staleIds);
+          await supabase
+            .from("invoice_line_items")
+            .delete()
+            .eq("supplier_id", sup.id)
+            .in("invoice_number", staleNumbers);
+          await supabase.from("invoices").delete().in("id", staleIds);
         }
       } catch (e: any) {
         summary.errors.push(`Invoice ${sup.id}: ${e.message}`);
