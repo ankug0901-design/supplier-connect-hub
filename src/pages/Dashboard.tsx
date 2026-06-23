@@ -295,22 +295,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Alerts Section */}
-        {pendingPOs > 0 && (
-          <div className="animate-slide-up" style={{ animationDelay: '600ms' }}>
-            <div className="rounded-xl border border-warning/30 bg-warning/5 p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-warning" />
-                <div>
-                  <h4 className="font-medium text-foreground">Action Required</h4>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    You have {pendingPOs} purchase orders pending invoice submission. Please upload invoices to avoid delays in payment processing.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
       <SupplierAssistant />
     </DashboardLayout>
