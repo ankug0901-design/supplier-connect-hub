@@ -227,7 +227,7 @@ export default function PODetail() {
               Back
             </Button>
           </Link>
-          {order.status === 'pending' &&
+          {(order.status === 'pending' || order.status === 'partial') &&
             (order.unlockedForActions ? (
               <Link to={`/invoices/upload?po=${order.id}`}>
                 <Button variant="accent" className="gap-2">
