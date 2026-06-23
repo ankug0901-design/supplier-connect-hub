@@ -195,6 +195,19 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Stop reminders for older POs (> 45 days) — supplier has had ample notice
+      if (po.date) {
+        const ageDays = (Date.now() - new Date(po.date).getTime()) / (1000 * 60 * 60 * 24);
+        if (ageDays > 45) { skipped++; continue; }
+      }
+
+      // Stop if any invoice already exists for this PO (supplier has moved past delivery confirmation)
+      const { count: invCount } = await admin
+        .from("invoices")
+        .select("id", { count: "exact", head: true })
+        .eq("po_id", po.id);
+      if ((invCount || 0) > 0) { skipped++; continue; }
+
       // Make sure there's nothing already confirmed (race)
       const { data: items } = await admin
         .from("po_items")
