@@ -351,7 +351,7 @@ export default function PurchaseOrders() {
                               <Eye className="h-4 w-4" />
                             </Button>
                           </Link>
-                          {order.status === 'pending' &&
+                          {(order.status === 'pending' || order.status === 'partial') &&
                             (order.unlockedForActions ? (
                               <Link to={`/invoices/upload?po=${order.id}`}>
                                 <Button variant="accent" size="sm" className="gap-1">
