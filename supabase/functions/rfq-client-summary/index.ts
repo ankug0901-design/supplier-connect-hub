@@ -92,8 +92,8 @@ Deno.serve(async (req) => {
       quotes: submitted,
     };
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured');
 
     const systemPrompt = `You are a senior procurement analyst at Emboss Marketing preparing a polished, client-ready quote comparison summary.
 Produce a professional Markdown document the client can read directly. Use this exact structure:
