@@ -391,6 +391,7 @@ export default function PurchaseOrders() {
           </div>
         )}
       </div>
+      <StickyHorizontalScrollbar targetRef={tableScrollRef} />
     </DashboardLayout>
   );
 }
