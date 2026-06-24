@@ -12,6 +12,7 @@ import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrd
 import { exportToCsv } from '@/lib/exportCsv';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
+import { StickyHorizontalScrollbar } from '@/components/StickyHorizontalScrollbar';
 
 const statusStyles: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
