@@ -118,14 +118,16 @@ Deno.serve(async (req) => {
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-  // Auth: service role token, anon apikey (cron), or admin user
+  // Auth: requires service-role token (cron/internal) OR an authenticated admin/super_user.
+  // verify_jwt=true at the gateway ensures the JWT is cryptographically valid; we then
+  // check role here. The previous "apikey === ANON_KEY" shortcut has been removed because
+  // the anon key is public and would let anyone trigger mass reminder emails.
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
-  const apikey = req.headers.get("apikey") || "";
   let authorized = false;
-  if (token && token === SERVICE_KEY) authorized = true;
-  else if (!token && apikey === ANON_KEY) authorized = true;
-  else if (token) {
+  if (token && token === SERVICE_KEY) {
+    authorized = true;
+  } else if (token) {
     const u = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
     const { data: ud } = await u.auth.getUser(token);
     if (ud?.user) {
