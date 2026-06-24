@@ -14,7 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
-const N8N_BULK_URL = 'https://n8n.srv1141999.hstgr.cloud/webhook/delhivery-b2b-master';
+// Bulk Delhivery uploads are routed through the authenticated n8n-proxy edge function
+// (which injects the server-side N8N_ACCESS_CODE and enforces admin-only access).
 
 const TEMPLATE_COLUMNS = [
   'Consignee Name *','Receiver Contact No. *','Receiver Address *','Receiver City *',
