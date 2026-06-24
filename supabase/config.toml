@@ -13,3 +13,7 @@ project_id = "agrhkarauqxkgyvfthvc"
     verify_jwt = true
   [functions.zoho-webhook]
     verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = true
+  [functions.po-delivery-reminder]
+    verify_jwt = true
