@@ -167,6 +167,27 @@
     animation: slideInLeft 0.3s ease-out forwards;
   }
 
+  /* Always show a visible horizontal scrollbar (overrides macOS overlay auto-hide) */
+  .always-show-scrollbar {
+    scrollbar-width: auto;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.5) hsl(var(--muted));
+  }
+  .always-show-scrollbar::-webkit-scrollbar {
+    height: 12px;
+    -webkit-appearance: none;
+  }
+  .always-show-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 6px;
+  }
+  .always-show-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.5);
+    border-radius: 6px;
+  }
+  .always-show-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.8);
+  }
+
   @keyframes fadeIn {
     from {
       opacity: 0;

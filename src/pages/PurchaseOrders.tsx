@@ -189,7 +189,7 @@ export default function PurchaseOrders() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
             <div
-              className="overflow-x-auto"
+              className="overflow-x-scroll always-show-scrollbar"
               onWheel={(e) => {
                 const el = e.currentTarget;
                 if (el.scrollWidth > el.clientWidth && e.deltaY !== 0 && e.deltaX === 0) {
@@ -197,7 +197,7 @@ export default function PurchaseOrders() {
                 }
               }}
             >
-              <table className="w-full min-w-[900px]">
+              <table className="w-full min-w-[1100px]">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
                     <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
