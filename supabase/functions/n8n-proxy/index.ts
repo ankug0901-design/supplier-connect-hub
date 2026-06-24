@@ -154,15 +154,26 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Strip any client-supplied access_code and inject server-side
-    const safePayload = { ...payload } as Record<string, unknown>;
-    delete safePayload.access_code;
-
-    const res = await fetch(`${N8N_BASE}/${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ access_code: accessCode, ...safePayload }),
-    });
+    let res: Response;
+    if (isMultipart && multipartForm) {
+      // Strip any client-supplied access_code and inject server-side
+      const outForm = new FormData();
+      for (const [k, v] of multipartForm.entries()) {
+        if (k === 'access_code') continue;
+        outForm.append(k, v as Blob | string);
+      }
+      outForm.append('access_code', accessCode);
+      // Let fetch set the multipart boundary header automatically
+      res = await fetch(`${N8N_BASE}/${path}`, { method: 'POST', body: outForm });
+    } else {
+      const safePayload = { ...(payload as Record<string, unknown>) };
+      delete safePayload.access_code;
+      res = await fetch(`${N8N_BASE}/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_code: accessCode, ...safePayload }),
+      });
+    }
 
     const text = await res.text();
     const upstreamCT = res.headers.get('content-type') || '';
