@@ -70,16 +70,37 @@ Deno.serve(async (req) => {
       return json({ error: 'Server not configured' }, 500);
     }
 
-    const body = await req.json().catch(() => null);
-    if (!body || typeof body !== 'object') {
-      return json({ error: 'Invalid body' }, 400);
-    }
-    const { path, payload } = body as { path?: string; payload?: Record<string, unknown> };
-    if (!path || !ALLOWED_PATHS.has(path)) {
-      return json({ error: 'Path not allowed' }, 400);
-    }
-    if (!payload || typeof payload !== 'object') {
-      return json({ error: 'Missing payload' }, 400);
+    // Detect multipart (file upload) vs JSON requests
+    const contentType = req.headers.get('content-type') || '';
+    const isMultipart = contentType.toLowerCase().startsWith('multipart/form-data');
+
+    let path: string | undefined;
+    let payload: Record<string, unknown> | undefined;
+    let multipartForm: FormData | null = null;
+
+    if (isMultipart) {
+      // For multipart uploads, the n8n webhook path comes from ?path= query string
+      path = new URL(req.url).searchParams.get('path') || undefined;
+      if (!path || !MULTIPART_PATHS.has(path)) {
+        return json({ error: 'Path not allowed for multipart upload' }, 400);
+      }
+      try {
+        multipartForm = await req.formData();
+      } catch {
+        return json({ error: 'Invalid multipart body' }, 400);
+      }
+    } else {
+      const body = await req.json().catch(() => null);
+      if (!body || typeof body !== 'object') {
+        return json({ error: 'Invalid body' }, 400);
+      }
+      ({ path, payload } = body as { path?: string; payload?: Record<string, unknown> });
+      if (!path || !ALLOWED_PATHS.has(path)) {
+        return json({ error: 'Path not allowed' }, 400);
+      }
+      if (!payload || typeof payload !== 'object') {
+        return json({ error: 'Missing payload' }, 400);
+      }
     }
 
     // Enforce admin-only paths server-side
