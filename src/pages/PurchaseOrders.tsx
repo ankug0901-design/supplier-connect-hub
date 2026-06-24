@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, Upload, Search, Filter, Download, Loader2, Lock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -12,6 +12,7 @@ import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrd
 import { exportToCsv } from '@/lib/exportCsv';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
+import { StickyHorizontalScrollbar } from '@/components/StickyHorizontalScrollbar';
 
 const statusStyles: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
@@ -32,6 +33,7 @@ export default function PurchaseOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPO = async (poId: string, poNumber: string, rowVendorId?: string, deliveryConfirmed?: boolean) => {
     if (!deliveryConfirmed) {
@@ -189,7 +191,8 @@ export default function PurchaseOrders() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
             <div
-              className="overflow-x-scroll always-show-scrollbar"
+              ref={tableScrollRef}
+              className="overflow-x-auto"
               onWheel={(e) => {
                 const el = e.currentTarget;
                 if (el.scrollWidth > el.clientWidth && e.deltaY !== 0 && e.deltaX === 0) {
@@ -388,6 +391,7 @@ export default function PurchaseOrders() {
           </div>
         )}
       </div>
+      <StickyHorizontalScrollbar targetRef={tableScrollRef} />
     </DashboardLayout>
   );
 }
