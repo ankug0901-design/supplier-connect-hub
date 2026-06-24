@@ -191,7 +191,8 @@ export default function PurchaseOrders() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
             <div
-              className="overflow-x-scroll always-show-scrollbar"
+              ref={tableScrollRef}
+              className="overflow-x-auto"
               onWheel={(e) => {
                 const el = e.currentTarget;
                 if (el.scrollWidth > el.clientWidth && e.deltaY !== 0 && e.deltaX === 0) {
