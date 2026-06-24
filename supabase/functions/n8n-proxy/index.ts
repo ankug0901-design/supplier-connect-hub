@@ -20,6 +20,7 @@ const ALLOWED_PATHS = new Set([
   'rfq-issue-po',
   'bulk-register-suppliers',
   'rfq-tca-report',
+  'delhivery-b2b-master',
 ]);
 
 // Subset of paths that only top-tier admins are allowed to invoke.
@@ -27,6 +28,7 @@ const ADMIN_ONLY_PATHS = new Set([
   'rfq-issue-po',
   'bulk-register-suppliers',
   'rfq-send-attachment',
+  'delhivery-b2b-master',
 ]);
 
 // RFQ operators may invoke these when they have RFQ Management page access.
@@ -34,6 +36,11 @@ const RFQ_MANAGEMENT_PATHS = new Set([
   'rfq-manage',
   'rfq-quote-accepted',
   'rfq-tca-report',
+]);
+
+// Paths that accept multipart/form-data (file uploads) instead of JSON.
+const MULTIPART_PATHS = new Set([
+  'delhivery-b2b-master',
 ]);
 
 Deno.serve(async (req) => {
@@ -63,16 +70,37 @@ Deno.serve(async (req) => {
       return json({ error: 'Server not configured' }, 500);
     }
 
-    const body = await req.json().catch(() => null);
-    if (!body || typeof body !== 'object') {
-      return json({ error: 'Invalid body' }, 400);
-    }
-    const { path, payload } = body as { path?: string; payload?: Record<string, unknown> };
-    if (!path || !ALLOWED_PATHS.has(path)) {
-      return json({ error: 'Path not allowed' }, 400);
-    }
-    if (!payload || typeof payload !== 'object') {
-      return json({ error: 'Missing payload' }, 400);
+    // Detect multipart (file upload) vs JSON requests
+    const contentType = req.headers.get('content-type') || '';
+    const isMultipart = contentType.toLowerCase().startsWith('multipart/form-data');
+
+    let path: string | undefined;
+    let payload: Record<string, unknown> | undefined;
+    let multipartForm: FormData | null = null;
+
+    if (isMultipart) {
+      // For multipart uploads, the n8n webhook path comes from ?path= query string
+      path = new URL(req.url).searchParams.get('path') || undefined;
+      if (!path || !MULTIPART_PATHS.has(path)) {
+        return json({ error: 'Path not allowed for multipart upload' }, 400);
+      }
+      try {
+        multipartForm = await req.formData();
+      } catch {
+        return json({ error: 'Invalid multipart body' }, 400);
+      }
+    } else {
+      const body = await req.json().catch(() => null);
+      if (!body || typeof body !== 'object') {
+        return json({ error: 'Invalid body' }, 400);
+      }
+      ({ path, payload } = body as { path?: string; payload?: Record<string, unknown> });
+      if (!path || !ALLOWED_PATHS.has(path)) {
+        return json({ error: 'Path not allowed' }, 400);
+      }
+      if (!payload || typeof payload !== 'object') {
+        return json({ error: 'Missing payload' }, 400);
+      }
     }
 
     // Enforce admin-only paths server-side
@@ -126,15 +154,26 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Strip any client-supplied access_code and inject server-side
-    const safePayload = { ...payload } as Record<string, unknown>;
-    delete safePayload.access_code;
-
-    const res = await fetch(`${N8N_BASE}/${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ access_code: accessCode, ...safePayload }),
-    });
+    let res: Response;
+    if (isMultipart && multipartForm) {
+      // Strip any client-supplied access_code and inject server-side
+      const outForm = new FormData();
+      for (const [k, v] of multipartForm.entries()) {
+        if (k === 'access_code') continue;
+        outForm.append(k, v as Blob | string);
+      }
+      outForm.append('access_code', accessCode);
+      // Let fetch set the multipart boundary header automatically
+      res = await fetch(`${N8N_BASE}/${path}`, { method: 'POST', body: outForm });
+    } else {
+      const safePayload = { ...(payload as Record<string, unknown>) };
+      delete safePayload.access_code;
+      res = await fetch(`${N8N_BASE}/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_code: accessCode, ...safePayload }),
+      });
+    }
 
     const text = await res.text();
     const upstreamCT = res.headers.get('content-type') || '';

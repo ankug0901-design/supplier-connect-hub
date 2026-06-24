@@ -14,7 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 
-const N8N_BULK_URL = 'https://n8n.srv1141999.hstgr.cloud/webhook/delhivery-b2b-master';
+// Bulk Delhivery uploads are routed through the authenticated n8n-proxy edge function
+// (which injects the server-side N8N_ACCESS_CODE and enforces admin-only access).
 
 const TEMPLATE_COLUMNS = [
   'Consignee Name *','Receiver Contact No. *','Receiver Address *','Receiver City *',
@@ -110,8 +111,22 @@ export default function Shipments() {
       fd.append('origin_pin', '122001');
       fd.append('need_pickup', 'Y');
 
-      const res = await fetch(N8N_BULK_URL, { method: 'POST', body: fd });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Route through the authenticated n8n-proxy edge function (admin-only)
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('You must be signed in.');
+
+      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/n8n-proxy?path=delhivery-b2b-master`;
+      const res = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: fd,
+      });
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { const e = await res.json(); if (e?.error) detail = e.error; } catch (_) {}
+        throw new Error(detail);
+      }
       const data = await res.json();
 
       const shipments: any[] = data.shipments || data.results || data.orders || [];
