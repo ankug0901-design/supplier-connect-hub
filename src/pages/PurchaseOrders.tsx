@@ -33,6 +33,7 @@ export default function PurchaseOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPO = async (poId: string, poNumber: string, rowVendorId?: string, deliveryConfirmed?: boolean) => {
     if (!deliveryConfirmed) {
