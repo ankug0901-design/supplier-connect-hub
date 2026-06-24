@@ -20,6 +20,7 @@ const ALLOWED_PATHS = new Set([
   'rfq-issue-po',
   'bulk-register-suppliers',
   'rfq-tca-report',
+  'delhivery-b2b-master',
 ]);
 
 // Subset of paths that only top-tier admins are allowed to invoke.
@@ -27,6 +28,7 @@ const ADMIN_ONLY_PATHS = new Set([
   'rfq-issue-po',
   'bulk-register-suppliers',
   'rfq-send-attachment',
+  'delhivery-b2b-master',
 ]);
 
 // RFQ operators may invoke these when they have RFQ Management page access.
@@ -34,6 +36,11 @@ const RFQ_MANAGEMENT_PATHS = new Set([
   'rfq-manage',
   'rfq-quote-accepted',
   'rfq-tca-report',
+]);
+
+// Paths that accept multipart/form-data (file uploads) instead of JSON.
+const MULTIPART_PATHS = new Set([
+  'delhivery-b2b-master',
 ]);
 
 Deno.serve(async (req) => {
