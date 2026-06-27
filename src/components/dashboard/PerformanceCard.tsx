@@ -85,7 +85,7 @@ export function PerformanceCard({ supplierId }: Props) {
     );
   }
 
-  if (scores.length === 0) {
+  if (scores.length === 0 || scores.every((s) => !s.score)) {
     return (
       <div className="rounded-xl border bg-card p-6 shadow-card">
         <div className="flex items-center gap-3">

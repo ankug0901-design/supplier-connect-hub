@@ -98,7 +98,8 @@ function KpiGradient(props: {
   label: string; value: string; icon: React.ReactNode; iconBg: string; iconColor: string; labelColor: string;
   trend?: { dir: 'up' | 'down' | 'flat' | 'new'; pct: number; customLabel?: string };
   sparkline?: { data: number[]; color: string };
-  ageing?: { a030: number; a3160: number; a60: number; amount?: number };
+  ageing?: { a030: number; a3160: number; a60: number; amount?: number } | null;
+  emptyAgeing?: string | null;
   sub: string; subColor: string;
   to?: string; goodIsUp?: boolean;
 }) {
@@ -129,6 +130,8 @@ function KpiGradient(props: {
             <span className="font-medium text-[#991B1B]">60+ ({props.ageing.a60})</span>
           </div>
         </>
+      ) : props.emptyAgeing ? (
+        <div className="mt-2 text-[11.5px] text-[#9CA3AF]">{props.emptyAgeing}</div>
       ) : (
         <div className="mt-1.5 flex items-center gap-2.5">
           {props.trend && (props.trend.customLabel
@@ -181,9 +184,11 @@ function VelocityStrip({ velocity }: { velocity: ReturnType<typeof useSupplierDa
   const navigate = useNavigate();
   if (!velocity) return null;
   const stages = [...velocity.stages] as Array<SupplierVelocityStage & { red?: boolean }>;
-  if (stages.length) {
-    const longestIdx = stages.reduce((m, s, i, arr) => (s.median_days > arr[m].median_days ? i : m), 0);
-    stages[longestIdx].red = true;
+  const withData = stages.filter((s) => s.has_data !== false);
+  if (withData.length > 0) {
+    const longest = withData.reduce((m, s) => (s.median_days > m.median_days ? s : m), withData[0]);
+    const longestIdx = stages.findIndex((s) => s === longest);
+    if (longestIdx >= 0) stages[longestIdx].red = true;
   }
   const routeFor = (name: string) => {
     const n = name.toLowerCase();
@@ -192,12 +197,16 @@ function VelocityStrip({ velocity }: { velocity: ReturnType<typeof useSupplierDa
     if (n.includes('delivery')) return '/delivery-challan';
     return '/purchase-orders';
   };
-  const bottleneck = stages.find((s) => s.red);
+  const bottleneck = withData.length >= 2 ? stages.find((s) => s.red) : null;
   const tip = bottleneck && bottleneck.name.toLowerCase().includes('po')
     ? `Your invoice turnaround averages ${bottleneck.median_days}d — invoicing within 3d of PO speeds up payment.`
     : bottleneck && bottleneck.name.toLowerCase().includes('paid')
     ? `Payments from Emboss are averaging ${bottleneck.median_days}d after invoicing — flag overdue invoices in the attention banner above.`
     : bottleneck ? `Slowest stage: ${bottleneck.name} (${bottleneck.median_days}d median). Worth optimising.` : null;
+
+  const totalCycleLabel = velocity.total_cycle_days == null
+    ? '—'
+    : `${Math.round(velocity.total_cycle_days)} days`;
 
   return (
     <div role="button" tabIndex={0} className="cursor-pointer rounded-[12px] transition-all duration-150 hover:shadow-sm"
@@ -207,14 +216,15 @@ function VelocityStrip({ velocity }: { velocity: ReturnType<typeof useSupplierDa
         <Title icon={<Gauge className="h-4.5 w-4.5" />} iconColor="#10B981">
           My pipeline · cycle times
           <span className="ml-auto flex items-center gap-2.5 text-[12px] font-normal">
-            <span className="text-[#6B7280]">Total cycle: <span className="font-medium text-[#111827]">{Math.round(velocity.total_cycle_days)} days</span></span>
+            <span className="text-[#6B7280]">Total cycle: <span className="font-medium text-[#111827]">{totalCycleLabel}</span></span>
             <button type="button" onClick={(e) => { e.stopPropagation(); navigate('/purchase-orders'); }} className="flex items-center gap-1 text-[#10B981] font-medium hover:underline">
               View report <ArrowRight className="h-3 w-3" />
             </button>
           </span>
         </Title>
         <div className="flex items-stretch overflow-x-auto">
-          {stages.map((s, idx) => {
+          {stages.map((s) => {
+            const noData = s.has_data === false;
             const dir: 'up' | 'down' | 'flat' = s.delta_days > 0 ? 'up' : s.delta_days < 0 ? 'down' : 'flat';
             const label = s.delta_days === 0 ? 'flat' : `${Math.abs(s.delta_days).toFixed(1)}d ${s.delta_days > 0 ? 'slower' : 'faster'}`;
             const route = routeFor(s.name);
@@ -227,12 +237,21 @@ function VelocityStrip({ velocity }: { velocity: ReturnType<typeof useSupplierDa
                     s.red ? 'bg-[#FEF2F2] border-[#FECACA] hover:bg-[#FEE2E2]' : 'bg-[#F9FAFB] border-[#E5E7EB] hover:bg-gray-50'
                   }`}>
                   <div className={`text-[10.5px] font-medium tracking-wider ${s.red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>{s.name.toUpperCase()}</div>
-                  <div className={`mt-1 text-[24px] font-medium leading-none tracking-tight ${s.red ? 'text-[#7F1D1D]' : 'text-[#111827]'}`}>
-                    {Number(s.median_days || 0).toFixed(1).replace(/\.0$/, '')}
-                    <span className={`ml-1 text-[13px] font-normal ${s.red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>days</span>
-                  </div>
-                  <div className={`mt-1 text-[11px] ${s.red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>{s.in_flight} in flight{s.red ? ' · bottleneck' : ''}</div>
-                  <div className="mt-2"><Trend dir={dir} label={label} goodIsUp={false} /></div>
+                  {noData ? (
+                    <>
+                      <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#9CA3AF]">—</div>
+                      <div className="mt-1 text-[11px] text-[#9CA3AF]">No data yet</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={`mt-1 text-[24px] font-medium leading-none tracking-tight ${s.red ? 'text-[#7F1D1D]' : 'text-[#111827]'}`}>
+                        {Number(s.median_days || 0).toFixed(1).replace(/\.0$/, '')}
+                        <span className={`ml-1 text-[13px] font-normal ${s.red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>days</span>
+                      </div>
+                      <div className={`mt-1 text-[11px] ${s.red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>{s.in_flight} in flight{s.red ? ' · bottleneck' : ''}</div>
+                      <div className="mt-2"><Trend dir={dir} label={label} goodIsUp={false} /></div>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center px-1.5 text-[#D1D5DB]"><ChevronRight className="h-5 w-5" /></div>
               </div>
@@ -244,15 +263,24 @@ function VelocityStrip({ velocity }: { velocity: ReturnType<typeof useSupplierDa
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); navigate('/delivery-challan'); } }}
               className="flex-1 rounded-[11px] border p-3.5 bg-[#ECFDF5] border-[#A7F3D0] cursor-pointer transition-all duration-150 hover:bg-[#D1FAE5] hover:shadow-sm">
               <div className="text-[10.5px] font-medium tracking-wider text-[#047857]">ON-TIME DELIVERY</div>
-              <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#065F46]">
-                {Number(velocity.on_time_delivery_pct || 0).toFixed(0)}
-                <span className="ml-1 text-[13px] font-normal text-[#047857]">%</span>
-              </div>
-              <div className="mt-1 text-[11px] text-[#047857]">last 30 days</div>
-              <div className="mt-2">
-                <Trend dir={velocity.on_time_delta > 0 ? 'up' : velocity.on_time_delta < 0 ? 'down' : 'flat'}
-                  label={velocity.on_time_delta === 0 ? 'flat' : `${Math.abs(velocity.on_time_delta).toFixed(1)}%`} goodIsUp />
-              </div>
+              {velocity.on_time_has_data === false ? (
+                <>
+                  <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#9CA3AF]">—</div>
+                  <div className="mt-1 text-[11px] text-[#9CA3AF]">Awaiting deliveries</div>
+                </>
+              ) : (
+                <>
+                  <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#065F46]">
+                    {Number(velocity.on_time_delivery_pct || 0).toFixed(0)}
+                    <span className="ml-1 text-[13px] font-normal text-[#047857]">%</span>
+                  </div>
+                  <div className="mt-1 text-[11px] text-[#047857]">last 30 days</div>
+                  <div className="mt-2">
+                    <Trend dir={velocity.on_time_delta > 0 ? 'up' : velocity.on_time_delta < 0 ? 'down' : 'flat'}
+                      label={velocity.on_time_delta === 0 ? 'flat' : `${Math.abs(velocity.on_time_delta).toFixed(1)}%`} goodIsUp />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -442,7 +470,7 @@ function SkeletonPage() {
 
 // ─── Main page ──────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const { supplier, isAdmin } = useAuth();
+  const { supplier, isAdmin, user } = useAuth();
   const navigate = useNavigate();
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -490,8 +518,12 @@ export default function Dashboard() {
     return () => { cancelled = true; };
   }, [supplier?.zoho_vendor_id, isAdmin]);
 
-  const firstName = (supplier?.name || 'there').split(' ')[0];
+  const stripHonorific = (n: string) => n.replace(/^\s*(mr|mrs|ms|mx|dr|sri|smt|shri)\.?\s+/i, '').trim();
+  const fullName = (user?.user_metadata as any)?.full_name as string | undefined;
+  const rawName = stripHonorific(fullName || supplier?.name || '');
+  const firstName = rawName ? rawName.split(/\s+/)[0] : '';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  const greeting = firstName ? `Welcome back, ${firstName} · ${today}` : `Welcome back · ${today}`;
 
   const supplierHeaderActions = (
     <div className="flex items-center gap-2.5">
@@ -544,7 +576,7 @@ export default function Dashboard() {
   // ───────── Supplier branch ─────────
   if (!supplier?.zoho_vendor_id) {
     return (
-      <DashboardLayout title="Dashboard" subtitle={`Welcome back, ${firstName} · ${today}`}>
+      <DashboardLayout title="Dashboard" subtitle={greeting}>
         <AccountSetupBanner />
       </DashboardLayout>
     );
@@ -552,7 +584,7 @@ export default function Dashboard() {
 
   if (poLoading || dashLoading || !dash.kpis) {
     return (
-      <DashboardLayout title="Dashboard" subtitle={`Welcome back, ${firstName} · ${today}`} actions={supplierHeaderActions}>
+      <DashboardLayout title="Dashboard" subtitle={greeting} actions={supplierHeaderActions}>
         <SkeletonPage />
       </DashboardLayout>
     );
@@ -560,12 +592,43 @@ export default function Dashboard() {
 
   const { kpis, attention, velocity, aging, rfqs, activity } = dash;
 
-  const paidMomPct = kpis.paid_last_month
-    ? Math.abs(((kpis.paid_this_month - kpis.paid_last_month) / kpis.paid_last_month) * 100) : 0;
-  const recvDelta = kpis.outstanding_invoice_count - kpis.outstanding_invoice_count_last_month;
+  // POs
+  const poPending = kpis.po_pending_invoice_count ?? kpis.pending_invoice_po_count ?? 0;
+  const poPartial = kpis.po_partial_count ?? kpis.partial_po_count ?? 0;
+  const poSub = `${poPending} pending invoice${poPending === 1 ? '' : 's'} · ${poPartial} partial`;
+
+  // Pending invoices
+  const pendingCount = kpis.pending_invoice_count ?? 0;
+  const hasPending = pendingCount > 0;
+
+  // Payments trend
+  const paidThis = Number(kpis.paid_this_month || 0);
+  const paidLast = Number(kpis.paid_last_month || 0);
+  let paidTrend: { dir: 'up' | 'down' | 'flat' | 'new'; pct: number; customLabel?: string } | undefined;
+  if (paidLast === 0 && paidThis === 0) {
+    paidTrend = undefined;
+  } else if (paidLast === 0 && paidThis > 0) {
+    paidTrend = { dir: 'new', pct: 0, customLabel: 'new' };
+  } else {
+    const pct = Math.abs(((paidThis - paidLast) / paidLast) * 100);
+    paidTrend = { dir: paidThis >= paidLast ? 'up' : 'down', pct };
+  }
+
+  // Receivables
+  const recvTotal = kpis.total_receivables ?? kpis.total_outstanding ?? 0;
+  const recvCount = kpis.receivable_invoice_count ?? kpis.outstanding_invoice_count ?? 0;
+  const recvCountLast = kpis.receivable_invoice_count_last_month ?? kpis.outstanding_invoice_count_last_month ?? 0;
+  const oldestDays = kpis.oldest_receivable_days ?? kpis.oldest_outstanding_days ?? 0;
+  const recvDelta = recvCount - recvCountLast;
+  const recvTrend = (recvCount === 0 && recvCountLast === 0) || recvDelta === 0
+    ? undefined
+    : { dir: (recvDelta > 0 ? 'up' : 'down') as 'up' | 'down', pct: Math.abs(recvDelta), customLabel: `${recvDelta >= 0 ? '+' : ''}${recvDelta} invoice${Math.abs(recvDelta) === 1 ? '' : 's'} vs last mo` };
+  const recvSub = recvCount === 0
+    ? 'No outstanding receivables'
+    : `${recvCount} invoice${recvCount === 1 ? '' : 's'} · oldest ${oldestDays}d old`;
 
   return (
-    <DashboardLayout title="Dashboard" subtitle={`Welcome back, ${firstName} · ${today}`} actions={supplierHeaderActions}>
+    <DashboardLayout title="Dashboard" subtitle={greeting} actions={supplierHeaderActions}>
       <div className="space-y-3.5 text-[#111827]" style={{ fontFamily: 'Inter, -apple-system, sans-serif' }}>
         <AttentionBanner a={attention} />
 
@@ -577,22 +640,23 @@ export default function Dashboard() {
             value={String(kpis.total_po_count)}
             trend={kpis.new_po_this_month ? { dir: 'new', pct: kpis.new_po_this_month, customLabel: `+${kpis.new_po_this_month} this month` } : undefined}
             sparkline={{ data: kpis.po_count_trend || [], color: '#10B981' }}
-            sub={`${kpis.pending_invoice_po_count} pending invoice · ${kpis.partial_po_count} partial`}
+            sub={poSub}
             subColor="#065F46" to="/purchase-orders" goodIsUp
           />
           <KpiGradient
             variant="k2" label="PENDING INVOICES" icon={<FileText className="h-4 w-4" />}
             iconBg="rgba(234,88,12,.18)" iconColor="#9A3412" labelColor="#9A3412"
-            value={String(kpis.pending_invoice_count)}
-            ageing={{ a030: kpis.aging_0_30, a3160: kpis.aging_31_60, a60: kpis.aging_60_plus }}
-            sub={`${fmtLakh(kpis.pending_invoice_amount)} awaiting payment from Emboss`}
+            value={String(pendingCount)}
+            ageing={hasPending ? { a030: kpis.aging_0_30, a3160: kpis.aging_31_60, a60: kpis.aging_60_plus } : null}
+            emptyAgeing={hasPending ? null : "No pending invoices — you're all caught up"}
+            sub={hasPending ? `${fmtLakh(kpis.pending_invoice_amount)} awaiting payment from Emboss` : 'Nothing awaiting'}
             subColor="#9A3412" to="/invoices?status=pending"
           />
           <KpiGradient
             variant="k3" label="PAYMENTS RECEIVED" icon={<CreditCard className="h-4 w-4" />}
             iconBg="rgba(8,145,178,.18)" iconColor="#0E7490" labelColor="#155E75"
-            value={fmtLakh(kpis.paid_this_month)}
-            trend={kpis.paid_last_month ? { dir: kpis.paid_this_month >= kpis.paid_last_month ? 'up' : 'down', pct: paidMomPct } : undefined}
+            value={fmtLakh(paidThis)}
+            trend={paidTrend}
             sparkline={{ data: kpis.paid_trend || [], color: '#0891B2' }}
             sub={`Avg ${kpis.avg_days_to_pay}-day cycle from Emboss`}
             subColor="#155E75" to="/payments" goodIsUp
@@ -600,12 +664,13 @@ export default function Dashboard() {
           <KpiGradient
             variant="k4" label="TOTAL RECEIVABLES" icon={<Wallet className="h-4 w-4" />}
             iconBg="rgba(37,99,235,.18)" iconColor="#1D4ED8" labelColor="#1E40AF"
-            value={fmtLakh(kpis.total_outstanding)}
-            trend={{ dir: recvDelta > 0 ? 'up' : recvDelta < 0 ? 'down' : 'flat', pct: Math.abs(recvDelta), customLabel: `${recvDelta >= 0 ? '+' : ''}${recvDelta} invoices vs last mo` }}
+            value={fmtLakh(recvTotal)}
+            trend={recvTrend}
             sparkline={{ data: kpis.receivables_trend || [], color: '#2563EB' }}
-            sub={`${kpis.outstanding_invoice_count} invoices · oldest ${kpis.oldest_outstanding_days}d old`}
+            sub={recvSub}
             subColor="#1E40AF" to="/invoices" goodIsUp={false}
           />
+
         </div>
 
         {/* Velocity strip */}
