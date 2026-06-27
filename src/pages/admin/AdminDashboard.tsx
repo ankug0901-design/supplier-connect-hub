@@ -101,7 +101,6 @@ function statusToBadge(s?: string) {
 
 // ─── main page ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
-  const { supplier } = useAuth();
   const [pos, setPos] = useState<Row[]>([]);
   const [invoices, setInvoices] = useState<Row[]>([]);
   const [payments, setPayments] = useState<Row[]>([]);
