@@ -184,9 +184,11 @@ function VelocityStrip({ velocity }: { velocity: ReturnType<typeof useSupplierDa
   const navigate = useNavigate();
   if (!velocity) return null;
   const stages = [...velocity.stages] as Array<SupplierVelocityStage & { red?: boolean }>;
-  if (stages.length) {
-    const longestIdx = stages.reduce((m, s, i, arr) => (s.median_days > arr[m].median_days ? i : m), 0);
-    stages[longestIdx].red = true;
+  const withData = stages.filter((s) => s.has_data !== false);
+  if (withData.length > 0) {
+    const longest = withData.reduce((m, s) => (s.median_days > m.median_days ? s : m), withData[0]);
+    const longestIdx = stages.findIndex((s) => s === longest);
+    if (longestIdx >= 0) stages[longestIdx].red = true;
   }
   const routeFor = (name: string) => {
     const n = name.toLowerCase();
@@ -195,12 +197,16 @@ function VelocityStrip({ velocity }: { velocity: ReturnType<typeof useSupplierDa
     if (n.includes('delivery')) return '/delivery-challan';
     return '/purchase-orders';
   };
-  const bottleneck = stages.find((s) => s.red);
+  const bottleneck = withData.length >= 2 ? stages.find((s) => s.red) : null;
   const tip = bottleneck && bottleneck.name.toLowerCase().includes('po')
     ? `Your invoice turnaround averages ${bottleneck.median_days}d — invoicing within 3d of PO speeds up payment.`
     : bottleneck && bottleneck.name.toLowerCase().includes('paid')
     ? `Payments from Emboss are averaging ${bottleneck.median_days}d after invoicing — flag overdue invoices in the attention banner above.`
     : bottleneck ? `Slowest stage: ${bottleneck.name} (${bottleneck.median_days}d median). Worth optimising.` : null;
+
+  const totalCycleLabel = velocity.total_cycle_days == null
+    ? '—'
+    : `${Math.round(velocity.total_cycle_days)} days`;
 
   return (
     <div role="button" tabIndex={0} className="cursor-pointer rounded-[12px] transition-all duration-150 hover:shadow-sm"
@@ -210,14 +216,15 @@ function VelocityStrip({ velocity }: { velocity: ReturnType<typeof useSupplierDa
         <Title icon={<Gauge className="h-4.5 w-4.5" />} iconColor="#10B981">
           My pipeline · cycle times
           <span className="ml-auto flex items-center gap-2.5 text-[12px] font-normal">
-            <span className="text-[#6B7280]">Total cycle: <span className="font-medium text-[#111827]">{Math.round(velocity.total_cycle_days)} days</span></span>
+            <span className="text-[#6B7280]">Total cycle: <span className="font-medium text-[#111827]">{totalCycleLabel}</span></span>
             <button type="button" onClick={(e) => { e.stopPropagation(); navigate('/purchase-orders'); }} className="flex items-center gap-1 text-[#10B981] font-medium hover:underline">
               View report <ArrowRight className="h-3 w-3" />
             </button>
           </span>
         </Title>
         <div className="flex items-stretch overflow-x-auto">
-          {stages.map((s, idx) => {
+          {stages.map((s) => {
+            const noData = s.has_data === false;
             const dir: 'up' | 'down' | 'flat' = s.delta_days > 0 ? 'up' : s.delta_days < 0 ? 'down' : 'flat';
             const label = s.delta_days === 0 ? 'flat' : `${Math.abs(s.delta_days).toFixed(1)}d ${s.delta_days > 0 ? 'slower' : 'faster'}`;
             const route = routeFor(s.name);
@@ -230,12 +237,21 @@ function VelocityStrip({ velocity }: { velocity: ReturnType<typeof useSupplierDa
                     s.red ? 'bg-[#FEF2F2] border-[#FECACA] hover:bg-[#FEE2E2]' : 'bg-[#F9FAFB] border-[#E5E7EB] hover:bg-gray-50'
                   }`}>
                   <div className={`text-[10.5px] font-medium tracking-wider ${s.red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>{s.name.toUpperCase()}</div>
-                  <div className={`mt-1 text-[24px] font-medium leading-none tracking-tight ${s.red ? 'text-[#7F1D1D]' : 'text-[#111827]'}`}>
-                    {Number(s.median_days || 0).toFixed(1).replace(/\.0$/, '')}
-                    <span className={`ml-1 text-[13px] font-normal ${s.red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>days</span>
-                  </div>
-                  <div className={`mt-1 text-[11px] ${s.red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>{s.in_flight} in flight{s.red ? ' · bottleneck' : ''}</div>
-                  <div className="mt-2"><Trend dir={dir} label={label} goodIsUp={false} /></div>
+                  {noData ? (
+                    <>
+                      <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#9CA3AF]">—</div>
+                      <div className="mt-1 text-[11px] text-[#9CA3AF]">No data yet</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={`mt-1 text-[24px] font-medium leading-none tracking-tight ${s.red ? 'text-[#7F1D1D]' : 'text-[#111827]'}`}>
+                        {Number(s.median_days || 0).toFixed(1).replace(/\.0$/, '')}
+                        <span className={`ml-1 text-[13px] font-normal ${s.red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>days</span>
+                      </div>
+                      <div className={`mt-1 text-[11px] ${s.red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>{s.in_flight} in flight{s.red ? ' · bottleneck' : ''}</div>
+                      <div className="mt-2"><Trend dir={dir} label={label} goodIsUp={false} /></div>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center px-1.5 text-[#D1D5DB]"><ChevronRight className="h-5 w-5" /></div>
               </div>
@@ -247,15 +263,24 @@ function VelocityStrip({ velocity }: { velocity: ReturnType<typeof useSupplierDa
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); navigate('/delivery-challan'); } }}
               className="flex-1 rounded-[11px] border p-3.5 bg-[#ECFDF5] border-[#A7F3D0] cursor-pointer transition-all duration-150 hover:bg-[#D1FAE5] hover:shadow-sm">
               <div className="text-[10.5px] font-medium tracking-wider text-[#047857]">ON-TIME DELIVERY</div>
-              <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#065F46]">
-                {Number(velocity.on_time_delivery_pct || 0).toFixed(0)}
-                <span className="ml-1 text-[13px] font-normal text-[#047857]">%</span>
-              </div>
-              <div className="mt-1 text-[11px] text-[#047857]">last 30 days</div>
-              <div className="mt-2">
-                <Trend dir={velocity.on_time_delta > 0 ? 'up' : velocity.on_time_delta < 0 ? 'down' : 'flat'}
-                  label={velocity.on_time_delta === 0 ? 'flat' : `${Math.abs(velocity.on_time_delta).toFixed(1)}%`} goodIsUp />
-              </div>
+              {velocity.on_time_has_data === false ? (
+                <>
+                  <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#9CA3AF]">—</div>
+                  <div className="mt-1 text-[11px] text-[#9CA3AF]">Awaiting deliveries</div>
+                </>
+              ) : (
+                <>
+                  <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#065F46]">
+                    {Number(velocity.on_time_delivery_pct || 0).toFixed(0)}
+                    <span className="ml-1 text-[13px] font-normal text-[#047857]">%</span>
+                  </div>
+                  <div className="mt-1 text-[11px] text-[#047857]">last 30 days</div>
+                  <div className="mt-2">
+                    <Trend dir={velocity.on_time_delta > 0 ? 'up' : velocity.on_time_delta < 0 ? 'down' : 'flat'}
+                      label={velocity.on_time_delta === 0 ? 'flat' : `${Math.abs(velocity.on_time_delta).toFixed(1)}%`} goodIsUp />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
