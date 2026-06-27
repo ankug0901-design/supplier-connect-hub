@@ -175,69 +175,125 @@ export default function AdminDashboard() {
         </div>
 
         {/* Operational velocity */}
-        <Card>
-          <Title icon={<Gauge className="h-4.5 w-4.5" />} iconColor="#10B981">
-            Operational velocity · pipeline cycle times
-            <span className="ml-auto flex items-center gap-2.5 text-[12px] font-normal">
-              <span className="text-[#6B7280]">Total cycle: <span className="font-medium text-[#111827]">{Math.round(totalCycle)} days</span> median</span>
-              <Link to="/admin/vendor-scores" className="flex items-center gap-1 text-[#10B981] font-medium">View report <ArrowRight className="h-3 w-3" /></Link>
-            </span>
-          </Title>
-          <div className="flex items-stretch">
-            {stages.map((s, idx) => {
-              const dir: 'up' | 'down' | 'flat' = s.delta_days > 0 ? 'up' : s.delta_days < 0 ? 'down' : 'flat';
-              const label = s.delta_days === 0 ? 'flat' : `${Math.abs(s.delta_days).toFixed(1)}d ${s.delta_days > 0 ? 'slower' : 'faster'}`;
-              return (
-                <div key={s.name} className="flex items-stretch flex-1 min-w-0">
-                  <div className={`flex-1 rounded-[11px] border p-3.5 ${
-                    (s as any).red ? 'bg-[#FEF2F2] border-[#FECACA]' :
-                    (s as any).green ? 'bg-[#ECFDF5] border-[#A7F3D0]' :
-                    'bg-[#F9FAFB] border-[#E5E7EB]'
-                  }`}>
-                    <div className={`text-[10.5px] font-medium tracking-wider ${(s as any).red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>{s.name.toUpperCase()}</div>
-                    <div className={`mt-1 text-[24px] font-medium leading-none tracking-tight ${(s as any).red ? 'text-[#7F1D1D]' : 'text-[#111827]'}`}>
-                      {Number(s.median_days || 0).toFixed(1).replace(/\.0$/, '')}
-                      <span className={`ml-1 text-[13px] font-normal ${(s as any).red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>days</span>
+        {(() => {
+          const VELOCITY_ROOT = '/admin/vendor-scores';
+          const routeForStage = (name: string) => {
+            const n = (name || '').toLowerCase();
+            if (n.includes('rfq')) return '/admin/rfq?status=pending';
+            if (n.includes('paid')) return '/admin/three-way-match?filter=unpaid';
+            if (n.includes('po') || n.includes('invoice') || n.includes('bill') || n.includes('grn')) return '/admin/suppliers';
+            return VELOCITY_ROOT;
+          };
+          const go = (to: string) => (e: React.MouseEvent | React.KeyboardEvent) => {
+            e.stopPropagation();
+            navigate(to);
+          };
+          const bottleneck = stages.find((s) => (s as any).red);
+          const bottleneckRoute = bottleneck ? routeForStage(bottleneck.name) : '/admin/three-way-match?filter=unpaid';
+          return (
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Open operational velocity report"
+              onClick={() => navigate(VELOCITY_ROOT)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(VELOCITY_ROOT); } }}
+              className="cursor-pointer transition-all duration-150 hover:shadow-sm rounded-[12px]"
+            >
+              <Card>
+                <Title icon={<Gauge className="h-4.5 w-4.5" />} iconColor="#10B981">
+                  Operational velocity · pipeline cycle times
+                  <span className="ml-auto flex items-center gap-2.5 text-[12px] font-normal">
+                    <span className="text-[#6B7280]">Total cycle: <span className="font-medium text-[#111827]">{Math.round(totalCycle)} days</span> median</span>
+                    <button
+                      type="button"
+                      onClick={go(VELOCITY_ROOT)}
+                      aria-label="View velocity report"
+                      className="flex items-center gap-1 text-[#10B981] font-medium hover:underline cursor-pointer"
+                    >
+                      View report <ArrowRight className="h-3 w-3" />
+                    </button>
+                  </span>
+                </Title>
+                <div className="flex items-stretch">
+                  {stages.map((s, idx) => {
+                    const dir: 'up' | 'down' | 'flat' = s.delta_days > 0 ? 'up' : s.delta_days < 0 ? 'down' : 'flat';
+                    const label = s.delta_days === 0 ? 'flat' : `${Math.abs(s.delta_days).toFixed(1)}d ${s.delta_days > 0 ? 'slower' : 'faster'}`;
+                    const route = routeForStage(s.name);
+                    return (
+                      <div key={s.name} className="flex items-stretch flex-1 min-w-0">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`${s.name} stage — ${Number(s.median_days || 0).toFixed(1)} days median, ${s.in_flight} in flight`}
+                          onClick={go(route)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(route)(e); } }}
+                          className={`flex-1 rounded-[11px] border p-3.5 cursor-pointer transition-all duration-150 hover:shadow-sm ${
+                            (s as any).red ? 'bg-[#FEF2F2] border-[#FECACA] hover:bg-[#FEE2E2]' :
+                            (s as any).green ? 'bg-[#ECFDF5] border-[#A7F3D0] hover:bg-[#D1FAE5]' :
+                            'bg-[#F9FAFB] border-[#E5E7EB] hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className={`text-[10.5px] font-medium tracking-wider ${(s as any).red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>{s.name.toUpperCase()}</div>
+                          <div className={`mt-1 text-[24px] font-medium leading-none tracking-tight ${(s as any).red ? 'text-[#7F1D1D]' : 'text-[#111827]'}`}>
+                            {Number(s.median_days || 0).toFixed(1).replace(/\.0$/, '')}
+                            <span className={`ml-1 text-[13px] font-normal ${(s as any).red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>days</span>
+                          </div>
+                          <div className={`mt-1 text-[11px] ${(s as any).red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>
+                            {s.in_flight} in flight{(s as any).red ? ' · bottleneck' : ''}
+                          </div>
+                          <div className="mt-2"><Trend dir={dir} label={label} goodIsUp={false} /></div>
+                        </div>
+                        {idx < stages.length - 1 && (
+                          <div className="flex items-center px-1.5 text-[#D1D5DB]"><ChevronRight className="h-5 w-5" /></div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {velocity && (
+                    <div className="flex items-stretch flex-1 min-w-0">
+                      <div className="flex items-center px-1.5 text-[#D1D5DB]"><ChevronRight className="h-5 w-5" /></div>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`On-time delivery ${Number(velocity.on_time_delivery_pct || 0).toFixed(0)} percent`}
+                        onClick={go('/admin/vendor-scores')}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go('/admin/vendor-scores')(e); } }}
+                        className="flex-1 rounded-[11px] border p-3.5 bg-[#ECFDF5] border-[#A7F3D0] cursor-pointer transition-all duration-150 hover:bg-[#D1FAE5] hover:shadow-sm"
+                      >
+                        <div className="text-[10.5px] font-medium tracking-wider text-[#047857]">ON-TIME DELIVERY</div>
+                        <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#065F46]">
+                          {Number(velocity.on_time_delivery_pct || 0).toFixed(0)}
+                          <span className="ml-1 text-[13px] font-normal text-[#047857]">%</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-[#047857]">last 30 days</div>
+                        <div className="mt-2">
+                          <Trend
+                            dir={velocity.on_time_delta > 0 ? 'up' : velocity.on_time_delta < 0 ? 'down' : 'flat'}
+                            label={velocity.on_time_delta === 0 ? 'flat' : `${Math.abs(velocity.on_time_delta).toFixed(1)}%`}
+                            goodIsUp
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className={`mt-1 text-[11px] ${(s as any).red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>
-                      {s.in_flight} in flight{(s as any).red ? ' · bottleneck' : ''}
-                    </div>
-                    <div className="mt-2"><Trend dir={dir} label={label} goodIsUp={false} /></div>
-                  </div>
-                  {idx < stages.length - 1 && (
-                    <div className="flex items-center px-1.5 text-[#D1D5DB]"><ChevronRight className="h-5 w-5" /></div>
                   )}
                 </div>
-              );
-            })}
-            {velocity && (
-              <div className="flex items-stretch flex-1 min-w-0">
-                <div className="flex items-center px-1.5 text-[#D1D5DB]"><ChevronRight className="h-5 w-5" /></div>
-                <div className="flex-1 rounded-[11px] border p-3.5 bg-[#ECFDF5] border-[#A7F3D0]">
-                  <div className="text-[10.5px] font-medium tracking-wider text-[#047857]">ON-TIME DELIVERY</div>
-                  <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#065F46]">
-                    {Number(velocity.on_time_delivery_pct || 0).toFixed(0)}
-                    <span className="ml-1 text-[13px] font-normal text-[#047857]">%</span>
+                {kpis.aging_60_plus > 0 && (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Open bottleneck stage filter"
+                    onClick={go(bottleneckRoute)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(bottleneckRoute)(e); } }}
+                    className="mt-3.5 flex items-start gap-2 rounded-[9px] border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2.5 text-[12px] text-[#92400E] cursor-pointer transition-all duration-150 hover:bg-[#FEF3C7] hover:shadow-sm"
+                  >
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                    Payment cycle is the bottleneck — {kpis.aging_60_plus} invoices stuck &gt;60 days. Clear in the AP queue to unblock supplier deliveries.
                   </div>
-                  <div className="mt-1 text-[11px] text-[#047857]">last 30 days</div>
-                  <div className="mt-2">
-                    <Trend
-                      dir={velocity.on_time_delta > 0 ? 'up' : velocity.on_time_delta < 0 ? 'down' : 'flat'}
-                      label={velocity.on_time_delta === 0 ? 'flat' : `${Math.abs(velocity.on_time_delta).toFixed(1)}%`}
-                      goodIsUp
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          {kpis.aging_60_plus > 0 && (
-            <div className="mt-3.5 flex items-start gap-2 rounded-[9px] border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2.5 text-[12px] text-[#92400E]">
-              <Info className="mt-0.5 h-4 w-4 shrink-0" />
-              Payment cycle is the bottleneck — {kpis.aging_60_plus} invoices stuck &gt;60 days. Clear in the AP queue to unblock supplier deliveries.
+                )}
+              </Card>
             </div>
-          )}
-        </Card>
+          );
+        })()}
 
         {/* Charts row */}
         <div className="grid gap-3.5 grid-cols-1 lg:grid-cols-[1.6fr_1fr_1fr]">
