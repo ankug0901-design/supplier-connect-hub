@@ -77,8 +77,15 @@ export default function Invoices() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [enriching, setEnriching] = useState(false);
+  const [searchParams] = useSearchParams();
+  const minOverdueDays = useMemo(() => {
+    const v = parseInt(searchParams.get('overdue') || '', 10);
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  }, [searchParams]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(
+    (searchParams.get('status') || (minOverdueDays > 0 ? 'overdue' : 'all')).toLowerCase(),
+  );
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [attachment, setAttachment] = useState<BillAttachment | null>(null);
