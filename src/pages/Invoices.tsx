@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Eye, Search, Filter, Plus, Loader2, Download } from 'lucide-react';
 import { exportToCsv } from '@/lib/exportCsv';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
