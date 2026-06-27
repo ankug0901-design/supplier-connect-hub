@@ -336,7 +336,7 @@ export default function AdminDashboard() {
               <Link to="/admin/suppliers" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View all <ArrowRight className="h-3 w-3" /></Link>
             </Title>
             {topSuppliers.length === 0 ? <Empty>No supplier activity this month.</Empty> : topSuppliers.map((s, i) => (
-              <Row key={s.supplier_id}>
+              <Row key={s.supplier_id} ariaLabel={`Open supplier ${s.name}`} onClick={() => navigate(`/admin/suppliers?id=${s.supplier_id}`)}>
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-[10.5px] font-medium" style={{ background: AVATAR_BG[i % 5], color: AVATAR_FG[i % 5] }}>{s.initials}</div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[12.5px] font-medium">{s.name}</div>
