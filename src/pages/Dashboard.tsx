@@ -98,7 +98,8 @@ function KpiGradient(props: {
   label: string; value: string; icon: React.ReactNode; iconBg: string; iconColor: string; labelColor: string;
   trend?: { dir: 'up' | 'down' | 'flat' | 'new'; pct: number; customLabel?: string };
   sparkline?: { data: number[]; color: string };
-  ageing?: { a030: number; a3160: number; a60: number; amount?: number };
+  ageing?: { a030: number; a3160: number; a60: number; amount?: number } | null;
+  emptyAgeing?: string | null;
   sub: string; subColor: string;
   to?: string; goodIsUp?: boolean;
 }) {
@@ -129,6 +130,8 @@ function KpiGradient(props: {
             <span className="font-medium text-[#991B1B]">60+ ({props.ageing.a60})</span>
           </div>
         </>
+      ) : props.emptyAgeing ? (
+        <div className="mt-2 text-[11.5px] text-[#9CA3AF]">{props.emptyAgeing}</div>
       ) : (
         <div className="mt-1.5 flex items-center gap-2.5">
           {props.trend && (props.trend.customLabel
