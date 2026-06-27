@@ -93,6 +93,7 @@ export function PaymentPredictionCard() {
           <CardTitle className="flex items-center gap-2 text-base">
             <Sparkles className="h-5 w-5 text-primary" />
             Payment Date Prediction
+            <span className="rounded-[5px] bg-[#F5F3FF] px-1.5 py-0.5 text-[9.5px] font-semibold tracking-wider text-[#7C3AED]">AI</span>
           </CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">
             AI-predicted payment dates for your pending invoices based on client's payment history.
