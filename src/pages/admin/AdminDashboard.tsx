@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Package, Receipt, CreditCard, Users, Sparkles, GitCompare, Trophy, Box,
@@ -8,36 +7,27 @@ import {
   CircleCheck, ArrowRight, IndianRupee, CalendarClock, CheckCheck,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { supabase } from '@/integrations/supabase/client';
-import { fetchPurchaseOrdersFromDb } from '@/services/api';
+import {
+  useDashboardData,
+  type ActivityEvent,
+  type AiInsight,
+  type SpendTrendPoint,
+  type VelocityStage,
+  type WeekDay,
+} from '@/hooks/useDashboard';
 
-type Row = any;
-
-// ─── helpers ──────────────────────────────────────────────────────────────
-function fmtL(n: number) {
-  if (!n) return '₹0';
-  if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
-  if (n >= 100000) return `₹${(n / 100000).toFixed(2)} L`;
-  if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
-  return `₹${n.toFixed(0)}`;
-}
-function fmtLNum(n: number) {
-  if (!n) return '₹0 L';
-  return `₹${(n / 100000).toFixed(2)} L`;
+// ─── formatters ──────────────────────────────────────────────────────────
+// RPCs already convert money to lakhs via public.to_lakhs(). These helpers
+// expect lakh-denominated inputs.
+function fmtLakh(n: number | null | undefined) {
+  const v = Number(n || 0);
+  if (!v) return '₹0 L';
+  if (v >= 100) return `₹${(v / 100).toFixed(2)} Cr`;
+  return `₹${v.toFixed(2)} L`;
 }
 function fmtShort(d?: string | null) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-}
-function startOfMonth(date = new Date()) {
-  const d = new Date(date); d.setDate(1); d.setHours(0, 0, 0, 0); return d;
-}
-function addMonths(date: Date, m: number) {
-  const d = new Date(date); d.setMonth(d.getMonth() + m); return d;
-}
-function diffDays(a: Date | null, b: Date | null) {
-  if (!a || !b) return null;
-  return Math.floor((b.getTime() - a.getTime()) / 86400000);
 }
 
 // ─── sparkline ───────────────────────────────────────────────────────────
@@ -59,17 +49,14 @@ function Sparkline({ data, stroke }: { data: number[]; stroke: string }) {
   );
 }
 
-// ─── trend chip ──────────────────────────────────────────────────────────
 function Trend({ dir, label, goodIsUp = true }: { dir: 'up' | 'down' | 'flat' | 'new'; label: string; goodIsUp?: boolean }) {
   let color = '#6B7280', bg = '#F3F4F6';
   if (dir === 'up') {
-    const good = goodIsUp;
-    color = good ? '#047857' : '#9A3412';
-    bg = good ? 'rgba(16,185,129,.15)' : 'rgba(234,88,12,.15)';
+    color = goodIsUp ? '#047857' : '#9A3412';
+    bg = goodIsUp ? 'rgba(16,185,129,.15)' : 'rgba(234,88,12,.15)';
   } else if (dir === 'down') {
-    const good = !goodIsUp;
-    color = good ? '#047857' : '#9A3412';
-    bg = good ? 'rgba(16,185,129,.15)' : 'rgba(234,88,12,.15)';
+    color = !goodIsUp ? '#047857' : '#9A3412';
+    bg = !goodIsUp ? 'rgba(16,185,129,.15)' : 'rgba(234,88,12,.15)';
   } else if (dir === 'new') {
     color = '#1E40AF'; bg = 'rgba(37,99,235,.15)';
   }
@@ -81,421 +68,11 @@ function Trend({ dir, label, goodIsUp = true }: { dir: 'up' | 'down' | 'flat' | 
   );
 }
 
-function Badge({ kind, children }: { kind: 'pending' | 'partial' | 'paid' | 'rejected'; children: React.ReactNode }) {
-  const map: Record<string, string> = {
-    pending: 'bg-[#FEF3C7] text-[#92400E]',
-    partial: 'bg-[#FED7AA] text-[#9A3412]',
-    paid: 'bg-[#D1FAE5] text-[#065F46]',
-    rejected: 'bg-[#FEE2E2] text-[#991B1B]',
-  };
-  return <span className={`rounded-lg px-2.5 py-1 text-[10.5px] font-medium ${map[kind]}`}>{children}</span>;
-}
-
-function statusToBadge(s?: string) {
-  const v = String(s || '').toLowerCase();
-  if (['paid', 'completed', 'closed'].includes(v)) return 'paid' as const;
-  if (['partial', 'partially_paid'].includes(v)) return 'partial' as const;
-  if (['rejected', 'cancelled', 'void'].includes(v)) return 'rejected' as const;
-  return 'pending' as const;
-}
-
 // ─── main page ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
-  const [pos, setPos] = useState<Row[]>([]);
-  const [invoices, setInvoices] = useState<Row[]>([]);
-  const [payments, setPayments] = useState<Row[]>([]);
-  const [suppliers, setSuppliers] = useState<Row[]>([]);
-  const [registrations, setRegistrations] = useState<Row[]>([]);
-  const [challans, setChallans] = useState<Row[]>([]);
-  const [rfqRows, setRfqRows] = useState<Row[]>([]);
-  const [threeWay, setThreeWay] = useState<Row[]>([]);
-  const [poItems, setPoItems] = useState<Row[]>([]);
-  const [vendorScores, setVendorScores] = useState<Row[]>([]);
-  const [exceptions, setExceptions] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading } = useDashboardData();
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10] = await Promise.all([
-        fetchPurchaseOrdersFromDb(true),
-        supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(2000),
-        supabase.from('payments').select('*').order('created_at', { ascending: false }).limit(2000),
-        supabase.from('suppliers').select('*').limit(5000),
-        supabase.from('supplier_registrations').select('*').order('created_at', { ascending: false }).limit(500),
-        supabase.from('delivery_challans').select('*').order('created_at', { ascending: false }).limit(500),
-        supabase.from('rfq_portal_requests').select('*').order('created_at', { ascending: false }).limit(2000),
-        supabase.from('three_way_matches').select('*').limit(2000),
-        supabase.from('po_items').select('*').limit(5000),
-        supabase.from('vendor_scores').select('*').limit(2000),
-      ]);
-      const r11 = await supabase.from('po_exception_requests').select('*').eq('status', 'pending').limit(500);
-      if (cancelled) return;
-      setPos(Array.isArray(r1) ? r1 : []);
-      setInvoices(r2.data || []);
-      setPayments(r3.data || []);
-      setSuppliers(r4.data || []);
-      setRegistrations(r5.data || []);
-      setChallans(r6.data || []);
-      setRfqRows(r7.data || []);
-      setThreeWay(r8.data || []);
-      setPoItems(r9.data || []);
-      setVendorScores(r10.data || []);
-      setExceptions(r11.data || []);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const supplierById = useMemo(() => {
-    const m: Record<string, any> = {};
-    suppliers.forEach((s) => { m[s.id] = s; });
-    return m;
-  }, [suppliers]);
-
-  const scoreBySupplier = useMemo(() => {
-    const m: Record<string, number> = {};
-    vendorScores.forEach((v: any) => { m[v.supplier_id] = Math.round(Number(v.overall_score ?? v.score ?? 0)); });
-    return m;
-  }, [vendorScores]);
-
-  // ─── KPIs ──────────────────────────────────────────────────────────────
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const lastMonthStart = startOfMonth(addMonths(now, -1));
-
-  const k = useMemo(() => {
-    const isActivePo = (p: any) => !['rejected', 'cancelled', 'void'].includes(String(p.status));
-    const poValueThisMonth = pos.filter((p) => isActivePo(p) && p.date && new Date(p.date) >= monthStart)
-      .reduce((s, p) => s + Number(p.amount || 0), 0);
-    const poValueLastMonth = pos.filter((p) => isActivePo(p) && p.date && new Date(p.date) >= lastMonthStart && new Date(p.date) < monthStart)
-      .reduce((s, p) => s + Number(p.amount || 0), 0);
-    const openPOs = pos.filter((p) => !['completed', 'closed', 'cancelled', 'rejected', 'void', 'paid'].includes(String(p.status))).length;
-    const supplierCountThisMonth = new Set(pos.filter((p) => isActivePo(p) && p.date && new Date(p.date) >= monthStart).map((p) => p.supplier_id)).size;
-
-    // pending invoices + aging
-    const pending = invoices.filter((i) => !['paid', 'completed', 'cancelled', 'void', 'rejected'].includes(String(i.status)));
-    let a030 = 0, a3160 = 0, a60 = 0, amtSum = 0;
-    pending.forEach((i) => {
-      const ref = i.date ? new Date(i.date) : (i.created_at ? new Date(i.created_at) : null);
-      const days = ref ? Math.floor((now.getTime() - ref.getTime()) / 86400000) : 0;
-      if (days <= 30) a030++;
-      else if (days <= 60) a3160++;
-      else a60++;
-      amtSum += Number(i.amount || 0);
-    });
-
-    // paid this month
-    const paidNow = payments.filter((p) => ['paid', 'completed'].includes(String(p.status)) && new Date(p.date || p.created_at) >= monthStart);
-    const paidThisMonth = paidNow.reduce((s, p) => s + Number(p.amount || 0), 0);
-    const paidLastMonth = payments
-      .filter((p) => ['paid', 'completed'].includes(String(p.status)) && new Date(p.date || p.created_at) >= lastMonthStart && new Date(p.date || p.created_at) < monthStart)
-      .reduce((s, p) => s + Number(p.amount || 0), 0);
-    const paidSupplierCount = new Set(paidNow.map((p) => p.supplier_id || p.zoho_vendor_id)).size;
-
-    // average payment cycle (invoice date → payment date) — heuristic using payments with invoice_id
-    let cycleSum = 0, cycleCount = 0;
-    payments.forEach((p: any) => {
-      if (!['paid', 'completed'].includes(String(p.status))) return;
-      const inv = invoices.find((i) => i.id === p.invoice_id);
-      if (!inv?.date || !(p.date || p.created_at)) return;
-      const d = diffDays(new Date(inv.date), new Date(p.date || p.created_at));
-      if (d !== null && d >= 0 && d < 365) { cycleSum += d; cycleCount++; }
-    });
-    const avgCycle = cycleCount ? Math.round(cycleSum / cycleCount) : 28;
-
-    // suppliers
-    const onlySuppliers = suppliers.filter((s) => (s.role || 'supplier') === 'supplier');
-    const activeSupplierCount = onlySuppliers.length;
-    const newThisMonth = onlySuppliers.filter((s) => s.created_at && new Date(s.created_at) >= monthStart).length;
-    const pendingReg = registrations.filter((r) => String(r.status) === 'pending').length;
-    const lastActivityBySupplier = new Map<string, number>();
-    [...pos, ...invoices].forEach((row: any) => {
-      const sid = row.supplier_id; if (!sid) return;
-      const t = new Date(row.created_at || row.date || 0).getTime();
-      lastActivityBySupplier.set(sid, Math.max(lastActivityBySupplier.get(sid) || 0, t));
-    });
-    const sixtyAgo = now.getTime() - 60 * 86400000;
-    const dormant = onlySuppliers.filter((s) => (lastActivityBySupplier.get(s.id) || 0) < sixtyAgo).length;
-
-    return {
-      poValueThisMonth, poValueLastMonth, openPOs, supplierCountThisMonth,
-      pendingInvoices: pending.length, a030, a3160, a60, pendingAmount: amtSum,
-      paidThisMonth, paidLastMonth, paidSupplierCount, avgCycle,
-      activeSupplierCount, newThisMonth, pendingReg, dormant,
-    };
-  }, [pos, invoices, payments, suppliers, registrations, monthStart, lastMonthStart, now]);
-
-  // ─── attention counts ─────────────────────────────────────────────────
-  const attention = useMemo(() => {
-    const poApprovals = exceptions.length;
-    // RFQs closing within 24h
-    const soon = rfqRows.filter((r) => {
-      if (r.rfq_closed_at) return false;
-      if (!r.response_deadline) return false;
-      const dl = new Date(`${String(r.response_deadline).slice(0, 10)}T17:00:00+05:30`).getTime();
-      const diff = dl - now.getTime();
-      return diff > 0 && diff < 48 * 3600 * 1000;
-    });
-    const rfqIdsSoon = new Set(soon.map((r) => r.rfq_id));
-    const invoiceOverdue = invoices.filter((i) => {
-      if (['paid', 'completed', 'cancelled', 'void'].includes(String(i.status))) return false;
-      const ref = i.date ? new Date(i.date) : null;
-      if (!ref) return false;
-      return Math.floor((now.getTime() - ref.getTime()) / 86400000) > 60;
-    }).length;
-    const newRegs = registrations.filter((r) => String(r.status) === 'pending').length;
-    const matchExceptions = threeWay.filter((m: any) => String(m.match_status || m.status || '').toLowerCase().includes('except') || (m.discrepancy_count && Number(m.discrepancy_count) > 0)).length;
-    return {
-      poApprovals,
-      rfqClosing: rfqIdsSoon.size,
-      rfqHours: soon.length ? Math.max(1, Math.round(((new Date(`${String(soon[0].response_deadline).slice(0, 10)}T17:00:00+05:30`).getTime() - now.getTime())) / 3600000)) : 0,
-      invoiceOverdue,
-      newRegs,
-      matchExceptions,
-    };
-  }, [exceptions, rfqRows, invoices, registrations, threeWay, now]);
-
-  // ─── 6-month spend trend ──────────────────────────────────────────────
-  const spendTrend = useMemo(() => {
-    const months: { label: string; po: number; paid: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const ms = startOfMonth(addMonths(now, -i));
-      const me = startOfMonth(addMonths(now, -i + 1));
-      const po = pos.filter((p) => p.date && new Date(p.date) >= ms && new Date(p.date) < me && !['rejected', 'cancelled', 'void'].includes(String(p.status)))
-        .reduce((s, p) => s + Number(p.amount || 0), 0);
-      const paid = payments.filter((p) => ['paid', 'completed'].includes(String(p.status)) && new Date(p.date || p.created_at) >= ms && new Date(p.date || p.created_at) < me)
-        .reduce((s, p) => s + Number(p.amount || 0), 0);
-      months.push({ label: ms.toLocaleDateString('en-IN', { month: 'short' }), po, paid });
-    }
-    return months;
-  }, [pos, payments, now]);
-
-  // ─── top suppliers (this month) ───────────────────────────────────────
-  const topSuppliers = useMemo(() => {
-    const agg = new Map<string, { value: number; poCount: number }>();
-    pos.filter((p) => p.date && new Date(p.date) >= monthStart && !['rejected', 'cancelled', 'void'].includes(String(p.status)))
-      .forEach((p) => {
-        const cur = agg.get(p.supplier_id) || { value: 0, poCount: 0 };
-        cur.value += Number(p.amount || 0); cur.poCount += 1;
-        agg.set(p.supplier_id, cur);
-      });
-    const lastAgg = new Map<string, number>();
-    pos.filter((p) => p.date && new Date(p.date) >= lastMonthStart && new Date(p.date) < monthStart && !['rejected', 'cancelled', 'void'].includes(String(p.status)))
-      .forEach((p) => { lastAgg.set(p.supplier_id, (lastAgg.get(p.supplier_id) || 0) + Number(p.amount || 0)); });
-    return Array.from(agg.entries()).sort((a, b) => b[1].value - a[1].value).slice(0, 5).map(([sid, v]) => {
-      const s = supplierById[sid];
-      const name = s?.company || s?.name || 'Unknown';
-      const initials = name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() || '??';
-      const score = scoreBySupplier[sid] || 80;
-      const last = lastAgg.get(sid) || 0;
-      const mom = last > 0 ? ((v.value - last) / last) * 100 : (v.value > 0 ? 100 : 0);
-      return { sid, name, initials, poCount: v.poCount, value: v.value, score, mom, isNew: last === 0 };
-    });
-  }, [pos, supplierById, scoreBySupplier, monthStart, lastMonthStart]);
-
-  // ─── top items ────────────────────────────────────────────────────────
-  const topItems = useMemo(() => {
-    const monthPoIds = new Set(pos.filter((p) => p.date && new Date(p.date) >= monthStart).map((p) => p.id));
-    const agg = new Map<string, { value: number; count: number; supplierCounts: Map<string, number>; category: string }>();
-    poItems.forEach((it: any) => {
-      if (!monthPoIds.has(it.po_id)) return;
-      const name = String(it.item_name || it.description || '').trim() || 'Unnamed';
-      const value = Number(it.amount || (Number(it.quantity || 0) * Number(it.rate || 0)));
-      const po = pos.find((p) => p.id === it.po_id);
-      const sid = po?.supplier_id;
-      const sname = supplierById[sid]?.company || supplierById[sid]?.name || '—';
-      const cur = agg.get(name) || { value: 0, count: 0, supplierCounts: new Map(), category: inferCategory(name) };
-      cur.value += value; cur.count += 1;
-      cur.supplierCounts.set(sname, (cur.supplierCounts.get(sname) || 0) + 1);
-      agg.set(name, cur);
-    });
-    return Array.from(agg.entries()).sort((a, b) => b[1].value - a[1].value).slice(0, 5).map(([name, v]) => ({
-      name, value: v.value, count: v.count, category: v.category,
-      topSupplier: Array.from(v.supplierCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || '—',
-    }));
-  }, [poItems, pos, supplierById, monthStart]);
-
-  const categoryMix = useMemo(() => {
-    const monthPoIds = new Set(pos.filter((p) => p.date && new Date(p.date) >= monthStart).map((p) => p.id));
-    const totals: Record<string, number> = {};
-    let total = 0;
-    poItems.forEach((it: any) => {
-      if (!monthPoIds.has(it.po_id)) return;
-      const cat = inferCategory(String(it.item_name || it.description || ''));
-      const value = Number(it.amount || (Number(it.quantity || 0) * Number(it.rate || 0)));
-      totals[cat] = (totals[cat] || 0) + value;
-      total += value;
-    });
-    const cats = [
-      { name: 'Packaging', color: '#3B82F6' },
-      { name: 'POSM', color: '#F59E0B' },
-      { name: 'Printing', color: '#7C3AED' },
-      { name: 'Services', color: '#10B981' },
-      { name: 'Stationery', color: '#EC4899' },
-    ];
-    return { total, skus: Object.keys(totals).length ? Array.from(new Set(poItems.filter((it) => monthPoIds.has(it.po_id)).map((it: any) => it.item_name))).length : 0, cats: cats.map((c) => ({ ...c, pct: total ? Math.round((totals[c.name] || 0) / total * 100) : 0 })) };
-  }, [poItems, pos, monthStart]);
-
-  // ─── AP aging totals ──────────────────────────────────────────────────
-  const apAging = useMemo(() => {
-    let a030 = 0, a3160 = 0, a60 = 0;
-    invoices.forEach((i: any) => {
-      if (['paid', 'completed', 'cancelled', 'void'].includes(String(i.status))) return;
-      const ref = i.date ? new Date(i.date) : null;
-      if (!ref) return;
-      const days = Math.floor((now.getTime() - ref.getTime()) / 86400000);
-      const amt = Number(i.amount || 0);
-      if (days <= 30) a030 += amt;
-      else if (days <= 60) a3160 += amt;
-      else a60 += amt;
-    });
-    return { a030, a3160, a60, total: a030 + a3160 + a60 };
-  }, [invoices, now]);
-
-  // ─── 3-way match summary ─────────────────────────────────────────────
-  const matchSummary = useMemo(() => {
-    let matched = 0, awaiting = 0, exception = 0;
-    threeWay.forEach((m: any) => {
-      const s = String(m.match_status || m.status || '').toLowerCase();
-      if (s.includes('except') || (m.discrepancy_count && Number(m.discrepancy_count) > 0)) exception++;
-      else if (s.includes('await') || s.includes('grn')) awaiting++;
-      else matched++;
-    });
-    const total = matched + awaiting + exception;
-    const rate = total ? Math.round((matched / total) * 100) : 0;
-    return { matched, awaiting, exception, rate, total };
-  }, [threeWay]);
-
-  // ─── velocity ─────────────────────────────────────────────────────────
-  const velocity = useMemo(() => {
-    // RFQ → PO
-    const rfqToPo: number[] = [];
-    rfqRows.forEach((r: any) => {
-      if (r.decided_at && r.created_at) {
-        const d = diffDays(new Date(r.created_at), new Date(r.decided_at));
-        if (d !== null && d >= 0 && d < 90) rfqToPo.push(d);
-      }
-    });
-    // PO → GRN — use challans linked to PO (heuristic via po_number)
-    const grnByPo = new Map<string, number>();
-    challans.forEach((c: any) => {
-      if (c.po_number && c.created_at) {
-        const t = new Date(c.created_at).getTime();
-        grnByPo.set(String(c.po_number), Math.min(grnByPo.get(String(c.po_number)) || Infinity, t));
-      }
-    });
-    const poToGrn: number[] = [];
-    pos.forEach((p: any) => {
-      const g = grnByPo.get(String(p.po_number));
-      if (g && p.date) {
-        const d = diffDays(new Date(p.date), new Date(g));
-        if (d !== null && d >= 0 && d < 180) poToGrn.push(d);
-      }
-    });
-    // GRN → Bill (invoice.created_at after challan)
-    const grnToBill: number[] = [];
-    invoices.forEach((i: any) => {
-      const g = grnByPo.get(String(i.po_number));
-      if (g && i.created_at) {
-        const d = diffDays(new Date(g), new Date(i.created_at));
-        if (d !== null && d >= 0 && d < 90) grnToBill.push(d);
-      }
-    });
-    // Bill → Paid
-    const billToPaid: number[] = [];
-    payments.forEach((p: any) => {
-      if (!['paid', 'completed'].includes(String(p.status))) return;
-      const inv = invoices.find((i) => i.id === p.invoice_id);
-      if (inv?.date && (p.date || p.created_at)) {
-        const d = diffDays(new Date(inv.date), new Date(p.date || p.created_at));
-        if (d !== null && d >= 0 && d < 365) billToPaid.push(d);
-      }
-    });
-
-    const median = (arr: number[]) => {
-      if (!arr.length) return 0;
-      const s = [...arr].sort((a, b) => a - b);
-      return s[Math.floor(s.length / 2)];
-    };
-    const inFlight = (status: string[]) => pos.filter((p) => status.includes(String(p.status))).length;
-
-    // on-time delivery — confirmed vs actual from po_items
-    let onTime = 0, totalDel = 0;
-    poItems.forEach((it: any) => {
-      if (!it.confirmed_delivery_date || !it.actual_delivery_date) return;
-      totalDel++;
-      if (new Date(it.actual_delivery_date) <= new Date(it.confirmed_delivery_date)) onTime++;
-    });
-    const onTimePct = totalDel ? Math.round((onTime / totalDel) * 100) : 0;
-
-    return {
-      stages: [
-        { label: 'RFQ → PO', days: median(rfqToPo) || 3.2, inflight: rfqRows.filter((r: any) => !r.decided_at && !r.rfq_closed_at).length, trend: 'down' as const, trendLabel: 'on track' },
-        { label: 'PO → GRN', days: median(poToGrn) || 0, inflight: inFlight(['issued', 'sent', 'acknowledged', 'pending']), trend: 'flat' as const, trendLabel: 'flat' },
-        { label: 'GRN → BILL', days: median(grnToBill) || 0, inflight: invoices.filter((i: any) => String(i.status) === 'pending').length, trend: 'flat' as const, trendLabel: 'flat' },
-        { label: 'BILL → PAID', days: median(billToPaid) || 0, inflight: k.pendingInvoices, trend: 'up' as const, trendLabel: 'bottleneck', red: true },
-        { label: 'ON-TIME DELIVERY', days: onTimePct, inflight: totalDel, trend: 'up' as const, trendLabel: 'last 30d', isPct: true, green: true },
-      ],
-      onTimePct,
-    };
-  }, [rfqRows, pos, challans, invoices, payments, poItems, k.pendingInvoices]);
-
-  // ─── recent ───────────────────────────────────────────────────────────
-  const recentPOs = useMemo(() => pos.slice(0, 5), [pos]);
-  const recentInvoices = useMemo(() => invoices.slice(0, 5), [invoices]);
-
-  // ─── this week calendar ──────────────────────────────────────────────
-  const week = useMemo(() => {
-    const start = new Date(now);
-    const day = start.getDay(); // 0 = Sun
-    const offset = day === 0 ? -6 : 1 - day;
-    start.setDate(start.getDate() + offset); start.setHours(0, 0, 0, 0);
-    const days: any[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(start); d.setDate(start.getDate() + i);
-      const next = new Date(d); next.setDate(d.getDate() + 1);
-      const dStr = d.toISOString().slice(0, 10);
-      const deliveries = poItems.filter((it: any) => it.confirmed_delivery_date && String(it.confirmed_delivery_date).slice(0, 10) === dStr).length;
-      const billsDue = invoices.filter((i: any) => i.due_date && String(i.due_date).slice(0, 10) === dStr).length;
-      const rfqsClosing = rfqRows.filter((r: any) => r.response_deadline && String(r.response_deadline).slice(0, 10) === dStr && !r.rfq_closed_at).length;
-      const pays = payments.filter((p: any) => p.date && String(p.date).slice(0, 10) === dStr && !['paid', 'completed'].includes(String(p.status))).length;
-      const isToday = d.toDateString() === now.toDateString();
-      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-      const empty = deliveries + billsDue + rfqsClosing + pays === 0;
-      days.push({
-        d, name: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase().slice(0, 3),
-        num: d.getDate(), deliveries, billsDue, rfqsClosing, pays, isToday, isWeekend, empty,
-      });
-    }
-    return days;
-  }, [poItems, invoices, rfqRows, payments, now]);
-
-  // ─── AI insights (heuristic, no extra fetch) ─────────────────────────
-  const insights = useMemo(() => {
-    const out: { kind: 'purple' | 'amber' | 'red' | 'green'; title: string; body: string }[] = [];
-    // savings opportunity — multi-supplier same SKU
-    const skuVendors = new Map<string, Set<string>>();
-    poItems.forEach((it: any) => {
-      const name = String(it.item_name || '').trim().toLowerCase(); if (!name) return;
-      const po = pos.find((p) => p.id === it.po_id); const sid = po?.supplier_id; if (!sid) return;
-      if (!skuVendors.has(name)) skuVendors.set(name, new Set());
-      skuVendors.get(name)!.add(sid);
-    });
-    const splitSkus = Array.from(skuVendors.entries()).filter(([, v]) => v.size >= 2).length;
-    if (splitSkus > 0) out.push({ kind: 'purple', title: `Savings opportunity · ${splitSkus} SKUs split across vendors`, body: 'Multiple suppliers serving the same SKU. Consolidating to a single vendor could lower per-unit cost.' });
-
-    if (k.avgCycle > 30) out.push({ kind: 'amber', title: 'Payment cycle running long', body: `Average bill-to-paid is ${k.avgCycle} days — clearing 30-day target slips earliest invoices first.` });
-
-    if (k.a60 > 0) out.push({ kind: 'red', title: `${k.a60} invoices aged 60+ days`, body: 'These risk supplier escalation. Prioritise AP queue clearance.' });
-
-    const top = topSuppliers[0];
-    if (top && top.score >= 90) out.push({ kind: 'green', title: `Standout supplier: ${top.name}`, body: `Performance score ${top.score}/100 with ${top.poCount} POs this month — candidate for tier-1.` });
-
-    return out.slice(0, 4);
-  }, [poItems, pos, k, topSuppliers]);
-
-  // ─── header ───────────────────────────────────────────────────────────
   const headerActions = (
     <div className="flex items-center gap-2.5">
       <div className="flex items-center gap-1.5 rounded-[9px] border border-[#E5E7EB] bg-white px-3 py-1.5 text-[12.5px] text-[#6B7280] min-w-[240px]">
@@ -513,7 +90,40 @@ export default function AdminDashboard() {
     </div>
   );
 
-  const today = now.toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  if (loading || !data.kpis) {
+    return (
+      <DashboardLayout title="Admin Dashboard" subtitle={`Procurement command centre · ${today}`} actions={headerActions}>
+        <SkeletonPage />
+      </DashboardLayout>
+    );
+  }
+
+  const { kpis, attention, velocity, matchStatus, topItems, topSuppliers, categoryMix, activity, insights, thisWeek, spendTrend, apAging } = data;
+
+  const poTrend = spendTrend.map((s) => s.po_value);
+  const paidTrend = spendTrend.map((s) => s.paid);
+  const supplierTrend = spendTrend.map((_, i, arr) =>
+    kpis.active_supplier_count - (kpis.new_supplier_count * (arr.length - 1 - i)) / Math.max(arr.length - 1, 1)
+  );
+
+  const poMomPct = kpis.po_value_last_month
+    ? Math.abs(((kpis.po_value_this_month - kpis.po_value_last_month) / kpis.po_value_last_month) * 100)
+    : 0;
+  const paidMomPct = kpis.paid_last_month
+    ? Math.abs(((kpis.paid_this_month - kpis.paid_last_month) / kpis.paid_last_month) * 100)
+    : 0;
+
+  const totalCycle = velocity?.total_cycle_days ?? 0;
+
+  // Build the 5-stage strip: 4 from velocity (median_days) + on-time delivery %
+  const stages: Array<VelocityStage & { red?: boolean; green?: boolean; isPct?: boolean }> = [
+    ...((velocity?.stages || []) as VelocityStage[]),
+  ];
+  // Ensure the 4th (Bill → Paid) is flagged as bottleneck if it's the longest
+  if (stages.length >= 3) {
+    const longestIdx = stages.reduce((m, s, i, arr) => (s.median_days > arr[m].median_days ? i : m), 0);
+    if (longestIdx === stages.length - 1) (stages[longestIdx] as any).red = true;
+  }
 
   return (
     <DashboardLayout
@@ -521,270 +131,290 @@ export default function AdminDashboard() {
       subtitle={`Procurement command centre · ${today}`}
       actions={headerActions}
     >
-      {loading ? (
-        <SkeletonPage />
-      ) : (
-        <div className="space-y-3.5 text-[#111827]" style={{ fontFamily: 'Inter, -apple-system, sans-serif' }}>
-          {/* Attention banner */}
-          <AttentionBanner attn={attention} />
+      <div className="space-y-3.5 text-[#111827]" style={{ fontFamily: 'Inter, -apple-system, sans-serif' }}>
+        <AttentionBanner a={attention} />
 
-          {/* Hero KPI Row */}
-          <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiGradient
-              variant="k1" label="PO VALUE (THIS MONTH)" icon={<Package className="h-4 w-4" />}
-              iconBg="rgba(16,185,129,.18)" iconColor="#047857" labelColor="#6B7280"
-              value={fmtLNum(k.poValueThisMonth)}
-              trend={k.poValueLastMonth ? { dir: k.poValueThisMonth >= k.poValueLastMonth ? 'up' : 'down', pct: Math.abs(((k.poValueThisMonth - k.poValueLastMonth) / k.poValueLastMonth) * 100) } : undefined}
-              sparkline={{ data: spendTrend.map((s) => s.po), color: '#10B981' }}
-              sub={`${k.openPOs} open POs · ${k.supplierCountThisMonth} suppliers`}
-              subColor="#6B7280" to="/purchase-orders" goodIsUp
-            />
-            <KpiGradient
-              variant="k2" label="PENDING INVOICES" icon={<Receipt className="h-4 w-4" />}
-              iconBg="rgba(234,88,12,.18)" iconColor="#9A3412" labelColor="#9A3412"
-              value={String(k.pendingInvoices)}
-              ageing={{ a030: k.a030, a3160: k.a3160, a60: k.a60 }}
-              sub={`${fmtLNum(k.pendingAmount)} awaiting payment`}
-              subColor="#9A3412" to="/invoices?status=pending"
-            />
-            <KpiGradient
-              variant="k3" label="PAID (THIS MONTH)" icon={<CreditCard className="h-4 w-4" />}
-              iconBg="rgba(8,145,178,.18)" iconColor="#0E7490" labelColor="#155E75"
-              value={fmtLNum(k.paidThisMonth)}
-              trend={k.paidLastMonth ? { dir: k.paidThisMonth >= k.paidLastMonth ? 'up' : 'down', pct: Math.abs(((k.paidThisMonth - k.paidLastMonth) / k.paidLastMonth) * 100) } : undefined}
-              sparkline={{ data: spendTrend.map((s) => s.paid), color: '#0891B2' }}
-              sub={`Across ${k.paidSupplierCount} suppliers · avg ${k.avgCycle}-day cycle`}
-              subColor="#155E75" to="/payments" goodIsUp
-            />
-            <KpiGradient
-              variant="k4" label="ACTIVE SUPPLIERS" icon={<Users className="h-4 w-4" />}
-              iconBg="rgba(37,99,235,.18)" iconColor="#1D4ED8" labelColor="#1E40AF"
-              value={String(k.activeSupplierCount)}
-              trend={{ dir: 'new', pct: k.newThisMonth, customLabel: `${k.newThisMonth} new this month` }}
-              sparkline={{ data: spendTrend.map((_, i) => k.activeSupplierCount - (k.newThisMonth * (5 - i) / 5)), color: '#2563EB' }}
-              sub={`${k.pendingReg} pending approval · ${k.dormant} dormant`}
-              subColor="#1E40AF" to="/admin/suppliers"
-            />
-          </div>
+        {/* Hero KPI Row */}
+        <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiGradient
+            variant="k1" label="PO VALUE (THIS MONTH)" icon={<Package className="h-4 w-4" />}
+            iconBg="rgba(16,185,129,.18)" iconColor="#047857" labelColor="#6B7280"
+            value={fmtLakh(kpis.po_value_this_month)}
+            trend={kpis.po_value_last_month ? { dir: kpis.po_value_this_month >= kpis.po_value_last_month ? 'up' : 'down', pct: poMomPct } : undefined}
+            sparkline={{ data: poTrend, color: '#10B981' }}
+            sub={`${kpis.open_po_count} open POs · ${kpis.po_supplier_count} suppliers`}
+            subColor="#6B7280" to="/purchase-orders" goodIsUp
+          />
+          <KpiGradient
+            variant="k2" label="PENDING INVOICES" icon={<Receipt className="h-4 w-4" />}
+            iconBg="rgba(234,88,12,.18)" iconColor="#9A3412" labelColor="#9A3412"
+            value={String(kpis.pending_invoice_count)}
+            ageing={{ a030: kpis.aging_0_30, a3160: kpis.aging_31_60, a60: kpis.aging_60_plus }}
+            sub={`${fmtLakh(kpis.pending_invoice_amount)} awaiting payment`}
+            subColor="#9A3412" to="/invoices?status=pending"
+          />
+          <KpiGradient
+            variant="k3" label="PAID (THIS MONTH)" icon={<CreditCard className="h-4 w-4" />}
+            iconBg="rgba(8,145,178,.18)" iconColor="#0E7490" labelColor="#155E75"
+            value={fmtLakh(kpis.paid_this_month)}
+            trend={kpis.paid_last_month ? { dir: kpis.paid_this_month >= kpis.paid_last_month ? 'up' : 'down', pct: paidMomPct } : undefined}
+            sparkline={{ data: paidTrend, color: '#0891B2' }}
+            sub={`Across ${kpis.paid_supplier_count} suppliers · avg ${kpis.avg_payment_cycle}-day cycle`}
+            subColor="#155E75" to="/payments" goodIsUp
+          />
+          <KpiGradient
+            variant="k4" label="ACTIVE SUPPLIERS" icon={<Users className="h-4 w-4" />}
+            iconBg="rgba(37,99,235,.18)" iconColor="#1D4ED8" labelColor="#1E40AF"
+            value={String(kpis.active_supplier_count)}
+            trend={{ dir: 'new', pct: kpis.new_supplier_count, customLabel: `${kpis.new_supplier_count} new this month` }}
+            sparkline={{ data: supplierTrend, color: '#2563EB' }}
+            sub={`${kpis.pending_approval_count} pending approval · ${kpis.dormant_count} dormant`}
+            subColor="#1E40AF" to="/admin/suppliers"
+          />
+        </div>
 
-          {/* Operational velocity */}
-          <Card>
-            <Title icon={<Gauge className="h-4.5 w-4.5" />} iconColor="#10B981">
-              Operational velocity · pipeline cycle times
-              <span className="ml-auto flex items-center gap-2.5 text-[12px] font-normal">
-                <span className="text-[#6B7280]">Total cycle: <span className="font-medium text-[#111827]">{Math.round(velocity.stages.slice(0, 4).reduce((s, x) => s + (Number(x.days) || 0), 0))} days</span> median</span>
-                <Link to="/admin/vendor-scores" className="flex items-center gap-1 text-[#10B981] font-medium">View report <ArrowRight className="h-3 w-3" /></Link>
-              </span>
-            </Title>
-            <div className="flex items-stretch">
-              {velocity.stages.map((s, idx) => (
-                <div key={s.label} className="flex items-stretch flex-1 min-w-0">
+        {/* Operational velocity */}
+        <Card>
+          <Title icon={<Gauge className="h-4.5 w-4.5" />} iconColor="#10B981">
+            Operational velocity · pipeline cycle times
+            <span className="ml-auto flex items-center gap-2.5 text-[12px] font-normal">
+              <span className="text-[#6B7280]">Total cycle: <span className="font-medium text-[#111827]">{Math.round(totalCycle)} days</span> median</span>
+              <Link to="/admin/vendor-scores" className="flex items-center gap-1 text-[#10B981] font-medium">View report <ArrowRight className="h-3 w-3" /></Link>
+            </span>
+          </Title>
+          <div className="flex items-stretch">
+            {stages.map((s, idx) => {
+              const dir: 'up' | 'down' | 'flat' = s.delta_days > 0 ? 'up' : s.delta_days < 0 ? 'down' : 'flat';
+              const label = s.delta_days === 0 ? 'flat' : `${Math.abs(s.delta_days).toFixed(1)}d ${s.delta_days > 0 ? 'slower' : 'faster'}`;
+              return (
+                <div key={s.name} className="flex items-stretch flex-1 min-w-0">
                   <div className={`flex-1 rounded-[11px] border p-3.5 ${
-                    s.red ? 'bg-[#FEF2F2] border-[#FECACA]' :
-                    s.green ? 'bg-[#ECFDF5] border-[#A7F3D0]' :
+                    (s as any).red ? 'bg-[#FEF2F2] border-[#FECACA]' :
+                    (s as any).green ? 'bg-[#ECFDF5] border-[#A7F3D0]' :
                     'bg-[#F9FAFB] border-[#E5E7EB]'
                   }`}>
-                    <div className={`text-[10.5px] font-medium tracking-wider ${s.red ? 'text-[#991B1B]' : s.green ? 'text-[#047857]' : 'text-[#6B7280]'}`}>{s.label}</div>
-                    <div className={`mt-1 text-[24px] font-medium leading-none tracking-tight ${s.red ? 'text-[#7F1D1D]' : s.green ? 'text-[#065F46]' : 'text-[#111827]'}`}>
-                      {typeof s.days === 'number' ? s.days.toFixed(s.isPct ? 0 : 1).replace(/\.0$/, '') : s.days}
-                      <span className={`ml-1 text-[13px] font-normal ${s.red ? 'text-[#991B1B]' : s.green ? 'text-[#047857]' : 'text-[#6B7280]'}`}>{s.isPct ? '%' : 'days'}</span>
+                    <div className={`text-[10.5px] font-medium tracking-wider ${(s as any).red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>{s.name.toUpperCase()}</div>
+                    <div className={`mt-1 text-[24px] font-medium leading-none tracking-tight ${(s as any).red ? 'text-[#7F1D1D]' : 'text-[#111827]'}`}>
+                      {Number(s.median_days || 0).toFixed(1).replace(/\.0$/, '')}
+                      <span className={`ml-1 text-[13px] font-normal ${(s as any).red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>days</span>
                     </div>
-                    <div className={`mt-1 text-[11px] ${s.red ? 'text-[#991B1B]' : s.green ? 'text-[#047857]' : 'text-[#6B7280]'}`}>
-                      {s.inflight} {s.isPct ? 'measured' : 'in flight'}{s.red ? ' · bottleneck' : ''}
+                    <div className={`mt-1 text-[11px] ${(s as any).red ? 'text-[#991B1B]' : 'text-[#6B7280]'}`}>
+                      {s.in_flight} in flight{(s as any).red ? ' · bottleneck' : ''}
                     </div>
-                    <div className="mt-2"><Trend dir={s.trend} label={s.trendLabel} goodIsUp={s.green || idx === 4} /></div>
+                    <div className="mt-2"><Trend dir={dir} label={label} goodIsUp={false} /></div>
                   </div>
-                  {idx < velocity.stages.length - 1 && (
+                  {idx < stages.length - 1 && (
                     <div className="flex items-center px-1.5 text-[#D1D5DB]"><ChevronRight className="h-5 w-5" /></div>
                   )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
+            {velocity && (
+              <div className="flex items-stretch flex-1 min-w-0">
+                <div className="flex items-center px-1.5 text-[#D1D5DB]"><ChevronRight className="h-5 w-5" /></div>
+                <div className="flex-1 rounded-[11px] border p-3.5 bg-[#ECFDF5] border-[#A7F3D0]">
+                  <div className="text-[10.5px] font-medium tracking-wider text-[#047857]">ON-TIME DELIVERY</div>
+                  <div className="mt-1 text-[24px] font-medium leading-none tracking-tight text-[#065F46]">
+                    {Number(velocity.on_time_delivery_pct || 0).toFixed(0)}
+                    <span className="ml-1 text-[13px] font-normal text-[#047857]">%</span>
+                  </div>
+                  <div className="mt-1 text-[11px] text-[#047857]">last 30 days</div>
+                  <div className="mt-2">
+                    <Trend
+                      dir={velocity.on_time_delta > 0 ? 'up' : velocity.on_time_delta < 0 ? 'down' : 'flat'}
+                      label={velocity.on_time_delta === 0 ? 'flat' : `${Math.abs(velocity.on_time_delta).toFixed(1)}%`}
+                      goodIsUp
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          {kpis.aging_60_plus > 0 && (
             <div className="mt-3.5 flex items-start gap-2 rounded-[9px] border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2.5 text-[12px] text-[#92400E]">
               <Info className="mt-0.5 h-4 w-4 shrink-0" />
-              Payment cycle is the bottleneck — {k.a60} invoices stuck &gt;60 days. Clear in the AP queue to unblock supplier deliveries.
+              Payment cycle is the bottleneck — {kpis.aging_60_plus} invoices stuck &gt;60 days. Clear in the AP queue to unblock supplier deliveries.
             </div>
+          )}
+        </Card>
+
+        {/* Charts row */}
+        <div className="grid gap-3.5 grid-cols-1 lg:grid-cols-[1.6fr_1fr_1fr]">
+          <Card>
+            <Title icon={<BarChart3 className="h-4.5 w-4.5" />} iconColor="#10B981">Procurement spend · last 6 months</Title>
+            <div className="mb-3 flex gap-4 text-[11.5px]">
+              <Legend dot="#10B981" label="PO Value" />
+              <Legend dot="#0891B2" label="Paid" />
+              <Legend dot="#F59E0B" label="Outstanding" />
+            </div>
+            <SpendChart data={spendTrend} />
           </Card>
+          <Card>
+            <Title icon={<PieIcon className="h-4.5 w-4.5" />} iconColor="#F59E0B">AP aging</Title>
+            <ApAgingDonut a030={apAging?.amount_0_30 || 0} a3160={apAging?.amount_31_60 || 0} a60={apAging?.amount_60_plus || 0} />
+          </Card>
+          <Card>
+            <Title icon={<GitCompare className="h-4.5 w-4.5" />} iconColor="#7C3AED">3-Way match</Title>
+            <div className="text-[28px] font-medium leading-none">{matchStatus?.match_rate_pct ?? 0}<span className="text-[15px] font-normal text-[#6B7280]">%</span></div>
+            <div className="mt-1.5 mb-4 text-[11.5px] text-[#6B7280]">Match rate · last 30 days</div>
+            {(() => {
+              const m = matchStatus || { matched: 0, awaiting_grn: 0, exception: 0, match_rate_pct: 0 };
+              const total = m.matched + m.awaiting_grn + m.exception;
+              return (
+                <>
+                  <MatchBar icon={<CircleCheck className="h-3 w-3 text-[#10B981]" />} label="Matched" count={m.matched} pct={total ? (m.matched / total) * 100 : 0} color="#10B981" labelColor="#047857" />
+                  <MatchBar icon={<Clock className="h-3 w-3 text-[#F59E0B]" />} label="Awaiting GRN" count={m.awaiting_grn} pct={total ? (m.awaiting_grn / total) * 100 : 0} color="#F59E0B" labelColor="#92400E" />
+                  <MatchBar icon={<AlertTriangle className="h-3 w-3 text-[#DC2626]" />} label="Exception" count={m.exception} pct={total ? (m.exception / total) * 100 : 0} color="#DC2626" labelColor="#991B1B" />
+                </>
+              );
+            })()}
+          </Card>
+        </div>
 
-          {/* Charts row */}
-          <div className="grid gap-3.5 grid-cols-1 lg:grid-cols-[1.6fr_1fr_1fr]">
-            <Card>
-              <Title icon={<BarChart3 className="h-4.5 w-4.5" />} iconColor="#10B981">Procurement spend · last 6 months</Title>
-              <div className="mb-3 flex gap-4 text-[11.5px]">
-                <Legend dot="#10B981" label="PO Value" />
-                <Legend dot="#0891B2" label="Paid" />
-                <Legend dot="#F59E0B" label="Outstanding" />
-              </div>
-              <SpendChart data={spendTrend} />
-            </Card>
-            <Card>
-              <Title icon={<PieIcon className="h-4.5 w-4.5" />} iconColor="#F59E0B">AP aging</Title>
-              <ApAgingDonut a030={apAging.a030} a3160={apAging.a3160} a60={apAging.a60} />
-            </Card>
-            <Card>
-              <Title icon={<GitCompare className="h-4.5 w-4.5" />} iconColor="#7C3AED">3-Way match</Title>
-              <div className="text-[28px] font-medium leading-none">{matchSummary.rate}<span className="text-[15px] font-normal text-[#6B7280]">%</span></div>
-              <div className="mt-1.5 mb-4 text-[11.5px] text-[#6B7280]">Match rate · last 30 days</div>
-              <MatchBar icon={<CircleCheck className="h-3 w-3 text-[#10B981]" />} label="Matched" count={matchSummary.matched} pct={matchSummary.total ? (matchSummary.matched / matchSummary.total) * 100 : 0} color="#10B981" labelColor="#047857" />
-              <MatchBar icon={<Clock className="h-3 w-3 text-[#F59E0B]" />} label="Awaiting GRN" count={matchSummary.awaiting} pct={matchSummary.total ? (matchSummary.awaiting / matchSummary.total) * 100 : 0} color="#F59E0B" labelColor="#92400E" />
-              <MatchBar icon={<AlertTriangle className="h-3 w-3 text-[#DC2626]" />} label="Exception" count={matchSummary.exception} pct={matchSummary.total ? (matchSummary.exception / matchSummary.total) * 100 : 0} color="#DC2626" labelColor="#991B1B" />
-            </Card>
-          </div>
+        {/* Suppliers + items */}
+        <div className="grid gap-3.5 grid-cols-1 lg:grid-cols-2">
+          <Card>
+            <Title icon={<Trophy className="h-4.5 w-4.5" />} iconColor="#10B981">
+              Top suppliers · this month
+              <Link to="/admin/suppliers" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View all <ArrowRight className="h-3 w-3" /></Link>
+            </Title>
+            {topSuppliers.length === 0 ? <Empty>No supplier activity this month.</Empty> : topSuppliers.map((s, i) => (
+              <Row key={s.supplier_id}>
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-[10.5px] font-medium" style={{ background: AVATAR_BG[i % 5], color: AVATAR_FG[i % 5] }}>{s.initials}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[12.5px] font-medium">{s.name}</div>
+                  <div className="text-[11px] text-[#6B7280]">{s.po_count} POs · perf {s.perf_score}/100</div>
+                </div>
+                <div className="w-[110px]">
+                  <div className="h-[5px] overflow-hidden rounded-[3px] bg-[#F3F4F6]">
+                    <div className="h-full rounded-[3px]" style={{ width: `${s.perf_score}%`, background: s.perf_score >= 85 ? '#10B981' : s.perf_score >= 70 ? '#F59E0B' : '#DC2626' }} />
+                  </div>
+                </div>
+                <div className="min-w-[78px] text-right">
+                  <div className="text-[13px] font-medium">{fmtLakh(s.value)}</div>
+                  <div className="mt-0.5">
+                    {s.status === 'new' || s.mom_delta_pct == null
+                      ? <Trend dir="new" label="new" />
+                      : <Trend dir={s.mom_delta_pct >= 0 ? 'up' : 'down'} label={`${Math.abs(s.mom_delta_pct).toFixed(0)}%`} goodIsUp />}
+                  </div>
+                </div>
+              </Row>
+            ))}
+          </Card>
+          <Card>
+            <Title icon={<Box className="h-4.5 w-4.5" />} iconColor="#10B981">
+              Top items by PO value
+              <Link to="/purchase-orders" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View SKUs <ArrowRight className="h-3 w-3" /></Link>
+            </Title>
+            {(() => {
+              const totalMixPct = categoryMix.reduce((s, c) => s + c.pct, 0) || 1;
+              const palette = ['#3B82F6', '#F59E0B', '#7C3AED', '#10B981', '#EC4899', '#6B7280'];
+              const totalValue = topItems.reduce((s, i) => s + i.value, 0);
+              return (
+                <>
+                  <div className="mb-2.5 text-[11.5px] text-[#6B7280]">{fmtLakh(totalValue)} across <span className="font-medium text-[#111827]">{topItems.length} SKUs</span> · {categoryMix.length} categories</div>
+                  <div className="mb-2.5 flex h-[7px] overflow-hidden rounded-[4px]">
+                    {categoryMix.map((c, i) => c.pct > 0 && <div key={c.category} style={{ flex: c.pct / totalMixPct, background: palette[i % palette.length] }} />)}
+                  </div>
+                  <div className="mb-1.5 flex flex-wrap gap-3 text-[10.5px] text-[#6B7280]">
+                    {categoryMix.map((c, i) => c.pct > 0 && (
+                      <span key={c.category} className="inline-flex items-center gap-1.5">
+                        <span className="inline-block h-2 w-2 rounded-full" style={{ background: palette[i % palette.length] }} />
+                        {c.category} {c.pct}%
+                      </span>
+                    ))}
+                  </div>
+                  {topItems.length === 0 ? <Empty>No items invoiced this month.</Empty> : topItems.map((it, idx) => (
+                    <Row key={idx}>
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[#F3F4F6] text-[#6B7280]">
+                        <Package className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-[12.5px] font-medium">{it.item_name}</span>
+                          <span className="rounded-[5px] px-1.5 py-px text-[9.5px] font-medium tracking-wider bg-[#F3F4F6] text-[#6B7280]">{(it.category || '').toUpperCase()}</span>
+                        </div>
+                        <div className="truncate text-[11px] text-[#6B7280]">{it.po_count} POs · {it.top_supplier_name || '—'}</div>
+                      </div>
+                      <div className="min-w-[78px] text-right">
+                        <div className="text-[13px] font-medium">{fmtLakh(it.value)}</div>
+                        {it.mom_delta_pct != null && (
+                          <div className="mt-0.5"><Trend dir={it.mom_delta_pct >= 0 ? 'up' : 'down'} label={`${Math.abs(it.mom_delta_pct).toFixed(0)}%`} goodIsUp /></div>
+                        )}
+                      </div>
+                    </Row>
+                  ))}
+                </>
+              );
+            })()}
+          </Card>
+        </div>
 
-          {/* Suppliers + items */}
-          <div className="grid gap-3.5 grid-cols-1 lg:grid-cols-2">
-            <Card>
-              <Title icon={<Trophy className="h-4.5 w-4.5" />} iconColor="#10B981">
-                Top suppliers · this month
-                <Link to="/admin/suppliers" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View all <ArrowRight className="h-3 w-3" /></Link>
-              </Title>
-              {topSuppliers.length === 0 ? <Empty>No supplier activity this month.</Empty> : topSuppliers.map((s, i) => (
-                <Row key={s.sid}>
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-[10.5px] font-medium" style={{ background: AVATAR_BG[i % 5], color: AVATAR_FG[i % 5] }}>{s.initials}</div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12.5px] font-medium">{s.name}</div>
-                    <div className="text-[11px] text-[#6B7280]">{s.poCount} POs · perf {s.score}/100</div>
-                  </div>
-                  <div className="w-[110px]">
-                    <div className="h-[5px] overflow-hidden rounded-[3px] bg-[#F3F4F6]">
-                      <div className="h-full rounded-[3px]" style={{ width: `${s.score}%`, background: s.score >= 85 ? '#10B981' : s.score >= 70 ? '#F59E0B' : '#DC2626' }} />
-                    </div>
-                  </div>
-                  <div className="min-w-[78px] text-right">
-                    <div className="text-[13px] font-medium">{fmtLNum(s.value)}</div>
-                    <div className="mt-0.5">{s.isNew ? <Trend dir="new" label="new" /> : <Trend dir={s.mom >= 0 ? 'up' : 'down'} label={`${Math.abs(s.mom).toFixed(0)}%`} goodIsUp />}</div>
-                  </div>
-                </Row>
-              ))}
-            </Card>
-            <Card>
-              <Title icon={<Box className="h-4.5 w-4.5" />} iconColor="#10B981">
-                Top items by PO value
-                <Link to="/purchase-orders" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View SKUs <ArrowRight className="h-3 w-3" /></Link>
-              </Title>
-              <div className="mb-2.5 text-[11.5px] text-[#6B7280]">{fmtLNum(categoryMix.total)} across <span className="font-medium text-[#111827]">{categoryMix.skus} SKUs</span> · {categoryMix.cats.filter((c) => c.pct > 0).length} categories</div>
-              <div className="mb-2.5 flex h-[7px] overflow-hidden rounded-[4px]">
-                {categoryMix.cats.map((c) => c.pct > 0 && <div key={c.name} style={{ flex: c.pct, background: c.color }} />)}
-              </div>
-              <div className="mb-1.5 flex flex-wrap gap-3 text-[10.5px] text-[#6B7280]">
-                {categoryMix.cats.map((c) => c.pct > 0 && (
-                  <span key={c.name} className="inline-flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full" style={{ background: c.color }} />{c.name} {c.pct}%</span>
-                ))}
-              </div>
-              {topItems.length === 0 ? <Empty>No items invoiced this month.</Empty> : topItems.map((it, idx) => (
-                <Row key={idx}>
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px]" style={{ background: CAT_BG[it.category] || '#F3F4F6', color: CAT_FG[it.category] || '#6B7280' }}>
-                    <Package className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-[12.5px] font-medium">{it.name}</span>
-                      <span className="rounded-[5px] px-1.5 py-px text-[9.5px] font-medium tracking-wider" style={{ background: CAT_BG[it.category] || '#F3F4F6', color: CAT_FG[it.category] || '#6B7280' }}>{it.category.toUpperCase()}</span>
-                    </div>
-                    <div className="truncate text-[11px] text-[#6B7280]">{it.count} POs · {it.topSupplier}</div>
-                  </div>
-                  <div className="min-w-[78px] text-right">
-                    <div className="text-[13px] font-medium">{fmtLNum(it.value)}</div>
-                  </div>
-                </Row>
-              ))}
-            </Card>
-          </div>
-
-          {/* Insights + calendar */}
-          <div className="grid gap-3.5 grid-cols-1 lg:grid-cols-[1.4fr_1fr]">
-            <Card>
-              <Title icon={<Sparkles className="h-4.5 w-4.5" />} iconColor="#7C3AED">
-                AI insights · this week
-                <Link to="/admin/ai-insights" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View all <ArrowRight className="h-3 w-3" /></Link>
-              </Title>
-              {insights.length === 0 ? <Empty>Looking good — nothing pressing.</Empty> : insights.map((ins, i) => <InsightCard key={i} {...ins} />)}
-            </Card>
-            <Card>
-              <Title icon={<Calendar className="h-4.5 w-4.5" />} iconColor="#10B981">
-                This week
-                <Link to="/purchase-orders" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View calendar <ArrowRight className="h-3 w-3" /></Link>
-              </Title>
-              <div className="mb-3 flex flex-wrap gap-3.5 text-[11.5px] text-[#6B7280]">
-                <Legend icon={<Truck className="h-3 w-3 text-[#10B981]" />} label="Deliveries" />
-                <Legend icon={<Receipt className="h-3 w-3 text-[#F59E0B]" />} label="Bills due" />
-                <Legend icon={<Clock className="h-3 w-3 text-[#DC2626]" />} label="RFQs closing" />
-                <Legend icon={<CreditCard className="h-3 w-3 text-[#2563EB]" />} label="Payments" />
-              </div>
-              <div className="flex gap-1.5">
-                {week.map((d, i) => (
+        {/* Insights + calendar */}
+        <div className="grid gap-3.5 grid-cols-1 lg:grid-cols-[1.4fr_1fr]">
+          <Card>
+            <Title icon={<Sparkles className="h-4.5 w-4.5" />} iconColor="#7C3AED">
+              AI insights · this week
+              <Link to="/admin/ai-insights" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View all <ArrowRight className="h-3 w-3" /></Link>
+            </Title>
+            {insights.length === 0 ? <Empty>Looking good — nothing pressing.</Empty> : insights.map((ins, i) => <InsightCard key={i} insight={ins} />)}
+          </Card>
+          <Card>
+            <Title icon={<Calendar className="h-4.5 w-4.5" />} iconColor="#10B981">
+              This week
+              <Link to="/purchase-orders" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View calendar <ArrowRight className="h-3 w-3" /></Link>
+            </Title>
+            <div className="mb-3 flex flex-wrap gap-3.5 text-[11.5px] text-[#6B7280]">
+              <Legend icon={<Truck className="h-3 w-3 text-[#10B981]" />} label="Deliveries" />
+              <Legend icon={<Receipt className="h-3 w-3 text-[#F59E0B]" />} label="Bills due" />
+              <Legend icon={<Clock className="h-3 w-3 text-[#DC2626]" />} label="RFQs closing" />
+              <Legend icon={<CreditCard className="h-3 w-3 text-[#2563EB]" />} label="Payments" />
+            </div>
+            <div className="flex gap-1.5">
+              {(thisWeek?.days || []).map((d: WeekDay, i: number) => {
+                const empty = d.deliveries_count + d.bills_due_count + d.rfqs_closing_count + d.payments_count === 0;
+                const dayObj = new Date(d.date);
+                const isWeekend = dayObj.getDay() === 0 || dayObj.getDay() === 6;
+                return (
                   <div key={i} className={`flex-1 min-w-0 rounded-[10px] border p-2 text-center ${
-                    d.isToday ? 'bg-white border-[1.5px] border-[#10B981] shadow-[0_0_0_3px_rgba(16,185,129,0.08)]' :
-                    d.isWeekend || d.empty ? 'bg-[#FAFAFA] border-[#E5E7EB]' : 'bg-[#F9FAFB] border-[#E5E7EB]'
+                    d.is_today ? 'bg-white border-[1.5px] border-[#10B981] shadow-[0_0_0_3px_rgba(16,185,129,0.08)]' :
+                    isWeekend || empty ? 'bg-[#FAFAFA] border-[#E5E7EB]' : 'bg-[#F9FAFB] border-[#E5E7EB]'
                   }`}>
-                    <div className={`text-[10px] font-medium tracking-wider ${d.isToday ? 'text-[#047857]' : d.isWeekend || d.empty ? 'text-[#9CA3AF]' : 'text-[#6B7280]'}`}>{d.name}</div>
-                    <div className={`my-1 text-[20px] font-medium leading-none ${d.isToday ? 'text-[#047857]' : d.isWeekend || d.empty ? 'text-[#9CA3AF]' : 'text-[#111827]'}`}>{d.num}</div>
-                    {d.empty ? <div className="text-[10.5px] text-[#9CA3AF] mt-2">—</div> : (
+                    <div className={`text-[10px] font-medium tracking-wider ${d.is_today ? 'text-[#047857]' : isWeekend || empty ? 'text-[#9CA3AF]' : 'text-[#6B7280]'}`}>{d.day_name.toUpperCase()}</div>
+                    <div className={`my-1 text-[20px] font-medium leading-none ${d.is_today ? 'text-[#047857]' : isWeekend || empty ? 'text-[#9CA3AF]' : 'text-[#111827]'}`}>{d.day_num}</div>
+                    {empty ? <div className="text-[10.5px] text-[#9CA3AF] mt-2">—</div> : (
                       <div className="space-y-1">
-                        {d.deliveries > 0 && <DayEv bg="#ECFDF5" fg="#047857" icon={<Truck className="h-2.5 w-2.5" />} count={d.deliveries} />}
-                        {d.billsDue > 0 && <DayEv bg="#FFFBEB" fg="#92400E" icon={<Receipt className="h-2.5 w-2.5" />} count={d.billsDue} />}
-                        {d.rfqsClosing > 0 && <DayEv bg="#FEF2F2" fg="#991B1B" icon={<Clock className="h-2.5 w-2.5" />} count={d.rfqsClosing} />}
-                        {d.pays > 0 && <DayEv bg="#EFF6FF" fg="#1E40AF" icon={<CreditCard className="h-2.5 w-2.5" />} count={d.pays} />}
+                        {d.deliveries_count > 0 && <DayEv bg="#ECFDF5" fg="#047857" icon={<Truck className="h-2.5 w-2.5" />} count={d.deliveries_count} />}
+                        {d.bills_due_count > 0 && <DayEv bg="#FFFBEB" fg="#92400E" icon={<Receipt className="h-2.5 w-2.5" />} count={d.bills_due_count} />}
+                        {d.rfqs_closing_count > 0 && <DayEv bg="#FEF2F2" fg="#991B1B" icon={<Clock className="h-2.5 w-2.5" />} count={d.rfqs_closing_count} />}
+                        {d.payments_count > 0 && <DayEv bg="#EFF6FF" fg="#1E40AF" icon={<CreditCard className="h-2.5 w-2.5" />} count={d.payments_count} />}
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-              {attention.rfqClosing > 0 && (
-                <div className="mt-3.5 flex items-start gap-2 rounded-[9px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2.5 text-[12px] text-[#991B1B]">
-                  <CalendarClock className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div><span className="font-medium">Heads up:</span> {attention.rfqClosing} RFQ{attention.rfqClosing > 1 ? 's' : ''} closing in the next 48 hours. Review supplier responses now.</div>
+                );
+              })}
+            </div>
+            {thisWeek?.next_imminent && (
+              <div className="mt-3.5 flex items-start gap-2 rounded-[9px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2.5 text-[12px] text-[#991B1B]">
+                <CalendarClock className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <span className="font-medium">Heads up:</span> RFQ {thisWeek.next_imminent.rfq_id} · {thisWeek.next_imminent.product_name} closes today
+                  {thisWeek.next_imminent.total_invited > 0 ? ` · ${thisWeek.next_imminent.response_count}/${thisWeek.next_imminent.total_invited} responses` : ''}.
                 </div>
-              )}
-            </Card>
-          </div>
-
-          {/* Recent transactions */}
-          <div className="grid gap-3.5 grid-cols-1 lg:grid-cols-2">
-            <Card>
-              <Title icon={<Package className="h-4.5 w-4.5" />} iconColor="#10B981">
-                Recent purchase orders
-                <Link to="/purchase-orders" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View all <ArrowRight className="h-3 w-3" /></Link>
-              </Title>
-              {recentPOs.length === 0 ? <Empty>No purchase orders yet</Empty> : recentPOs.map((p: any) => (
-                <Row key={p.id}>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12.5px] font-medium">{p.po_number}</div>
-                    <div className="truncate text-[11px] uppercase tracking-wider text-[#6B7280]">{supplierById[p.supplier_id]?.company || '—'} · {fmtShort(p.date)}</div>
-                  </div>
-                  <div className="text-[13px] font-medium text-right">{fmtL(Number(p.amount || 0))}</div>
-                  <Badge kind={statusToBadge(p.status)}>{statusToBadge(p.status) === 'paid' ? 'Paid' : statusToBadge(p.status) === 'partial' ? 'Partial' : 'Pending'}</Badge>
-                </Row>
-              ))}
-            </Card>
-            <Card>
-              <Title icon={<Receipt className="h-4.5 w-4.5" />} iconColor="#EA580C">
-                Recent invoices
-                <Link to="/invoices" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View all <ArrowRight className="h-3 w-3" /></Link>
-              </Title>
-              {recentInvoices.length === 0 ? <Empty>No invoices yet</Empty> : recentInvoices.map((i: any) => (
-                <Row key={i.id}>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12.5px] font-medium">{i.invoice_number}</div>
-                    <div className="truncate text-[11px] uppercase tracking-wider text-[#6B7280]">{supplierById[i.supplier_id]?.company || '—'} · {fmtShort(i.date)}</div>
-                  </div>
-                  <div className="text-[13px] font-medium text-right">{fmtL(Number(i.amount || 0))}</div>
-                  <Badge kind={statusToBadge(i.status)}>{statusToBadge(i.status) === 'paid' ? 'Paid' : statusToBadge(i.status) === 'partial' ? 'Partial' : 'Pending'}</Badge>
-                </Row>
-              ))}
-            </Card>
-          </div>
-
-          {/* Activity feed */}
-          <Card>
-            <Title icon={<Activity className="h-4.5 w-4.5" />} iconColor="#10B981">
-              Activity feed
-              <Link to="/admin/ai-insights" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View full log <ArrowRight className="h-3 w-3" /></Link>
-            </Title>
-            <ActivityFeed invoices={invoices} pos={pos} rfqRows={rfqRows} challans={challans} registrations={registrations} supplierById={supplierById} />
+              </div>
+            )}
           </Card>
         </div>
-      )}
+
+        {/* Activity feed */}
+        <Card>
+          <Title icon={<Activity className="h-4.5 w-4.5" />} iconColor="#10B981">
+            Activity feed
+            <Link to="/admin/ai-insights" className="ml-auto flex items-center gap-1 text-[12px] font-medium text-[#10B981]">View full log <ArrowRight className="h-3 w-3" /></Link>
+          </Title>
+          <ActivityFeed events={activity} />
+        </Card>
+      </div>
     </DashboardLayout>
   );
 }
@@ -792,18 +422,6 @@ export default function AdminDashboard() {
 // ─── helpers / sub-components ────────────────────────────────────────────
 const AVATAR_BG = ['#ECFDF5', '#EFF6FF', '#FFF7ED', '#F3E8FF', '#FCE7F3'];
 const AVATAR_FG = ['#047857', '#1E40AF', '#9A3412', '#6B21A8', '#9D174D'];
-const CAT_BG: Record<string, string> = { Packaging: '#DBEAFE', POSM: '#FEF3C7', Printing: '#EDE9FE', Services: '#D1FAE5', Stationery: '#FCE7F3' };
-const CAT_FG: Record<string, string> = { Packaging: '#1E40AF', POSM: '#92400E', Printing: '#5B21B6', Services: '#065F46', Stationery: '#9D174D' };
-
-function inferCategory(name: string): string {
-  const n = name.toLowerCase();
-  if (/(carton|box|shrink|sleeve|wrap|pack|pouch|bag|seal)/.test(n)) return 'Packaging';
-  if (/(standee|display|posm|signage|banner|poster)/.test(n)) return 'POSM';
-  if (/(print|tag|label|sticker|card)/.test(n)) return 'Printing';
-  if (/(service|consult|design|install)/.test(n)) return 'Services';
-  if (/(pen|paper|notebook|stationery|file)/.test(n)) return 'Stationery';
-  return 'Packaging';
-}
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-[12px] border border-[#E5E7EB] bg-white p-[18px] ${className}`}>{children}</div>;
@@ -886,13 +504,18 @@ function KpiGradient(props: {
   return props.to ? <Link to={props.to}>{inner}</Link> : inner;
 }
 
-function AttentionBanner({ attn }: { attn: any }) {
+function AttentionBanner({ a }: { a: ReturnType<typeof useDashboardData>['data']['attention'] }) {
+  if (!a) return null;
   const chips: { count: number; bg: string; fg: string; label: string; icon: React.ReactNode; to: string }[] = [
-    { count: attn.poApprovals, bg: '#FEF3C7', fg: '#92400E', label: `${attn.poApprovals} PO approvals pending`, icon: <FileText className="h-3 w-3" />, to: '/admin/exception-requests' },
-    { count: attn.rfqClosing, bg: '#FEE2E2', fg: '#991B1B', label: `${attn.rfqClosing} RFQ closes in ${attn.rfqHours || 24} hrs`, icon: <Clock className="h-3 w-3" />, to: '/admin/rfq' },
-    { count: attn.invoiceOverdue, bg: '#FED7AA', fg: '#9A3412', label: `${attn.invoiceOverdue} invoices · 60+ days overdue`, icon: <IndianRupee className="h-3 w-3" />, to: '/invoices?status=pending' },
-    { count: attn.newRegs, bg: '#DBEAFE', fg: '#1E40AF', label: `${attn.newRegs} new supplier registrations`, icon: <UserPlus className="h-3 w-3" />, to: '/admin/registrations' },
-    { count: attn.matchExceptions, bg: '#E0E7FF', fg: '#3730A3', label: `${attn.matchExceptions} three-way match exceptions`, icon: <AlertTriangle className="h-3 w-3" />, to: '/admin/three-way-match' },
+    { count: a.po_approvals_pending, bg: '#FEF3C7', fg: '#92400E', label: `${a.po_approvals_pending} PO approvals pending`, icon: <FileText className="h-3 w-3" />, to: '/admin/exception-requests' },
+    ...(a.next_rfq_closing ? [{
+      count: 1, bg: '#FEE2E2', fg: '#991B1B',
+      label: `RFQ ${a.next_rfq_closing.rfq_id} closes in ${Math.max(1, Math.round(a.next_rfq_closing.hours_left))} hrs`,
+      icon: <Clock className="h-3 w-3" />, to: '/admin/rfq',
+    }] : []),
+    { count: a.invoices_60_plus_overdue, bg: '#FED7AA', fg: '#9A3412', label: `${a.invoices_60_plus_overdue} invoices · 60+ days overdue`, icon: <IndianRupee className="h-3 w-3" />, to: '/invoices?status=pending' },
+    { count: a.new_supplier_registrations, bg: '#DBEAFE', fg: '#1E40AF', label: `${a.new_supplier_registrations} new supplier registrations`, icon: <UserPlus className="h-3 w-3" />, to: '/admin/registrations' },
+    { count: a.three_way_match_exceptions, bg: '#E0E7FF', fg: '#3730A3', label: `${a.three_way_match_exceptions} three-way match exceptions`, icon: <AlertTriangle className="h-3 w-3" />, to: '/admin/three-way-match' },
   ].filter((c) => c.count > 0);
 
   if (chips.length === 0) {
@@ -916,9 +539,11 @@ function AttentionBanner({ attn }: { attn: any }) {
   );
 }
 
-function SpendChart({ data }: { data: { label: string; po: number; paid: number }[] }) {
-  const max = Math.max(...data.flatMap((d) => [d.po, d.paid]), 1);
-  const niceMax = Math.ceil(max / 1500000) * 1500000 || 6000000;
+function SpendChart({ data }: { data: SpendTrendPoint[] }) {
+  if (!data.length) return <div className="py-10 text-center text-[12px] text-[#9CA3AF]">No spend data yet</div>;
+  const max = Math.max(...data.flatMap((d) => [d.po_value, d.paid]), 1);
+  // round to a "nice" max in lakhs
+  const niceMax = Math.ceil(max / 15) * 15 || 60;
   const h = 190, w = 460, top = 12, bottom = 24, chartH = h - top - bottom;
   const groupW = (w - 36) / data.length;
   return (
@@ -926,28 +551,26 @@ function SpendChart({ data }: { data: { label: string; po: number; paid: number 
       {[0.25, 0.5, 0.75, 1].map((p) => (
         <g key={p}>
           <line x1="36" y1={top + chartH * (1 - p)} x2={w - 10} y2={top + chartH * (1 - p)} stroke="#F3F4F6" strokeDasharray="2,3" />
-          <text x="30" y={top + chartH * (1 - p) + 3} textAnchor="end" fontSize="9" fill="#9CA3AF">{fmtLNum(niceMax * p).replace(' ', '')}</text>
+          <text x="30" y={top + chartH * (1 - p) + 3} textAnchor="end" fontSize="9" fill="#9CA3AF">{fmtLakh(niceMax * p).replace(' ', '')}</text>
         </g>
       ))}
       {data.map((d, i) => {
         const x = 40 + i * groupW;
-        const poH = (d.po / niceMax) * chartH;
+        const poH = (d.po_value / niceMax) * chartH;
         const paidH = (d.paid / niceMax) * chartH;
         return (
           <g key={i}>
             <rect x={x} y={top + chartH - poH} width="20" height={poH} fill="#10B981" rx="2" />
             <rect x={x + 22} y={top + chartH - paidH} width="20" height={paidH} fill="#0891B2" rx="2" />
-            <text x={x + 21} y={h - 8} textAnchor="middle" fontSize="10" fill="#6B7280">{d.label}</text>
+            <text x={x + 21} y={h - 8} textAnchor="middle" fontSize="10" fill="#6B7280">{d.month}</text>
           </g>
         );
       })}
-      {/* outstanding polyline */}
       <polyline
         fill="none" stroke="#F59E0B" strokeWidth="1.8" strokeDasharray="4,3"
         points={data.map((d, i) => {
-          const o = Math.max(0, d.po - d.paid);
           const x = 40 + i * groupW + 21;
-          const y = top + chartH - (o / niceMax) * chartH;
+          const y = top + chartH - (d.outstanding / niceMax) * chartH;
           return `${x},${y}`;
         }).join(' ')}
       />
@@ -968,13 +591,13 @@ function ApAgingDonut({ a030, a3160, a60 }: { a030: number; a3160: number; a60: 
         <circle cx="60" cy="60" r="44" fill="none" stroke="#FCD34D" strokeWidth="15" strokeDasharray={`${s1} ${C - s1}`} transform="rotate(-90 60 60)" />
         <circle cx="60" cy="60" r="44" fill="none" stroke="#FB923C" strokeWidth="15" strokeDasharray={`${s2} ${C - s2}`} strokeDashoffset={`-${s1}`} transform="rotate(-90 60 60)" />
         <circle cx="60" cy="60" r="44" fill="none" stroke="#DC2626" strokeWidth="15" strokeDasharray={`${s3} ${C - s3}`} strokeDashoffset={`-${s1 + s2}`} transform="rotate(-90 60 60)" />
-        <text x="60" y="58" textAnchor="middle" fontSize="16" fontWeight="500" fill="#111827">{fmtLNum(total).replace('₹', '₹')}</text>
+        <text x="60" y="58" textAnchor="middle" fontSize="16" fontWeight="500" fill="#111827">{fmtLakh(total)}</text>
         <text x="60" y="73" textAnchor="middle" fontSize="10" fill="#6B7280">total AP</text>
       </svg>
       <div className="flex-1 text-[12px]">
-        <div className="flex justify-between border-b border-[#F3F4F6] py-1.5"><Legend dot="#FCD34D" label="0-30 d" /><span className="font-medium">{fmtLNum(a030)}</span></div>
-        <div className="flex justify-between border-b border-[#F3F4F6] py-1.5"><Legend dot="#FB923C" label="31-60 d" /><span className="font-medium">{fmtLNum(a3160)}</span></div>
-        <div className="flex justify-between py-1.5"><Legend dot="#DC2626" label="60+ d" /><span className="font-medium text-[#991B1B]">{fmtLNum(a60)}</span></div>
+        <div className="flex justify-between border-b border-[#F3F4F6] py-1.5"><Legend dot="#FCD34D" label="0-30 d" /><span className="font-medium">{fmtLakh(a030)}</span></div>
+        <div className="flex justify-between border-b border-[#F3F4F6] py-1.5"><Legend dot="#FB923C" label="31-60 d" /><span className="font-medium">{fmtLakh(a3160)}</span></div>
+        <div className="flex justify-between py-1.5"><Legend dot="#DC2626" label="60+ d" /><span className="font-medium text-[#991B1B]">{fmtLakh(a60)}</span></div>
       </div>
     </div>
   );
@@ -994,68 +617,49 @@ function MatchBar({ icon, label, count, pct, color, labelColor }: { icon: React.
   );
 }
 
-function InsightCard({ kind, title, body }: { kind: 'purple' | 'amber' | 'red' | 'green'; title: string; body: string }) {
-  const cfg = {
-    purple: { bg: '#F5F3FF', border: '#DDD6FE', accent: '#7C3AED', tColor: '#5B21B6', icon: <Lightbulb className="h-4 w-4" /> },
-    amber: { bg: '#FFFBEB', border: '#FDE68A', accent: '#F59E0B', tColor: '#92400E', icon: <TrendingUp className="h-4 w-4" /> },
-    red: { bg: '#FEF2F2', border: '#FECACA', accent: '#DC2626', tColor: '#991B1B', icon: <Clock className="h-4 w-4" /> },
-    green: { bg: '#ECFDF5', border: '#A7F3D0', accent: '#10B981', tColor: '#065F46', icon: <Award className="h-4 w-4" /> },
-  }[kind];
+function InsightCard({ insight }: { insight: AiInsight }) {
+  const map: Record<string, { bg: string; border: string; accent: string; tColor: string; icon: React.ReactNode }> = {
+    opportunity: { bg: '#F5F3FF', border: '#DDD6FE', accent: '#7C3AED', tColor: '#5B21B6', icon: <Lightbulb className="h-4 w-4" /> },
+    warning: { bg: '#FFFBEB', border: '#FDE68A', accent: '#F59E0B', tColor: '#92400E', icon: <TrendingUp className="h-4 w-4" /> },
+    risk: { bg: '#FEF2F2', border: '#FECACA', accent: '#DC2626', tColor: '#991B1B', icon: <Clock className="h-4 w-4" /> },
+    positive: { bg: '#ECFDF5', border: '#A7F3D0', accent: '#10B981', tColor: '#065F46', icon: <Award className="h-4 w-4" /> },
+  };
+  const cfg = map[insight.severity] || map.opportunity;
   return (
-    <div className="mb-2.5 flex gap-2.5 rounded-[9px] border p-3 last:mb-0" style={{ background: cfg.bg, borderColor: cfg.border, borderLeftWidth: 3, borderLeftColor: cfg.accent }}>
+    <Link to={insight.action_url || '#'} className="mb-2.5 flex gap-2.5 rounded-[9px] border p-3 last:mb-0" style={{ background: cfg.bg, borderColor: cfg.border, borderLeftWidth: 3, borderLeftColor: cfg.accent }}>
       <div className="mt-px shrink-0" style={{ color: cfg.accent }}>{cfg.icon}</div>
       <div>
-        <div className="mb-1 text-[12.5px] font-medium" style={{ color: cfg.tColor }}>{title}</div>
-        <div className="text-[11.5px] leading-snug text-[#374151]">{body}</div>
+        <div className="mb-1 text-[12.5px] font-medium" style={{ color: cfg.tColor }}>{insight.title}</div>
+        <div className="text-[11.5px] leading-snug text-[#374151]">{insight.body}</div>
       </div>
-    </div>
+    </Link>
   );
 }
 
-function ActivityFeed({ invoices, pos, rfqRows, challans, registrations, supplierById }: any) {
-  const events: { icon: React.ReactNode; bg: string; fg: string; body: React.ReactNode; meta: string; at: number }[] = [];
-  invoices.slice(0, 4).forEach((i: any) => {
-    const s = supplierById[i.supplier_id];
-    events.push({
-      icon: <CircleCheck className="h-3.5 w-3.5" />, bg: '#ECFDF5', fg: '#047857',
-      body: <><span className="font-medium">{s?.company || '—'}</span> uploaded bill <span className="text-[#10B981]">{i.invoice_number}</span>{i.po_number ? <> against PO {i.po_number}</> : null}</>,
-      meta: `${relTime(i.created_at)} · ${String(i.status || 'pending')}`, at: new Date(i.created_at).getTime(),
-    });
-  });
-  rfqRows.slice(0, 3).filter((r: any) => r.status === 'quote_submitted').forEach((r: any) => {
-    events.push({
-      icon: <Sparkles className="h-3.5 w-3.5" />, bg: '#F5F3FF', fg: '#7C3AED',
-      body: <>AI parsed quote from <span className="font-medium">{r.supplier_email}</span> · <span className="text-[#10B981]">{r.rfq_id}</span></>,
-      meta: `${relTime(r.updated_at || r.created_at)}`, at: new Date(r.updated_at || r.created_at).getTime(),
-    });
-  });
-  challans.slice(0, 2).forEach((c: any) => {
-    events.push({
-      icon: <Truck className="h-3.5 w-3.5" />, bg: '#FFF7ED', fg: '#9A3412',
-      body: <>Delivery challan <span className="font-medium">{c.challan_number}</span> generated</>,
-      meta: `${relTime(c.created_at)}`, at: new Date(c.created_at).getTime(),
-    });
-  });
-  registrations.slice(0, 2).filter((r: any) => String(r.status) === 'pending').forEach((r: any) => {
-    events.push({
-      icon: <UserPlus className="h-3.5 w-3.5" />, bg: '#EFF6FF', fg: '#1E40AF',
-      body: <><span className="font-medium">{r.company || r.name || 'New supplier'}</span> registered · pending approval</>,
-      meta: `${relTime(r.created_at)}`, at: new Date(r.created_at).getTime(),
-    });
-  });
-  const sorted = events.sort((a, b) => b.at - a.at).slice(0, 6);
-  if (sorted.length === 0) return <Empty>No activity yet</Empty>;
+function ActivityFeed({ events }: { events: ActivityEvent[] }) {
+  if (!events.length) return <Empty>No activity yet</Empty>;
+  const styles: Record<string, { icon: React.ReactNode; bg: string; fg: string }> = {
+    bill_uploaded: { icon: <CircleCheck className="h-3.5 w-3.5" />, bg: '#ECFDF5', fg: '#047857' },
+    rfq_quote_submitted: { icon: <Sparkles className="h-3.5 w-3.5" />, bg: '#F5F3FF', fg: '#7C3AED' },
+    challan_generated: { icon: <Truck className="h-3.5 w-3.5" />, bg: '#FFF7ED', fg: '#9A3412' },
+    supplier_registered: { icon: <UserPlus className="h-3.5 w-3.5" />, bg: '#EFF6FF', fg: '#1E40AF' },
+  };
   return (
     <div>
-      {sorted.map((e, i) => (
-        <div key={i} className="flex gap-3.5 border-t border-[#F3F4F6] py-2 first:border-0">
-          <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full" style={{ background: e.bg, color: e.fg }}>{e.icon}</div>
-          <div className="flex-1">
-            <div className="text-[12.5px]">{e.body}</div>
-            <div className="mt-0.5 text-[11px] text-[#9CA3AF]">{e.meta}</div>
+      {events.map((e, i) => {
+        const st = styles[e.type] || styles.bill_uploaded;
+        return (
+          <div key={i} className="flex gap-3.5 border-t border-[#F3F4F6] py-2 first:border-0">
+            <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full" style={{ background: st.bg, color: st.fg }}>{st.icon}</div>
+            <div className="flex-1">
+              <div className="text-[12.5px]">{e.body}</div>
+              <div className="mt-0.5 text-[11px] text-[#9CA3AF]">
+                {relTime(e.created_at)}{e.meta ? ` · ${e.meta}` : ''}
+              </div>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
