@@ -96,7 +96,7 @@ function relTime(iso?: string) {
 function KpiGradient(props: {
   variant: 'k1' | 'k2' | 'k3' | 'k4';
   label: string; value: string; icon: React.ReactNode; iconBg: string; iconColor: string; labelColor: string;
-  trend?: { dir: 'up' | 'down' | 'new'; pct: number; customLabel?: string };
+  trend?: { dir: 'up' | 'down' | 'flat' | 'new'; pct: number; customLabel?: string };
   sparkline?: { data: number[]; color: string };
   ageing?: { a030: number; a3160: number; a60: number; amount?: number };
   sub: string; subColor: string;
