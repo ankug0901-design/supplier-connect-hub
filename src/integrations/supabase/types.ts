@@ -1135,6 +1135,7 @@ export type Database = {
       }
     }
     Functions: {
+      _supplier_dash_auth: { Args: { _supplier_id: string }; Returns: boolean }
       confirm_po_delivery_dates: {
         Args: { _items: Json; _po_id: string }
         Returns: Json
@@ -1204,6 +1205,24 @@ export type Database = {
         Args: { _admin_notes: string; _decision: string; _request_id: string }
         Returns: Json
       }
+      supplier_active_rfqs: {
+        Args: { p_limit?: number; p_supplier_id: string }
+        Returns: Json
+      }
+      supplier_activity_feed: {
+        Args: { p_limit?: number; p_supplier_id: string }
+        Returns: Json
+      }
+      supplier_attention_counts: {
+        Args: { p_supplier_id: string }
+        Returns: Json
+      }
+      supplier_kpis: { Args: { p_supplier_id: string }; Returns: Json }
+      supplier_receivables_aging: {
+        Args: { p_supplier_id: string }
+        Returns: Json
+      }
+      supplier_velocity: { Args: { p_supplier_id: string }; Returns: Json }
       to_lakhs: { Args: { amount: number }; Returns: number }
     }
     Enums: {
