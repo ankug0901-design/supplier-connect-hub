@@ -207,7 +207,20 @@ export default function Invoices() {
       invoice.poNumber?.toLowerCase().includes(searchQuery.toLowerCase());
     const invStatus = (invoice.status || '').toString().toLowerCase();
     const matchesStatus = statusFilter === 'all' || invStatus === statusFilter;
-    return matchesSearch && matchesStatus;
+    let matchesOverdue = true;
+    if (minOverdueDays > 0) {
+      const dueDate = invoice.dueDate || invoice.due_date;
+      if (!dueDate || PAID.has(invStatus)) {
+        matchesOverdue = false;
+      } else {
+        const dayMs = 1000 * 60 * 60 * 24;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const due = new Date(dueDate); due.setHours(0, 0, 0, 0);
+        const daysOver = Math.round((today.getTime() - due.getTime()) / dayMs);
+        matchesOverdue = daysOver >= minOverdueDays;
+      }
+    }
+    return matchesSearch && matchesStatus && matchesOverdue;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
