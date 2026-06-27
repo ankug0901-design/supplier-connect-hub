@@ -6,6 +6,8 @@ export interface SupplierKpis {
   new_po_this_month: number;
   pending_invoice_po_count: number;
   partial_po_count: number;
+  po_pending_invoice_count: number;
+  po_partial_count: number;
   pending_invoice_count: number;
   pending_invoice_amount: number;
   aging_0_30: number;
@@ -15,9 +17,14 @@ export interface SupplierKpis {
   paid_last_month: number;
   avg_days_to_pay: number;
   total_outstanding: number;
+  total_receivables: number;
+  total_receivables_last_month: number;
   outstanding_invoice_count: number;
+  receivable_invoice_count: number;
   outstanding_invoice_count_last_month: number;
+  receivable_invoice_count_last_month: number;
   oldest_outstanding_days: number;
+  oldest_receivable_days: number;
   po_count_trend: number[];
   paid_trend: number[];
   receivables_trend: number[];
