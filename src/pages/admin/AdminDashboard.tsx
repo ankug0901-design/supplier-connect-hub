@@ -71,6 +71,7 @@ function Trend({ dir, label, goodIsUp = true }: { dir: 'up' | 'down' | 'flat' | 
 // ─── main page ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { data, loading } = useDashboardData();
+  const navigate = useNavigate();
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
   const headerActions = (
