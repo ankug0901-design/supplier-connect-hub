@@ -470,7 +470,7 @@ function SkeletonPage() {
 
 // ─── Main page ──────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const { supplier, isAdmin } = useAuth();
+  const { supplier, isAdmin, user } = useAuth();
   const navigate = useNavigate();
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
