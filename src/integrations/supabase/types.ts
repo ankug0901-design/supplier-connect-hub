@@ -1139,6 +1139,18 @@ export type Database = {
         Args: { _items: Json; _po_id: string }
         Returns: Json
       }
+      dashboard_activity_feed: { Args: { p_limit?: number }; Returns: Json }
+      dashboard_ai_insights: { Args: { p_limit?: number }; Returns: Json }
+      dashboard_ap_aging: { Args: never; Returns: Json }
+      dashboard_attention_counts: { Args: never; Returns: Json }
+      dashboard_category_mix: { Args: never; Returns: Json }
+      dashboard_kpis: { Args: never; Returns: Json }
+      dashboard_match_status: { Args: never; Returns: Json }
+      dashboard_spend_trend: { Args: { months?: number }; Returns: Json }
+      dashboard_this_week: { Args: never; Returns: Json }
+      dashboard_top_items: { Args: { p_limit?: number }; Returns: Json }
+      dashboard_top_suppliers: { Args: { p_limit?: number }; Returns: Json }
+      dashboard_velocity: { Args: never; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -1166,6 +1178,7 @@ export type Database = {
         }
         Returns: number
       }
+      pct_change: { Args: { curr: number; prev: number }; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -1191,6 +1204,7 @@ export type Database = {
         Args: { _admin_notes: string; _decision: string; _request_id: string }
         Returns: Json
       }
+      to_lakhs: { Args: { amount: number }; Returns: number }
     }
     Enums: {
       [_ in never]: never
