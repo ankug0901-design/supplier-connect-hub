@@ -592,9 +592,40 @@ export default function Dashboard() {
 
   const { kpis, attention, velocity, aging, rfqs, activity } = dash;
 
-  const paidMomPct = kpis.paid_last_month
-    ? Math.abs(((kpis.paid_this_month - kpis.paid_last_month) / kpis.paid_last_month) * 100) : 0;
-  const recvDelta = kpis.outstanding_invoice_count - kpis.outstanding_invoice_count_last_month;
+  // POs
+  const poPending = kpis.po_pending_invoice_count ?? kpis.pending_invoice_po_count ?? 0;
+  const poPartial = kpis.po_partial_count ?? kpis.partial_po_count ?? 0;
+  const poSub = `${poPending} pending invoice${poPending === 1 ? '' : 's'} · ${poPartial} partial`;
+
+  // Pending invoices
+  const pendingCount = kpis.pending_invoice_count ?? 0;
+  const hasPending = pendingCount > 0;
+
+  // Payments trend
+  const paidThis = Number(kpis.paid_this_month || 0);
+  const paidLast = Number(kpis.paid_last_month || 0);
+  let paidTrend: { dir: 'up' | 'down' | 'flat' | 'new'; pct: number; customLabel?: string } | undefined;
+  if (paidLast === 0 && paidThis === 0) {
+    paidTrend = undefined;
+  } else if (paidLast === 0 && paidThis > 0) {
+    paidTrend = { dir: 'new', pct: 0, customLabel: 'new' };
+  } else {
+    const pct = Math.abs(((paidThis - paidLast) / paidLast) * 100);
+    paidTrend = { dir: paidThis >= paidLast ? 'up' : 'down', pct };
+  }
+
+  // Receivables
+  const recvTotal = kpis.total_receivables ?? kpis.total_outstanding ?? 0;
+  const recvCount = kpis.receivable_invoice_count ?? kpis.outstanding_invoice_count ?? 0;
+  const recvCountLast = kpis.receivable_invoice_count_last_month ?? kpis.outstanding_invoice_count_last_month ?? 0;
+  const oldestDays = kpis.oldest_receivable_days ?? kpis.oldest_outstanding_days ?? 0;
+  const recvDelta = recvCount - recvCountLast;
+  const recvTrend = (recvCount === 0 && recvCountLast === 0) || recvDelta === 0
+    ? undefined
+    : { dir: (recvDelta > 0 ? 'up' : 'down') as 'up' | 'down', pct: Math.abs(recvDelta), customLabel: `${recvDelta >= 0 ? '+' : ''}${recvDelta} invoice${Math.abs(recvDelta) === 1 ? '' : 's'} vs last mo` };
+  const recvSub = recvCount === 0
+    ? 'No outstanding receivables'
+    : `${recvCount} invoice${recvCount === 1 ? '' : 's'} · oldest ${oldestDays}d old`;
 
   return (
     <DashboardLayout title="Dashboard" subtitle={greeting} actions={supplierHeaderActions}>
@@ -609,22 +640,23 @@ export default function Dashboard() {
             value={String(kpis.total_po_count)}
             trend={kpis.new_po_this_month ? { dir: 'new', pct: kpis.new_po_this_month, customLabel: `+${kpis.new_po_this_month} this month` } : undefined}
             sparkline={{ data: kpis.po_count_trend || [], color: '#10B981' }}
-            sub={`${kpis.pending_invoice_po_count} pending invoice · ${kpis.partial_po_count} partial`}
+            sub={poSub}
             subColor="#065F46" to="/purchase-orders" goodIsUp
           />
           <KpiGradient
             variant="k2" label="PENDING INVOICES" icon={<FileText className="h-4 w-4" />}
             iconBg="rgba(234,88,12,.18)" iconColor="#9A3412" labelColor="#9A3412"
-            value={String(kpis.pending_invoice_count)}
-            ageing={{ a030: kpis.aging_0_30, a3160: kpis.aging_31_60, a60: kpis.aging_60_plus }}
-            sub={`${fmtLakh(kpis.pending_invoice_amount)} awaiting payment from Emboss`}
+            value={String(pendingCount)}
+            ageing={hasPending ? { a030: kpis.aging_0_30, a3160: kpis.aging_31_60, a60: kpis.aging_60_plus } : null}
+            emptyAgeing={hasPending ? null : "No pending invoices — you're all caught up"}
+            sub={hasPending ? `${fmtLakh(kpis.pending_invoice_amount)} awaiting payment from Emboss` : 'Nothing awaiting'}
             subColor="#9A3412" to="/invoices?status=pending"
           />
           <KpiGradient
             variant="k3" label="PAYMENTS RECEIVED" icon={<CreditCard className="h-4 w-4" />}
             iconBg="rgba(8,145,178,.18)" iconColor="#0E7490" labelColor="#155E75"
-            value={fmtLakh(kpis.paid_this_month)}
-            trend={kpis.paid_last_month ? { dir: kpis.paid_this_month >= kpis.paid_last_month ? 'up' : 'down', pct: paidMomPct } : undefined}
+            value={fmtLakh(paidThis)}
+            trend={paidTrend}
             sparkline={{ data: kpis.paid_trend || [], color: '#0891B2' }}
             sub={`Avg ${kpis.avg_days_to_pay}-day cycle from Emboss`}
             subColor="#155E75" to="/payments" goodIsUp
@@ -632,12 +664,13 @@ export default function Dashboard() {
           <KpiGradient
             variant="k4" label="TOTAL RECEIVABLES" icon={<Wallet className="h-4 w-4" />}
             iconBg="rgba(37,99,235,.18)" iconColor="#1D4ED8" labelColor="#1E40AF"
-            value={fmtLakh(kpis.total_outstanding)}
-            trend={{ dir: recvDelta > 0 ? 'up' : recvDelta < 0 ? 'down' : 'flat', pct: Math.abs(recvDelta), customLabel: `${recvDelta >= 0 ? '+' : ''}${recvDelta} invoices vs last mo` }}
+            value={fmtLakh(recvTotal)}
+            trend={recvTrend}
             sparkline={{ data: kpis.receivables_trend || [], color: '#2563EB' }}
-            sub={`${kpis.outstanding_invoice_count} invoices · oldest ${kpis.oldest_outstanding_days}d old`}
+            sub={recvSub}
             subColor="#1E40AF" to="/invoices" goodIsUp={false}
           />
+
         </div>
 
         {/* Velocity strip */}
