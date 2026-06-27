@@ -93,6 +93,7 @@ export function PaymentPredictionCard() {
           <CardTitle className="flex items-center gap-2 text-base">
             <Sparkles className="h-5 w-5 text-primary" />
             Payment Date Prediction
+            <span className="rounded-[5px] bg-[#F5F3FF] px-1.5 py-0.5 text-[9.5px] font-semibold tracking-wider text-[#7C3AED]">AI</span>
           </CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">
             AI-predicted payment dates for your pending invoices based on client's payment history.
@@ -134,15 +135,15 @@ export function PaymentPredictionCard() {
                     key={p.invoice_id}
                     className={cn(
                       'flex items-center justify-between gap-3 rounded-md border p-2.5 text-sm',
-                      p.overdue ? 'border-destructive/30 bg-destructive/5' : 'border-border bg-card',
+                      p.overdue ? 'border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]' : 'border-border bg-card',
                     )}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium truncate">{p.invoice_number}</span>
-                        {p.overdue && <Badge variant="outline" className="border-destructive/40 text-destructive text-[10px]">Overdue</Badge>}
+                        {p.overdue && <Badge variant="outline" className="border-[#FECACA] bg-white text-[#991B1B] text-[10px]">Overdue</Badge>}
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className={cn('text-xs', p.overdue ? 'text-[#991B1B]/80' : 'text-muted-foreground')}>
                         Invoiced {fmtDate(p.invoice_date)} · {fmtINR(p.balance)}
                       </p>
                     </div>
