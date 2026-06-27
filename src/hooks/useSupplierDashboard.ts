@@ -75,7 +75,7 @@ export function useSupplierDashboard(supplierId: string | null | undefined) {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const rpc = supabase.rpc as any;
+      const rpc = (name: string, args: any) => (supabase as any).rpc(name, args);
       try {
         const [kpis, attention, velocity, aging, rfqs, activity] = await Promise.all([
           rpc('supplier_kpis', { p_supplier_id: supplierId }),
