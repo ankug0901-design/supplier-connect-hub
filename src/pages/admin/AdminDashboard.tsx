@@ -584,7 +584,7 @@ function AttentionBanner({ a }: { a: ReturnType<typeof useDashboardData>['data']
       label: `RFQ ${a.next_rfq_closing.rfq_id} closes in ${Math.max(1, Math.round(a.next_rfq_closing.hours_left))} hrs`,
       icon: <Clock className="h-3 w-3" />, to: '/admin/rfq',
     }] : []),
-    { count: a.invoices_60_plus_overdue, bg: '#FED7AA', fg: '#9A3412', label: `${a.invoices_60_plus_overdue} invoices · 60+ days overdue`, icon: <IndianRupee className="h-3 w-3" />, to: '/invoices?status=pending' },
+    { count: a.invoices_60_plus_overdue, bg: '#FED7AA', fg: '#9A3412', label: `${a.invoices_60_plus_overdue} invoices · 60+ days overdue`, icon: <IndianRupee className="h-3 w-3" />, to: '/invoices?overdue=60' },
     { count: a.new_supplier_registrations, bg: '#DBEAFE', fg: '#1E40AF', label: `${a.new_supplier_registrations} new supplier registrations`, icon: <UserPlus className="h-3 w-3" />, to: '/admin/registrations' },
     { count: a.three_way_match_exceptions, bg: '#E0E7FF', fg: '#3730A3', label: `${a.three_way_match_exceptions} three-way match exceptions`, icon: <AlertTriangle className="h-3 w-3" />, to: '/admin/three-way-match' },
   ].filter((c) => c.count > 0);
