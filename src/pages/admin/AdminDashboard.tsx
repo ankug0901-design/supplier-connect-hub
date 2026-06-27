@@ -382,7 +382,7 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                   {topItems.length === 0 ? <Empty>No items invoiced this month.</Empty> : topItems.map((it, idx) => (
-                    <Row key={idx}>
+                    <Row key={idx} ariaLabel={`Open item ${it.item_name}`} onClick={() => navigate(`/purchase-orders?item=${encodeURIComponent(it.item_name)}`)}>
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[#F3F4F6] text-[#6B7280]">
                         <Package className="h-3.5 w-3.5" />
                       </div>
