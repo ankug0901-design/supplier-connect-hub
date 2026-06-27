@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -328,7 +329,14 @@ export default function AdminThreeWayMatch() {
   const [rows, setRows] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'all' | 'matched' | 'partial' | 'mismatch' | 'release'>('all');
+  const [searchParams] = useSearchParams();
+  const initialTab = (() => {
+    const t = (searchParams.get('tab') || searchParams.get('filter') || '').toLowerCase();
+    if (t === 'exception' || t === 'exceptions' || t === 'mismatch') return 'mismatch' as const;
+    if (t === 'matched' || t === 'partial' || t === 'release' || t === 'all') return t as any;
+    return 'all' as const;
+  })();
+  const [tab, setTab] = useState<'all' | 'matched' | 'partial' | 'mismatch' | 'release'>(initialTab);
   const [view, setView] = useState<'cards' | 'table'>('cards');
   const [selected, setSelected] = useState<Match | null>(null);
   const loadInFlightRef = useRef(false);

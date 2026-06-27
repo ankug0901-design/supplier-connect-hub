@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Eye, Search, Filter, Plus, Loader2, Download } from 'lucide-react';
 import { exportToCsv } from '@/lib/exportCsv';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -77,8 +77,15 @@ export default function Invoices() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [enriching, setEnriching] = useState(false);
+  const [searchParams] = useSearchParams();
+  const minOverdueDays = useMemo(() => {
+    const v = parseInt(searchParams.get('overdue') || '', 10);
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  }, [searchParams]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(
+    (searchParams.get('status') || (minOverdueDays > 0 ? 'overdue' : 'all')).toLowerCase(),
+  );
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [attachment, setAttachment] = useState<BillAttachment | null>(null);
@@ -200,7 +207,20 @@ export default function Invoices() {
       invoice.poNumber?.toLowerCase().includes(searchQuery.toLowerCase());
     const invStatus = (invoice.status || '').toString().toLowerCase();
     const matchesStatus = statusFilter === 'all' || invStatus === statusFilter;
-    return matchesSearch && matchesStatus;
+    let matchesOverdue = true;
+    if (minOverdueDays > 0) {
+      const dueDate = invoice.dueDate || invoice.due_date;
+      if (!dueDate || PAID.has(invStatus)) {
+        matchesOverdue = false;
+      } else {
+        const dayMs = 1000 * 60 * 60 * 24;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const due = new Date(dueDate); due.setHours(0, 0, 0, 0);
+        const daysOver = Math.round((today.getTime() - due.getTime()) / dayMs);
+        matchesOverdue = daysOver >= minOverdueDays;
+      }
+    }
+    return matchesSearch && matchesStatus && matchesOverdue;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
