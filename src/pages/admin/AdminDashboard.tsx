@@ -490,7 +490,21 @@ function Title({ icon, iconColor, children }: { icon: React.ReactNode; iconColor
     </div>
   );
 }
-function Row({ children }: { children: React.ReactNode }) {
+function Row({ children, onClick, ariaLabel }: { children: React.ReactNode; onClick?: () => void; ariaLabel?: string }) {
+  if (onClick) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={ariaLabel}
+        onClick={onClick}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+        className="flex items-center gap-3 border-b border-[#F3F4F6] py-2.5 last:border-0 cursor-pointer transition-all duration-150 hover:bg-gray-50 hover:shadow-sm -mx-2 px-2 rounded-[6px]"
+      >
+        {children}
+      </div>
+    );
+  }
   return <div className="flex items-center gap-3 border-b border-[#F3F4F6] py-2.5 last:border-0">{children}</div>;
 }
 function Empty({ children }: { children: React.ReactNode }) {
