@@ -5,12 +5,11 @@ import {
   Calendar, Activity, Bell, AlertTriangle, Clock, TrendingUp, ArrowUpRight,
   ArrowDownRight, Minus, ChevronRight, Search, Plus, Gauge, BarChart3,
   PieChart as PieIcon, FileText, UserPlus, Lightbulb, Award, Truck, Info,
-  CircleCheck, ArrowRight, FileInput, IndianRupee, CalendarClock, CheckCheck,
+  CircleCheck, ArrowRight, IndianRupee, CalendarClock, CheckCheck,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchPurchaseOrdersFromDb } from '@/services/api';
-import { useAuth } from '@/contexts/AuthContext';
 
 type Row = any;
 
