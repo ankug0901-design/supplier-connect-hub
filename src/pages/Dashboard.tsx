@@ -523,7 +523,7 @@ export default function Dashboard() {
   const rawName = stripHonorific(fullName || supplier?.name || '');
   const firstName = rawName ? rawName.split(/\s+/)[0] : '';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-  const greeting = firstName ? `Welcome back, ${firstName} · ${today}` : `Welcome back · ${today}`;
+  const greeting = firstName ? greeting : `Welcome back · ${today}`;
 
   const supplierHeaderActions = (
     <div className="flex items-center gap-2.5">
@@ -576,7 +576,7 @@ export default function Dashboard() {
   // ───────── Supplier branch ─────────
   if (!supplier?.zoho_vendor_id) {
     return (
-      <DashboardLayout title="Dashboard" subtitle={`Welcome back, ${firstName} · ${today}`}>
+      <DashboardLayout title="Dashboard" subtitle={greeting}>
         <AccountSetupBanner />
       </DashboardLayout>
     );
@@ -584,7 +584,7 @@ export default function Dashboard() {
 
   if (poLoading || dashLoading || !dash.kpis) {
     return (
-      <DashboardLayout title="Dashboard" subtitle={`Welcome back, ${firstName} · ${today}`} actions={supplierHeaderActions}>
+      <DashboardLayout title="Dashboard" subtitle={greeting} actions={supplierHeaderActions}>
         <SkeletonPage />
       </DashboardLayout>
     );
@@ -597,7 +597,7 @@ export default function Dashboard() {
   const recvDelta = kpis.outstanding_invoice_count - kpis.outstanding_invoice_count_last_month;
 
   return (
-    <DashboardLayout title="Dashboard" subtitle={`Welcome back, ${firstName} · ${today}`} actions={supplierHeaderActions}>
+    <DashboardLayout title="Dashboard" subtitle={greeting} actions={supplierHeaderActions}>
       <div className="space-y-3.5 text-[#111827]" style={{ fontFamily: 'Inter, -apple-system, sans-serif' }}>
         <AttentionBanner a={attention} />
 
