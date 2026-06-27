@@ -523,7 +523,7 @@ export default function Dashboard() {
   const rawName = stripHonorific(fullName || supplier?.name || '');
   const firstName = rawName ? rawName.split(/\s+/)[0] : '';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-  const greeting = firstName ? greeting : `Welcome back · ${today}`;
+  const greeting = firstName ? `Welcome back, ${firstName} · ${today}` : `Welcome back · ${today}`;
 
   const supplierHeaderActions = (
     <div className="flex items-center gap-2.5">
