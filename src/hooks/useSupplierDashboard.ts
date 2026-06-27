@@ -37,13 +37,14 @@ export interface SupplierAttention {
   new_pos_this_week: number;
 }
 export interface SupplierVelocityStage {
-  name: string; median_days: number; in_flight: number; delta_days: number;
+  name: string; median_days: number; in_flight: number; delta_days: number; has_data?: boolean;
 }
 export interface SupplierVelocity {
   stages: SupplierVelocityStage[];
   on_time_delivery_pct: number;
   on_time_delta: number;
-  total_cycle_days: number;
+  on_time_has_data?: boolean;
+  total_cycle_days: number | null;
 }
 export interface ReceivablesAging {
   amount_0_30: number; amount_31_60: number; amount_60_plus: number; total: number;
