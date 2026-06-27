@@ -518,8 +518,12 @@ export default function Dashboard() {
     return () => { cancelled = true; };
   }, [supplier?.zoho_vendor_id, isAdmin]);
 
-  const firstName = (supplier?.name || 'there').split(' ')[0];
+  const stripHonorific = (n: string) => n.replace(/^\s*(mr|mrs|ms|mx|dr|sri|smt|shri)\.?\s+/i, '').trim();
+  const fullName = (user?.user_metadata as any)?.full_name as string | undefined;
+  const rawName = stripHonorific(fullName || supplier?.name || '');
+  const firstName = rawName ? rawName.split(/\s+/)[0] : '';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  const greeting = firstName ? `Welcome back, ${firstName} · ${today}` : `Welcome back · ${today}`;
 
   const supplierHeaderActions = (
     <div className="flex items-center gap-2.5">
