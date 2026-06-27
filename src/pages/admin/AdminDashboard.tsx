@@ -697,7 +697,7 @@ function InsightCard({ insight }: { insight: AiInsight }) {
   };
   const cfg = map[insight.severity] || map.opportunity;
   return (
-    <Link to={insight.action_url || '#'} className="mb-2.5 flex gap-2.5 rounded-[9px] border p-3 last:mb-0" style={{ background: cfg.bg, borderColor: cfg.border, borderLeftWidth: 3, borderLeftColor: cfg.accent }}>
+    <Link to={insight.action_url || '#'} aria-label={insight.title} className="mb-2.5 flex gap-2.5 rounded-[9px] border p-3 last:mb-0 cursor-pointer transition-all duration-150 hover:shadow-sm" style={{ background: cfg.bg, borderColor: cfg.border, borderLeftWidth: 3, borderLeftColor: cfg.accent }}>
       <div className="mt-px shrink-0" style={{ color: cfg.accent }}>{cfg.icon}</div>
       <div>
         <div className="mb-1 text-[12.5px] font-medium" style={{ color: cfg.tColor }}>{insight.title}</div>
