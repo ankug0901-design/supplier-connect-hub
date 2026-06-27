@@ -715,12 +715,22 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
     challan_generated: { icon: <Truck className="h-3.5 w-3.5" />, bg: '#FFF7ED', fg: '#9A3412' },
     supplier_registered: { icon: <UserPlus className="h-3.5 w-3.5" />, bg: '#EFF6FF', fg: '#1E40AF' },
   };
+  const routeFor = (e: ActivityEvent): string | null => {
+    switch (e.type) {
+      case 'bill_uploaded': return e.ref_id ? `/invoices?id=${e.ref_id}` : '/invoices';
+      case 'rfq_quote_submitted': return e.ref_id ? `/admin/rfq?id=${e.ref_id}` : '/admin/rfq';
+      case 'challan_generated': return e.ref_id ? `/delivery-challan?id=${e.ref_id}` : '/delivery-challan';
+      case 'supplier_registered': return '/admin/registrations';
+      default: return null;
+    }
+  };
   return (
     <div>
       {events.map((e, i) => {
         const st = styles[e.type] || styles.bill_uploaded;
-        return (
-          <div key={i} className="flex gap-3.5 border-t border-[#F3F4F6] py-2 first:border-0">
+        const to = routeFor(e);
+        const inner = (
+          <>
             <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full" style={{ background: st.bg, color: st.fg }}>{st.icon}</div>
             <div className="flex-1">
               <div className="text-[12.5px]">{e.body}</div>
@@ -728,6 +738,23 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
                 {relTime(e.created_at)}{e.meta ? ` · ${e.meta}` : ''}
               </div>
             </div>
+          </>
+        );
+        if (to) {
+          return (
+            <Link
+              key={i}
+              to={to}
+              aria-label={e.body}
+              className="flex gap-3.5 border-t border-[#F3F4F6] py-2 first:border-0 cursor-pointer transition-all duration-150 hover:bg-gray-50 hover:shadow-sm rounded-[6px] -mx-2 px-2"
+            >
+              {inner}
+            </Link>
+          );
+        }
+        return (
+          <div key={i} className="flex gap-3.5 border-t border-[#F3F4F6] py-2 first:border-0">
+            {inner}
           </div>
         );
       })}
