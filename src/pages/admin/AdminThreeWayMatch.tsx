@@ -677,8 +677,9 @@ export default function AdminThreeWayMatch() {
                       <TableCell className="text-xs">{x.r.client_name || '—'}</TableCell>
                       <TableCell className="text-xs font-mono">{x.bill.invoice_number || '—'}</TableCell>
                       <TableCell className="text-xs">{fmtDate(x.bill.date)}</TableCell>
-                      <TableCell className="text-xs text-right font-semibold">{fmtMoney(x.bill.amount ?? null)}</TableCell>
+                      <TableCell className="text-xs text-right font-semibold">{fmtMoney(num(x.bill.balance_due ?? x.bill.balance ?? x.bill.amount))}</TableCell>
                       <TableCell className="text-xs text-right"><Badge variant="destructive">{x.days}d</Badge></TableCell>
+
                     </TableRow>
                   ))}
                 </TableBody>
