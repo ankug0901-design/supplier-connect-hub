@@ -514,16 +514,19 @@ export default function AdminThreeWayMatch() {
     let clientTotal = 0, clientPaid = 0, clientBalance = 0;
     let supplierTotal = 0, supplierBalance = 0;
     rows.forEach((r) => {
+      const ciSum = (r.client_invoices || []).reduce((s, i) => s + num(i.amount), 0);
+      const siSum = (r.supplier_invoices || []).reduce((s, i) => s + num(i.amount), 0);
+      clientTotal += num(r.raw_payload?.total_invoice_amount) || ciSum;
+      supplierTotal += num(r.raw_payload?.total_supplier_amount) || siSum;
       (r.client_invoices || []).forEach((i) => {
-        clientTotal += num(i.amount);
         clientBalance += num(i.balance);
         if (isPaidInvoice(i)) clientPaid += num(i.payment_amount);
       });
-      (r.supplier_invoices || []).forEach((i) => {
-        supplierTotal += num(i.amount);
-        supplierBalance += num(i.balance_due ?? i.balance);
-      });
+      supplierBalance +=
+        num(r.raw_payload?.total_balance_due) ||
+        (r.supplier_invoices || []).reduce((s, i) => s + num(i.balance_due ?? i.balance), 0);
     });
+
     return {
       activeSOs: rows.length,
       clientTotal, clientPaid, clientBalance,
