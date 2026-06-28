@@ -761,9 +761,10 @@ export default function AdminThreeWayMatch() {
                           <div className="text-[10px] text-muted-foreground">{fmtQty(r.client_quantity)} / {fmtQty(r.supplier_quantity)}</div>
                         </TableCell>
                         <TableCell className="text-center"><BoolIcon v={r.client_payment_received} /></TableCell>
-                        <TableCell><StatusBadge value={r.match_status} /></TableCell>
-                        <TableCell><PayBadge value={r.supplier_payment_status} /></TableCell>
+                        <TableCell><N8nStatusBadge value={getN8nStatus(r)} /></TableCell>
+                        <TableCell><N8nStatusBadge value={getN8nStatus(r)} /></TableCell>
                         <TableCell>
+
                           <Button variant="ghost" size="icon" onClick={() => setSelected(r)}>
                             <Eye className="h-4 w-4" />
                           </Button>
