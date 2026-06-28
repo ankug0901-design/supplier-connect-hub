@@ -416,60 +416,21 @@ export default function AdminThreeWayMatch() {
     if (error) {
       console.warn('3-way match refresh failed', error);
     } else if (data) {
-      const invNums = new Set<string>();
-      (data as any[]).forEach((r) => {
-        (r.client_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
-        (r.supplier_invoices || []).forEach((i: any) => i?.invoice_number && invNums.add(i.invoice_number));
-      });
-      const enrichMap = new Map<string, { id?: string; date?: string | null; status?: string | null; payment_date?: string | null }>();
-      const paidInvoiceIds = new Map<string, { amount: number; date?: string | null }>();
-      if (invNums.size) {
-        const { data: invRows } = await supabase
-          .from('invoices')
-          .select('id, invoice_number, date, status, payment_date')
-          .in('invoice_number', Array.from(invNums));
-        (invRows || []).forEach((iv: any) => {
-          enrichMap.set(iv.invoice_number, { id: iv.id, date: iv.date, status: iv.status, payment_date: iv.payment_date });
-        });
-        const invoiceIds = (invRows || []).map((iv: any) => iv.id).filter(Boolean);
-        if (invoiceIds.length) {
-          const { data: payRows } = await supabase
-            .from('payments')
-            .select('invoice_id, amount, status, date')
-            .in('invoice_id', invoiceIds);
-          (payRows || []).forEach((p: any) => {
-            if (!p.invoice_id) return;
-            const prev = paidInvoiceIds.get(p.invoice_id) || { amount: 0, date: null as string | null };
-            paidInvoiceIds.set(p.invoice_id, {
-              amount: prev.amount + Number(p.amount || 0),
-              date: prev.date || p.date || null,
-            });
-          });
-        }
-      }
-      // Enrich CLIENT invoices only with dates/payment amounts from the invoices/payments
-      // tables. Do NOT override the JSONB `status` field — the raw_payload status from n8n
-      // is the source of truth. Supplier invoices are left fully untouched (the invoices
-      // table only contains client-side invoices, so cross-referencing by invoice_number
-      // would incorrectly mark supplier bills as paid).
-      const enrichClientItem = (i: any) => {
-        if (!i?.invoice_number) return i;
-        const extra = enrichMap.get(i.invoice_number);
-        const pay = extra?.id ? paidInvoiceIds.get(extra.id) : undefined;
-        return {
-          ...i,
-          date: i.date ?? extra?.date ?? null,
-          payment_date: i.payment_date ?? pay?.date ?? extra?.payment_date ?? null,
-          payment_amount: Number(i.payment_amount || 0) || Number(pay?.amount || 0),
-        };
-      };
-      const enriched = (data as any[]).map((r) => {
-        const client_invoices = (r.client_invoices || []).map(enrichClientItem);
-        const supplier_invoices = r.supplier_invoices || [];
+      // raw_payload is the source of truth for invoice arrays (status, balance,
+      // payment_amount). The flat top-level columns can be stale/incorrect.
+      const normalized = (data as any[]).map((r) => {
+        const rp = r.raw_payload || {};
+        const client_invoices = Array.isArray(rp.client_invoices) && rp.client_invoices.length
+          ? rp.client_invoices
+          : (r.client_invoices || []);
+        const supplier_invoices = Array.isArray(rp.supplier_invoices) && rp.supplier_invoices.length
+          ? rp.supplier_invoices
+          : (r.supplier_invoices || []);
         return { ...r, client_invoices, supplier_invoices };
       });
-      if (mountedRef.current) setRows(enriched as any);
+      if (mountedRef.current) setRows(normalized as any);
     }
+
 
     loadInFlightRef.current = false;
     if (mountedRef.current && showSpinner) setLoading(false);
