@@ -578,9 +578,9 @@ export default function AdminThreeWayMatch() {
     { key: 'all', label: 'All', count: counts.all, cls: 'data-[state=active]:bg-foreground data-[state=active]:text-background' },
     { key: 'matched', label: 'Matched', count: counts.matched, cls: 'data-[state=active]:bg-success data-[state=active]:text-success-foreground' },
     { key: 'partial', label: 'Partial', count: counts.partial, cls: 'data-[state=active]:bg-warning data-[state=active]:text-warning-foreground' },
-    { key: 'mismatch', label: 'Mismatch', count: counts.mismatch, cls: 'data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground' },
     { key: 'release', label: 'Payment Eligible', count: counts.release, cls: 'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground' },
   ];
+
 
   return (
     <DashboardLayout
