@@ -29,6 +29,8 @@ type InvoiceItem = {
   payment_date?: string | null;
   payment_amount?: number | null;
   payment_reference?: string | null;
+  balance?: number | null;
+  balance_due?: number | null;
 };
 
 type Match = {
@@ -72,20 +74,43 @@ const daysSince = (d: string | null | undefined) => {
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 };
 
+const num = (v: unknown) => {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const getN8nStatus = (r: Pick<Match, 'raw_payload' | 'match_status'>): string => {
+  const s = r.raw_payload?.status;
+  if (typeof s === 'string' && s.trim()) return s.trim();
+  return r.match_status || '';
+};
+
+const MATCHED_STATUSES = new Set(['Fully Settled', 'Awaiting 45 Days', 'Release to Supplier', 'Client Payment Due']);
+const PARTIAL_STATUSES = new Set(['Both Unpaid', 'Partial', 'Awaiting Supplier Bill']);
+
+const N8N_TONE: Record<string, string> = {
+  'Fully Settled': 'bg-success/15 text-success border-success/30',
+  'Release to Supplier': 'bg-primary/15 text-primary border-primary/30',
+  'Awaiting 45 Days': 'bg-warning/15 text-warning border-warning/30',
+  'Client Payment Due': 'bg-warning/15 text-warning border-warning/30',
+  'Awaiting Supplier Bill': 'bg-muted text-muted-foreground border-border',
+  'Partial': 'bg-warning/15 text-warning border-warning/30',
+  'Both Unpaid': 'bg-destructive/15 text-destructive border-destructive/30',
+};
+
+function N8nStatusBadge({ value }: { value: string | null }) {
+  if (!value) return <Badge variant="secondary">Unknown</Badge>;
+  const cls = N8N_TONE[value] || 'bg-muted text-muted-foreground border-border';
+  return <Badge className={cls}>{value}</Badge>;
+}
+
+// Legacy badge kept for the Dialog header that still uses match_status text.
 function StatusBadge({ value }: { value: string | null }) {
   const v = (value || '').toLowerCase();
   if (v === 'matched') return <Badge className="bg-success/15 text-success border-success/30">Matched</Badge>;
   if (v === 'partial') return <Badge className="bg-warning/15 text-warning border-warning/30">Partial</Badge>;
   if (v === 'mismatch') return <Badge variant="destructive">Mismatch</Badge>;
   return <Badge variant="secondary">{value || 'Unmatched'}</Badge>;
-}
-
-function PayBadge({ value }: { value: string | null }) {
-  const v = (value || '').toLowerCase();
-  if (v === 'paid' || v === 'released') return <Badge className="bg-success/15 text-success border-success/30 capitalize">{value}</Badge>;
-  if (v === 'eligible') return <Badge className="bg-primary/15 text-primary border-primary/30">Eligible</Badge>;
-  if (v === 'hold' || v === 'blocked') return <Badge variant="destructive" className="capitalize">{value}</Badge>;
-  return <Badge variant="secondary" className="capitalize">{value || 'Pending'}</Badge>;
 }
 
 function BoolIcon({ v }: { v: boolean | null }) {
@@ -100,14 +125,14 @@ function PaidPill({ paid }: { paid: boolean }) {
     : <span className="inline-flex items-center gap-1 text-destructive text-xs font-medium"><XCircle className="h-3 w-3" /> Unpaid</span>;
 }
 
-const PAID_STATUS_WORDS = ['paid', 'closed', 'completed', 'settled', 'received'];
+const PAID_STATUS_WORDS = ['paid', 'closed', 'completed', 'settled', 'received', 'yes'];
 const isPaidInvoice = (it: any) => {
-  const s = (it?.status || '').toLowerCase();
+  const s = (it?.status || '').toLowerCase().trim();
+  if (PAID_STATUS_WORDS.includes(s)) return true;
   if (PAID_STATUS_WORDS.some((w) => s.includes(w))) return true;
-  if (Number(it?.payment_amount || 0) > 0) return true;
-  if (it?.payment_date) return true;
   return false;
 };
+
 
 function InvoiceList({ items }: { items: InvoiceItem[] }) {
   if (!items?.length) return <span className="text-muted-foreground text-xs">—</span>;
