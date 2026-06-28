@@ -977,7 +977,9 @@ export type Database = {
           id: string
           match_status: string | null
           matched_at: string | null
+          n8n_status: string | null
           notes: string | null
+          overdue: boolean | null
           po_number: string | null
           po_numbers: string[]
           quantity_match: boolean | null
@@ -993,6 +995,10 @@ export type Database = {
           supplier_payment_eligible: boolean | null
           supplier_payment_status: string | null
           supplier_quantity: number | null
+          total_balance_due: number | null
+          total_invoice_amount: number | null
+          total_margin: number | null
+          total_supplier_amount: number | null
           updated_at: string
         }
         Insert: {
@@ -1012,7 +1018,9 @@ export type Database = {
           id?: string
           match_status?: string | null
           matched_at?: string | null
+          n8n_status?: string | null
           notes?: string | null
+          overdue?: boolean | null
           po_number?: string | null
           po_numbers?: string[]
           quantity_match?: boolean | null
@@ -1028,6 +1036,10 @@ export type Database = {
           supplier_payment_eligible?: boolean | null
           supplier_payment_status?: string | null
           supplier_quantity?: number | null
+          total_balance_due?: number | null
+          total_invoice_amount?: number | null
+          total_margin?: number | null
+          total_supplier_amount?: number | null
           updated_at?: string
         }
         Update: {
@@ -1047,7 +1059,9 @@ export type Database = {
           id?: string
           match_status?: string | null
           matched_at?: string | null
+          n8n_status?: string | null
           notes?: string | null
+          overdue?: boolean | null
           po_number?: string | null
           po_numbers?: string[]
           quantity_match?: boolean | null
@@ -1063,6 +1077,10 @@ export type Database = {
           supplier_payment_eligible?: boolean | null
           supplier_payment_status?: string | null
           supplier_quantity?: number | null
+          total_balance_due?: number | null
+          total_invoice_amount?: number | null
+          total_margin?: number | null
+          total_supplier_amount?: number | null
           updated_at?: string
         }
         Relationships: []
