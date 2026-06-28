@@ -119,6 +119,19 @@ function BoolIcon({ v }: { v: boolean | null }) {
   return <AlertCircle className="h-4 w-4 text-muted-foreground inline" />;
 }
 
+function ClientPaidCell({ invoices }: { invoices: InvoiceItem[] | null }) {
+  const list = invoices || [];
+  if (list.length === 0) return <AlertCircle className="h-4 w-4 text-muted-foreground inline" />;
+  const paidCount = list.filter((i) => isPaidInvoice(i)).length;
+  if (paidCount === list.length) return <CheckCircle2 className="h-4 w-4 text-success inline" />;
+  if (paidCount === 0) return <XCircle className="h-4 w-4 text-destructive inline" />;
+  return (
+    <span className="inline-flex items-center gap-1 text-warning text-xs font-medium">
+      <AlertCircle className="h-4 w-4" /> {paidCount}/{list.length}
+    </span>
+  );
+}
+
 function PaidPill({ paid }: { paid: boolean }) {
   return paid
     ? <span className="inline-flex items-center gap-1 text-success text-xs font-medium"><CheckCircle2 className="h-3 w-3" /> Paid</span>
@@ -434,46 +447,26 @@ export default function AdminThreeWayMatch() {
           });
         }
       }
-      const enrichItem = (i: any) => {
+      // Enrich CLIENT invoices only with dates/payment amounts from the invoices/payments
+      // tables. Do NOT override the JSONB `status` field — the raw_payload status from n8n
+      // is the source of truth. Supplier invoices are left fully untouched (the invoices
+      // table only contains client-side invoices, so cross-referencing by invoice_number
+      // would incorrectly mark supplier bills as paid).
+      const enrichClientItem = (i: any) => {
         if (!i?.invoice_number) return i;
         const extra = enrichMap.get(i.invoice_number);
         const pay = extra?.id ? paidInvoiceIds.get(extra.id) : undefined;
-        const livePaid =
-          PAID_STATUS_WORDS.some((w) => (extra?.status || '').toLowerCase().includes(w)) ||
-          (pay && pay.amount > 0);
-        const merged = {
+        return {
           ...i,
           date: i.date ?? extra?.date ?? null,
           payment_date: i.payment_date ?? pay?.date ?? extra?.payment_date ?? null,
           payment_amount: Number(i.payment_amount || 0) || Number(pay?.amount || 0),
-          status: livePaid ? 'paid' : (extra?.status ?? i.status ?? null),
         };
-        return merged;
       };
       const enriched = (data as any[]).map((r) => {
-        const client_invoices = (r.client_invoices || []).map(enrichItem);
-        const supplier_invoices = (r.supplier_invoices || []).map(enrichItem);
-
-        const allClientPaid = client_invoices.length > 0 && client_invoices.every((i: any) => isPaidInvoice(i));
-        const anyClientPaid = client_invoices.some((i: any) => isPaidInvoice(i));
-        const allSupplierPaid = supplier_invoices.length > 0 && supplier_invoices.every((i: any) => isPaidInvoice(i));
-
-        const client_payment_received = allClientPaid;
-        const client_invoice_status = allClientPaid ? 'paid' : (anyClientPaid ? 'partial' : 'unpaid');
-        const supplier_payment_eligible = allClientPaid && r.quantity_match === true;
-        const supplier_payment_status = allSupplierPaid
-          ? 'paid'
-          : supplier_payment_eligible ? 'eligible' : 'pending';
-
-        return {
-          ...r,
-          client_invoices,
-          supplier_invoices,
-          client_payment_received,
-          client_invoice_status,
-          supplier_payment_eligible,
-          supplier_payment_status,
-        };
+        const client_invoices = (r.client_invoices || []).map(enrichClientItem);
+        const supplier_invoices = r.supplier_invoices || [];
+        return { ...r, client_invoices, supplier_invoices };
       });
       if (mountedRef.current) setRows(enriched as any);
     }
@@ -768,7 +761,7 @@ export default function AdminThreeWayMatch() {
                           <div><BoolIcon v={r.quantity_match} /></div>
                           <div className="text-[10px] text-muted-foreground">{fmtQty(r.client_quantity)} / {fmtQty(r.supplier_quantity)}</div>
                         </TableCell>
-                        <TableCell className="text-center"><BoolIcon v={r.client_payment_received} /></TableCell>
+                        <TableCell className="text-center"><ClientPaidCell invoices={r.client_invoices} /></TableCell>
                         <TableCell><N8nStatusBadge value={getN8nStatus(r)} /></TableCell>
                         <TableCell><N8nStatusBadge value={getN8nStatus(r)} /></TableCell>
                         <TableCell>
