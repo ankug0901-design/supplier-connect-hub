@@ -504,60 +504,66 @@ export default function AdminThreeWayMatch() {
     };
   }, [load]);
 
-  // Top-level KPIs (mirror the email report)
+  // Top-level KPIs computed from JSONB arrays
   const kpis = useMemo(() => {
-    let clientTotal = 0, clientPaid = 0, supplierTotal = 0, supplierPaid = 0;
+    let clientTotal = 0, clientPaid = 0, clientBalance = 0;
+    let supplierTotal = 0, supplierBalance = 0;
     rows.forEach((r) => {
-      clientTotal += Number(r.client_invoice_amount || 0);
-      supplierTotal += Number(r.supplier_invoice_amount || 0);
       (r.client_invoices || []).forEach((i) => {
-        if (isPaidInvoice(i)) clientPaid += Number(i.payment_amount || i.amount || 0);
-        else clientPaid += Number(i.payment_amount || 0);
+        clientTotal += num(i.amount);
+        clientBalance += num(i.balance);
+        if (isPaidInvoice(i)) clientPaid += num(i.payment_amount);
       });
       (r.supplier_invoices || []).forEach((i) => {
-        if (isPaidInvoice(i)) supplierPaid += Number(i.payment_amount || i.amount || 0);
-        else supplierPaid += Number(i.payment_amount || 0);
+        supplierTotal += num(i.amount);
+        supplierBalance += num(i.balance_due ?? i.balance);
       });
     });
     return {
       activeSOs: rows.length,
-      clientTotal, clientPaid, clientBalance: clientTotal - clientPaid,
-      supplierTotal, supplierPaid, supplierBalance: supplierTotal - supplierPaid,
+      clientTotal, clientPaid, clientBalance,
+      supplierTotal, supplierBalance,
     };
   }, [rows]);
 
-  // Overdue supplier bills: client fully paid + supplier unpaid + > 45 days
+  // Overdue supplier bills: unpaid + balance_due > 0 + 45+ days
   const overdue = useMemo(() => {
     const items: { r: Match; bill: InvoiceItem; days: number }[] = [];
     rows.forEach((r) => {
-      if (!r.client_payment_received) return;
       (r.supplier_invoices || []).forEach((b) => {
         if (isPaidInvoice(b)) return;
+        if (num(b.balance_due ?? b.balance) <= 0) return;
         const d = daysSince(b.date) ?? 0;
         if (d >= 45) items.push({ r, bill: b, days: d });
       });
     });
     return items;
   }, [rows]);
-  const overdueTotal = overdue.reduce((s, x) => s + Number(x.bill.amount || 0), 0);
+  const overdueTotal = overdue.reduce((s, x) => s + num(x.bill.balance_due ?? x.bill.balance ?? x.bill.amount), 0);
 
-  const counts = useMemo(() => ({
-    all: rows.length,
-    matched: rows.filter((r) => (r.match_status || '').toLowerCase() === 'matched').length,
-    partial: rows.filter((r) => (r.match_status || '').toLowerCase() === 'partial').length,
-    mismatch: rows.filter((r) => (r.match_status || '').toLowerCase() === 'mismatch').length,
-    release: rows.filter((r) => r.supplier_payment_eligible).length,
-  }), [rows]);
+  const counts = useMemo(() => {
+    const byStatus = (pred: (s: string) => boolean) =>
+      rows.filter((r) => pred(getN8nStatus(r))).length;
+    return {
+      all: rows.length,
+      matched: byStatus((s) => MATCHED_STATUSES.has(s)),
+      partial: byStatus((s) => PARTIAL_STATUSES.has(s)),
+      mismatch: 0,
+      release: byStatus((s) => s === 'Release to Supplier'),
+    };
+  }, [rows]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      if (tab === 'matched' && (r.match_status || '').toLowerCase() !== 'matched') return false;
-      if (tab === 'partial' && (r.match_status || '').toLowerCase() !== 'partial') return false;
-      if (tab === 'mismatch' && (r.match_status || '').toLowerCase() !== 'mismatch') return false;
-      if (tab === 'release' && !r.supplier_payment_eligible) return false;
+      const s = getN8nStatus(r);
+      if (tab === 'matched' && !MATCHED_STATUSES.has(s)) return false;
+      if (tab === 'partial' && !PARTIAL_STATUSES.has(s)) return false;
+      if (tab === 'mismatch') return false;
+      if (tab === 'release' && s !== 'Release to Supplier') return false;
       if (!q) return true;
       const inv = [
+
         ...(r.client_invoices || []).map((i) => i.invoice_number || ''),
         ...(r.supplier_invoices || []).map((i) => i.invoice_number || ''),
       ].join(' ').toLowerCase();
