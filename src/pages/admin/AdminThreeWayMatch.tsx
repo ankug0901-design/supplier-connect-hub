@@ -194,27 +194,33 @@ function HeroStat({
 
 function SoCard({ r, onView }: { r: Match; onView: () => void }) {
   const [open, setOpen] = useState(false);
-  const balanceDue = (r.supplier_invoice_amount || 0) -
-    (r.supplier_invoices || []).reduce((s, i) => s + (Number(i.payment_amount) || 0), 0);
-  const clientPaidAmt = (r.client_invoices || []).reduce(
-    (s, i) => s + (Number(i.payment_amount) || (isPaidInvoice(i) ? Number(i.amount) || 0 : 0)),
-    0,
-  );
+
+  const clientInvoices = r.client_invoices || [];
+  const supplierInvoices = r.supplier_invoices || [];
+
+  const clientTotal = clientInvoices.reduce((s, i) => s + num(i.amount), 0);
+  const supplierTotal = supplierInvoices.reduce((s, i) => s + num(i.amount), 0);
+  const balanceDue = supplierInvoices.reduce((s, i) => s + num(i.balance_due ?? i.balance), 0);
+
+  const clientPaidAmt = clientInvoices
+    .filter((i) => isPaidInvoice(i))
+    .reduce((s, i) => s + num(i.payment_amount), 0);
+  const clientBalance = clientInvoices.reduce((s, i) => s + num(i.balance ?? 0), 0);
+
+  const n8nStatus = getN8nStatus(r);
   const clientLabel = r.client_name || 'Client';
   const supplierLabel = r.supplier_company || r.supplier_name || 'Supplier';
 
-  // group invoices by PO
-  const groups = useMemo(() => {
-    const map = new Map<string, { client: InvoiceItem[]; supplier: InvoiceItem[] }>();
-    const push = (po: string, side: 'client' | 'supplier', it: InvoiceItem) => {
-      const key = po || '—';
-      if (!map.has(key)) map.set(key, { client: [], supplier: [] });
-      map.get(key)![side].push(it);
-    };
-    (r.client_invoices || []).forEach((i) => push(i.po_number || '—', 'client', i));
-    (r.supplier_invoices || []).forEach((i) => push(i.po_number || '—', 'supplier', i));
+  // group supplier invoices by po
+  const supplierGroups = useMemo(() => {
+    const map = new Map<string, InvoiceItem[]>();
+    supplierInvoices.forEach((i) => {
+      const key = i.po_number || '—';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(i);
+    });
     return Array.from(map.entries());
-  }, [r]);
+  }, [supplierInvoices]);
 
   return (
     <Card className="overflow-hidden">
@@ -238,11 +244,11 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
           <div className="grid grid-cols-3 gap-3 text-xs md:w-[420px]">
             <div>
               <div className="text-muted-foreground">Client Inv</div>
-              <div className="font-semibold">{fmtMoneyShort(r.client_invoice_amount)}</div>
+              <div className="font-semibold">{fmtMoneyShort(clientTotal)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Supplier</div>
-              <div className="font-semibold">{fmtMoneyShort(r.supplier_invoice_amount)}</div>
+              <div className="font-semibold">{fmtMoneyShort(supplierTotal)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Due</div>
@@ -250,9 +256,7 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <StatusBadge value={r.match_status} />
-            <PayBadge value={r.supplier_payment_status} />
-            {r.supplier_payment_eligible && <Badge className="bg-primary/15 text-primary border-primary/30">Pay Eligible</Badge>}
+            <N8nStatusBadge value={n8nStatus} />
           </div>
         </div>
       </button>
@@ -265,11 +269,11 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
             </div>
             <div className="p-2 rounded-md bg-background border">
               <div className="text-muted-foreground">Client Balance</div>
-              <div className="font-semibold">{fmtMoney((r.client_invoice_amount || 0) - clientPaidAmt)}</div>
+              <div className="font-semibold">{fmtMoney(clientBalance)}</div>
             </div>
             <div className="p-2 rounded-md bg-background border">
-              <div className="text-muted-foreground">Qty Match</div>
-              <div className="font-semibold"><BoolIcon v={r.quantity_match} /> {fmtQty(r.client_quantity)} / {fmtQty(r.supplier_quantity)}</div>
+              <div className="text-muted-foreground">Supplier Due</div>
+              <div className="font-semibold">{fmtMoney(balanceDue)}</div>
             </div>
             <div className="p-2 rounded-md bg-background border">
               <div className="text-muted-foreground">Updated</div>
@@ -277,59 +281,67 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
             </div>
           </div>
 
-          {groups.map(([po, g]) => {
-            const cAmt = g.client.reduce((s, i) => s + (Number(i.amount) || 0), 0);
-            const sAmt = g.supplier.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+          {clientInvoices.length > 0 && (
+            <div className="rounded-md border bg-background overflow-hidden">
+              <div className="px-3 py-2 bg-muted/50 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                <span className="font-semibold">🧾 Client Invoices</span>
+                <span className="text-muted-foreground">Total: <span className="text-foreground font-medium">{fmtMoneyShort(clientTotal)}</span></span>
+                <span className="text-muted-foreground">Paid: <span className="text-foreground font-medium">{fmtMoneyShort(clientPaidAmt)}</span></span>
+                <span className="text-muted-foreground">Balance: <span className="text-foreground font-medium">{fmtMoneyShort(clientBalance)}</span></span>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Invoice #</TableHead>
+                    <TableHead className="text-xs">Date</TableHead>
+                    <TableHead className="text-xs text-right">Amount</TableHead>
+                    <TableHead className="text-xs text-right">Balance</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {clientInvoices.map((it, idx) => (
+                    <TableRow key={`c${idx}`}>
+                      <TableCell className="text-xs font-medium">{it.invoice_number || '—'}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(it.date)}</TableCell>
+                      <TableCell className="text-xs text-right">{fmtMoney(num(it.amount))}</TableCell>
+                      <TableCell className="text-xs text-right">{fmtMoney(num(it.balance))}</TableCell>
+                      <TableCell className="text-xs"><PaidPill paid={isPaidInvoice(it)} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {supplierGroups.map(([po, items]) => {
+            const sAmt = items.reduce((s, i) => s + num(i.amount), 0);
+            const sDue = items.reduce((s, i) => s + num(i.balance_due ?? i.balance), 0);
             return (
               <div key={po} className="rounded-md border bg-background overflow-hidden">
                 <div className="px-3 py-2 bg-muted/50 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                  <span className="font-semibold">📦 PO:</span>
+                  <span className="font-semibold">📦 Supplier PO:</span>
                   <span className="font-mono">{po}</span>
-                  <span className="text-muted-foreground">Client: <span className="text-foreground font-medium">{fmtMoneyShort(cAmt)}</span></span>
-                  <span className="text-muted-foreground">Supplier: <span className="text-foreground font-medium">{fmtMoneyShort(sAmt)}</span></span>
+                  <span className="text-muted-foreground">Total: <span className="text-foreground font-medium">{fmtMoneyShort(sAmt)}</span></span>
+                  <span className="text-muted-foreground">Due: <span className="text-foreground font-medium">{fmtMoneyShort(sDue)}</span></span>
                 </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs">Party</TableHead>
                       <TableHead className="text-xs">Invoice #</TableHead>
                       <TableHead className="text-xs">Date</TableHead>
-                      <TableHead className="text-xs">Payment Date</TableHead>
-                      <TableHead className="text-xs text-right">Qty</TableHead>
                       <TableHead className="text-xs text-right">Amount</TableHead>
+                      <TableHead className="text-xs text-right">Balance Due</TableHead>
                       <TableHead className="text-xs">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {g.client.map((it, idx) => (
-                      <TableRow key={`c${idx}`}>
-                        <TableCell className="text-xs">
-                          <div className="flex flex-col gap-0.5">
-                            <Badge variant="outline" className="text-[10px] w-fit">Client</Badge>
-                            <span className="text-[11px] text-muted-foreground truncate max-w-[160px]">{clientLabel}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs font-medium">{it.invoice_number || '—'}</TableCell>
-                        <TableCell className="text-xs">{fmtDate(it.date)}</TableCell>
-                        <TableCell className="text-xs">{fmtDate(it.payment_date)}</TableCell>
-                        <TableCell className="text-xs text-right">{fmtQty(it.quantity ?? null)}</TableCell>
-                        <TableCell className="text-xs text-right">{fmtMoney(it.amount ?? null)}</TableCell>
-                        <TableCell className="text-xs"><PaidPill paid={isPaidInvoice(it)} /></TableCell>
-                      </TableRow>
-                    ))}
-                    {g.supplier.map((it, idx) => (
+                    {items.map((it, idx) => (
                       <TableRow key={`s${idx}`}>
-                        <TableCell className="text-xs">
-                          <div className="flex flex-col gap-0.5">
-                            <Badge variant="outline" className="text-[10px] bg-muted w-fit">Supplier</Badge>
-                            <span className="text-[11px] text-muted-foreground truncate max-w-[160px]">{supplierLabel}</span>
-                          </div>
-                        </TableCell>
                         <TableCell className="text-xs font-medium">{it.invoice_number || '—'}</TableCell>
                         <TableCell className="text-xs">{fmtDate(it.date)}</TableCell>
-                        <TableCell className="text-xs">{fmtDate(it.payment_date)}</TableCell>
-                        <TableCell className="text-xs text-right">{fmtQty(it.quantity ?? null)}</TableCell>
-                        <TableCell className="text-xs text-right">{fmtMoney(it.amount ?? null)}</TableCell>
+                        <TableCell className="text-xs text-right">{fmtMoney(num(it.amount))}</TableCell>
+                        <TableCell className="text-xs text-right">{fmtMoney(num(it.balance_due ?? it.balance))}</TableCell>
                         <TableCell className="text-xs"><PaidPill paid={isPaidInvoice(it)} /></TableCell>
                       </TableRow>
                     ))}
@@ -349,6 +361,7 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
     </Card>
   );
 }
+
 
 export default function AdminThreeWayMatch() {
   const [rows, setRows] = useState<Match[]>([]);
