@@ -198,14 +198,19 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
   const clientInvoices = r.client_invoices || [];
   const supplierInvoices = r.supplier_invoices || [];
 
-  const clientTotal = clientInvoices.reduce((s, i) => s + num(i.amount), 0);
-  const supplierTotal = supplierInvoices.reduce((s, i) => s + num(i.amount), 0);
-  const balanceDue = supplierInvoices.reduce((s, i) => s + num(i.balance_due ?? i.balance), 0);
+  const clientArraySum = clientInvoices.reduce((s, i) => s + num(i.amount), 0);
+  const supplierArraySum = supplierInvoices.reduce((s, i) => s + num(i.amount), 0);
+  const clientTotal = num(r.raw_payload?.total_invoice_amount) || clientArraySum;
+  const supplierTotal = num(r.raw_payload?.total_supplier_amount) || supplierArraySum;
+  const balanceDue =
+    num(r.raw_payload?.total_balance_due) ||
+    supplierInvoices.reduce((s, i) => s + num(i.balance_due ?? i.balance), 0);
 
   const clientPaidAmt = clientInvoices
     .filter((i) => isPaidInvoice(i))
     .reduce((s, i) => s + num(i.payment_amount), 0);
   const clientBalance = clientInvoices.reduce((s, i) => s + num(i.balance ?? 0), 0);
+
 
   const n8nStatus = getN8nStatus(r);
   const clientLabel = r.client_name || 'Client';
