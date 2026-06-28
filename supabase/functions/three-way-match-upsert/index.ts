@@ -207,18 +207,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const currentSoNumbers = rows.map((r) => r.so_number);
-    const { error: delError } = await supabase
-      .from("three_way_matches")
-      .delete()
-      .not("so_number", "in", `(${currentSoNumbers.map((s) => `"${s}"`).join(",")})`);
-
-    if (delError) {
-      console.error("Stale SO cleanup error:", delError.message);
-    }
-
     return new Response(
-      JSON.stringify({ ok: true, upserted: data?.length ?? rows.length, cleaned_stale: !delError }),
+      JSON.stringify({ ok: true, upserted: data?.length ?? rows.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e: any) {
