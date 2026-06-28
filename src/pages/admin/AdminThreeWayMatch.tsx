@@ -799,7 +799,7 @@ export default function AdminThreeWayMatch() {
                   <div><span className="text-muted-foreground">Supplier:</span> <b>{selected.supplier_company || selected.supplier_name || '—'}</b></div>
                   <div><span className="text-muted-foreground">Supplier total:</span> {fmtMoney(selected.supplier_invoice_amount)}</div>
                   <div><span className="text-muted-foreground">Supplier qty:</span> {fmtQty(selected.supplier_quantity)}</div>
-                  <div><span className="text-muted-foreground">Supplier payment:</span> <PayBadge value={selected.supplier_payment_status} /></div>
+                  <div><span className="text-muted-foreground">Supplier payment:</span> <N8nStatusBadge value={getN8nStatus(selected)} /></div>
                 </div>
               </div>
               <div>
