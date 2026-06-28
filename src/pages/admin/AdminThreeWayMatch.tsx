@@ -761,7 +761,7 @@ export default function AdminThreeWayMatch() {
                           <div><BoolIcon v={r.quantity_match} /></div>
                           <div className="text-[10px] text-muted-foreground">{fmtQty(r.client_quantity)} / {fmtQty(r.supplier_quantity)}</div>
                         </TableCell>
-                        <TableCell className="text-center"><BoolIcon v={r.client_payment_received} /></TableCell>
+                        <TableCell className="text-center"><ClientPaidCell invoices={r.client_invoices} /></TableCell>
                         <TableCell><N8nStatusBadge value={getN8nStatus(r)} /></TableCell>
                         <TableCell><N8nStatusBadge value={getN8nStatus(r)} /></TableCell>
                         <TableCell>
