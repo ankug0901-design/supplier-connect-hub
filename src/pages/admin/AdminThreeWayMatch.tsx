@@ -119,6 +119,19 @@ function BoolIcon({ v }: { v: boolean | null }) {
   return <AlertCircle className="h-4 w-4 text-muted-foreground inline" />;
 }
 
+function ClientPaidCell({ invoices }: { invoices: InvoiceItem[] | null }) {
+  const list = invoices || [];
+  if (list.length === 0) return <AlertCircle className="h-4 w-4 text-muted-foreground inline" />;
+  const paidCount = list.filter((i) => isPaidInvoice(i)).length;
+  if (paidCount === list.length) return <CheckCircle2 className="h-4 w-4 text-success inline" />;
+  if (paidCount === 0) return <XCircle className="h-4 w-4 text-destructive inline" />;
+  return (
+    <span className="inline-flex items-center gap-1 text-warning text-xs font-medium">
+      <AlertCircle className="h-4 w-4" /> {paidCount}/{list.length}
+    </span>
+  );
+}
+
 function PaidPill({ paid }: { paid: boolean }) {
   return paid
     ? <span className="inline-flex items-center gap-1 text-success text-xs font-medium"><CheckCircle2 className="h-3 w-3" /> Paid</span>
