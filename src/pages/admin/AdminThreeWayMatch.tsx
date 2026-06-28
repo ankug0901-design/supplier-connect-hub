@@ -652,7 +652,8 @@ export default function AdminThreeWayMatch() {
               <Badge variant="destructive" className="ml-1">{overdue.length} bill{overdue.length > 1 ? 's' : ''}</Badge>
               <span className="ml-auto text-sm font-semibold">Total Due: {fmtMoney(overdueTotal)}</span>
             </CardTitle>
-            <p className="text-xs text-muted-foreground">45-day terms crossed · Client has fully paid</p>
+            <p className="text-xs text-muted-foreground">45-day terms crossed · Balance due to supplier</p>
+
           </CardHeader>
           <CardContent>
             <div className="rounded-md border bg-background overflow-x-auto">
