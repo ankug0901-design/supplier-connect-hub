@@ -29,6 +29,8 @@ type InvoiceItem = {
   payment_date?: string | null;
   payment_amount?: number | null;
   payment_reference?: string | null;
+  balance?: number | null;
+  balance_due?: number | null;
 };
 
 type Match = {
@@ -72,20 +74,43 @@ const daysSince = (d: string | null | undefined) => {
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 };
 
+const num = (v: unknown) => {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const getN8nStatus = (r: Pick<Match, 'raw_payload' | 'match_status'>): string => {
+  const s = r.raw_payload?.status;
+  if (typeof s === 'string' && s.trim()) return s.trim();
+  return r.match_status || '';
+};
+
+const MATCHED_STATUSES = new Set(['Fully Settled', 'Awaiting 45 Days', 'Release to Supplier', 'Client Payment Due']);
+const PARTIAL_STATUSES = new Set(['Both Unpaid', 'Partial', 'Awaiting Supplier Bill']);
+
+const N8N_TONE: Record<string, string> = {
+  'Fully Settled': 'bg-success/15 text-success border-success/30',
+  'Release to Supplier': 'bg-primary/15 text-primary border-primary/30',
+  'Awaiting 45 Days': 'bg-warning/15 text-warning border-warning/30',
+  'Client Payment Due': 'bg-warning/15 text-warning border-warning/30',
+  'Awaiting Supplier Bill': 'bg-muted text-muted-foreground border-border',
+  'Partial': 'bg-warning/15 text-warning border-warning/30',
+  'Both Unpaid': 'bg-destructive/15 text-destructive border-destructive/30',
+};
+
+function N8nStatusBadge({ value }: { value: string | null }) {
+  if (!value) return <Badge variant="secondary">Unknown</Badge>;
+  const cls = N8N_TONE[value] || 'bg-muted text-muted-foreground border-border';
+  return <Badge className={cls}>{value}</Badge>;
+}
+
+// Legacy badge kept for the Dialog header that still uses match_status text.
 function StatusBadge({ value }: { value: string | null }) {
   const v = (value || '').toLowerCase();
   if (v === 'matched') return <Badge className="bg-success/15 text-success border-success/30">Matched</Badge>;
   if (v === 'partial') return <Badge className="bg-warning/15 text-warning border-warning/30">Partial</Badge>;
   if (v === 'mismatch') return <Badge variant="destructive">Mismatch</Badge>;
   return <Badge variant="secondary">{value || 'Unmatched'}</Badge>;
-}
-
-function PayBadge({ value }: { value: string | null }) {
-  const v = (value || '').toLowerCase();
-  if (v === 'paid' || v === 'released') return <Badge className="bg-success/15 text-success border-success/30 capitalize">{value}</Badge>;
-  if (v === 'eligible') return <Badge className="bg-primary/15 text-primary border-primary/30">Eligible</Badge>;
-  if (v === 'hold' || v === 'blocked') return <Badge variant="destructive" className="capitalize">{value}</Badge>;
-  return <Badge variant="secondary" className="capitalize">{value || 'Pending'}</Badge>;
 }
 
 function BoolIcon({ v }: { v: boolean | null }) {
@@ -100,14 +125,14 @@ function PaidPill({ paid }: { paid: boolean }) {
     : <span className="inline-flex items-center gap-1 text-destructive text-xs font-medium"><XCircle className="h-3 w-3" /> Unpaid</span>;
 }
 
-const PAID_STATUS_WORDS = ['paid', 'closed', 'completed', 'settled', 'received'];
+const PAID_STATUS_WORDS = ['paid', 'closed', 'completed', 'settled', 'received', 'yes'];
 const isPaidInvoice = (it: any) => {
-  const s = (it?.status || '').toLowerCase();
+  const s = (it?.status || '').toLowerCase().trim();
+  if (PAID_STATUS_WORDS.includes(s)) return true;
   if (PAID_STATUS_WORDS.some((w) => s.includes(w))) return true;
-  if (Number(it?.payment_amount || 0) > 0) return true;
-  if (it?.payment_date) return true;
   return false;
 };
+
 
 function InvoiceList({ items }: { items: InvoiceItem[] }) {
   if (!items?.length) return <span className="text-muted-foreground text-xs">—</span>;
@@ -169,27 +194,33 @@ function HeroStat({
 
 function SoCard({ r, onView }: { r: Match; onView: () => void }) {
   const [open, setOpen] = useState(false);
-  const balanceDue = (r.supplier_invoice_amount || 0) -
-    (r.supplier_invoices || []).reduce((s, i) => s + (Number(i.payment_amount) || 0), 0);
-  const clientPaidAmt = (r.client_invoices || []).reduce(
-    (s, i) => s + (Number(i.payment_amount) || (isPaidInvoice(i) ? Number(i.amount) || 0 : 0)),
-    0,
-  );
+
+  const clientInvoices = r.client_invoices || [];
+  const supplierInvoices = r.supplier_invoices || [];
+
+  const clientTotal = clientInvoices.reduce((s, i) => s + num(i.amount), 0);
+  const supplierTotal = supplierInvoices.reduce((s, i) => s + num(i.amount), 0);
+  const balanceDue = supplierInvoices.reduce((s, i) => s + num(i.balance_due ?? i.balance), 0);
+
+  const clientPaidAmt = clientInvoices
+    .filter((i) => isPaidInvoice(i))
+    .reduce((s, i) => s + num(i.payment_amount), 0);
+  const clientBalance = clientInvoices.reduce((s, i) => s + num(i.balance ?? 0), 0);
+
+  const n8nStatus = getN8nStatus(r);
   const clientLabel = r.client_name || 'Client';
   const supplierLabel = r.supplier_company || r.supplier_name || 'Supplier';
 
-  // group invoices by PO
-  const groups = useMemo(() => {
-    const map = new Map<string, { client: InvoiceItem[]; supplier: InvoiceItem[] }>();
-    const push = (po: string, side: 'client' | 'supplier', it: InvoiceItem) => {
-      const key = po || '—';
-      if (!map.has(key)) map.set(key, { client: [], supplier: [] });
-      map.get(key)![side].push(it);
-    };
-    (r.client_invoices || []).forEach((i) => push(i.po_number || '—', 'client', i));
-    (r.supplier_invoices || []).forEach((i) => push(i.po_number || '—', 'supplier', i));
+  // group supplier invoices by po
+  const supplierGroups = useMemo(() => {
+    const map = new Map<string, InvoiceItem[]>();
+    supplierInvoices.forEach((i) => {
+      const key = i.po_number || '—';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(i);
+    });
     return Array.from(map.entries());
-  }, [r]);
+  }, [supplierInvoices]);
 
   return (
     <Card className="overflow-hidden">
@@ -213,11 +244,11 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
           <div className="grid grid-cols-3 gap-3 text-xs md:w-[420px]">
             <div>
               <div className="text-muted-foreground">Client Inv</div>
-              <div className="font-semibold">{fmtMoneyShort(r.client_invoice_amount)}</div>
+              <div className="font-semibold">{fmtMoneyShort(clientTotal)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Supplier</div>
-              <div className="font-semibold">{fmtMoneyShort(r.supplier_invoice_amount)}</div>
+              <div className="font-semibold">{fmtMoneyShort(supplierTotal)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Due</div>
@@ -225,9 +256,7 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <StatusBadge value={r.match_status} />
-            <PayBadge value={r.supplier_payment_status} />
-            {r.supplier_payment_eligible && <Badge className="bg-primary/15 text-primary border-primary/30">Pay Eligible</Badge>}
+            <N8nStatusBadge value={n8nStatus} />
           </div>
         </div>
       </button>
@@ -240,11 +269,11 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
             </div>
             <div className="p-2 rounded-md bg-background border">
               <div className="text-muted-foreground">Client Balance</div>
-              <div className="font-semibold">{fmtMoney((r.client_invoice_amount || 0) - clientPaidAmt)}</div>
+              <div className="font-semibold">{fmtMoney(clientBalance)}</div>
             </div>
             <div className="p-2 rounded-md bg-background border">
-              <div className="text-muted-foreground">Qty Match</div>
-              <div className="font-semibold"><BoolIcon v={r.quantity_match} /> {fmtQty(r.client_quantity)} / {fmtQty(r.supplier_quantity)}</div>
+              <div className="text-muted-foreground">Supplier Due</div>
+              <div className="font-semibold">{fmtMoney(balanceDue)}</div>
             </div>
             <div className="p-2 rounded-md bg-background border">
               <div className="text-muted-foreground">Updated</div>
@@ -252,59 +281,67 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
             </div>
           </div>
 
-          {groups.map(([po, g]) => {
-            const cAmt = g.client.reduce((s, i) => s + (Number(i.amount) || 0), 0);
-            const sAmt = g.supplier.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+          {clientInvoices.length > 0 && (
+            <div className="rounded-md border bg-background overflow-hidden">
+              <div className="px-3 py-2 bg-muted/50 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                <span className="font-semibold">🧾 Client Invoices</span>
+                <span className="text-muted-foreground">Total: <span className="text-foreground font-medium">{fmtMoneyShort(clientTotal)}</span></span>
+                <span className="text-muted-foreground">Paid: <span className="text-foreground font-medium">{fmtMoneyShort(clientPaidAmt)}</span></span>
+                <span className="text-muted-foreground">Balance: <span className="text-foreground font-medium">{fmtMoneyShort(clientBalance)}</span></span>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Invoice #</TableHead>
+                    <TableHead className="text-xs">Date</TableHead>
+                    <TableHead className="text-xs text-right">Amount</TableHead>
+                    <TableHead className="text-xs text-right">Balance</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {clientInvoices.map((it, idx) => (
+                    <TableRow key={`c${idx}`}>
+                      <TableCell className="text-xs font-medium">{it.invoice_number || '—'}</TableCell>
+                      <TableCell className="text-xs">{fmtDate(it.date)}</TableCell>
+                      <TableCell className="text-xs text-right">{fmtMoney(num(it.amount))}</TableCell>
+                      <TableCell className="text-xs text-right">{fmtMoney(num(it.balance))}</TableCell>
+                      <TableCell className="text-xs"><PaidPill paid={isPaidInvoice(it)} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {supplierGroups.map(([po, items]) => {
+            const sAmt = items.reduce((s, i) => s + num(i.amount), 0);
+            const sDue = items.reduce((s, i) => s + num(i.balance_due ?? i.balance), 0);
             return (
               <div key={po} className="rounded-md border bg-background overflow-hidden">
                 <div className="px-3 py-2 bg-muted/50 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                  <span className="font-semibold">📦 PO:</span>
+                  <span className="font-semibold">📦 Supplier PO:</span>
                   <span className="font-mono">{po}</span>
-                  <span className="text-muted-foreground">Client: <span className="text-foreground font-medium">{fmtMoneyShort(cAmt)}</span></span>
-                  <span className="text-muted-foreground">Supplier: <span className="text-foreground font-medium">{fmtMoneyShort(sAmt)}</span></span>
+                  <span className="text-muted-foreground">Total: <span className="text-foreground font-medium">{fmtMoneyShort(sAmt)}</span></span>
+                  <span className="text-muted-foreground">Due: <span className="text-foreground font-medium">{fmtMoneyShort(sDue)}</span></span>
                 </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs">Party</TableHead>
                       <TableHead className="text-xs">Invoice #</TableHead>
                       <TableHead className="text-xs">Date</TableHead>
-                      <TableHead className="text-xs">Payment Date</TableHead>
-                      <TableHead className="text-xs text-right">Qty</TableHead>
                       <TableHead className="text-xs text-right">Amount</TableHead>
+                      <TableHead className="text-xs text-right">Balance Due</TableHead>
                       <TableHead className="text-xs">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {g.client.map((it, idx) => (
-                      <TableRow key={`c${idx}`}>
-                        <TableCell className="text-xs">
-                          <div className="flex flex-col gap-0.5">
-                            <Badge variant="outline" className="text-[10px] w-fit">Client</Badge>
-                            <span className="text-[11px] text-muted-foreground truncate max-w-[160px]">{clientLabel}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs font-medium">{it.invoice_number || '—'}</TableCell>
-                        <TableCell className="text-xs">{fmtDate(it.date)}</TableCell>
-                        <TableCell className="text-xs">{fmtDate(it.payment_date)}</TableCell>
-                        <TableCell className="text-xs text-right">{fmtQty(it.quantity ?? null)}</TableCell>
-                        <TableCell className="text-xs text-right">{fmtMoney(it.amount ?? null)}</TableCell>
-                        <TableCell className="text-xs"><PaidPill paid={isPaidInvoice(it)} /></TableCell>
-                      </TableRow>
-                    ))}
-                    {g.supplier.map((it, idx) => (
+                    {items.map((it, idx) => (
                       <TableRow key={`s${idx}`}>
-                        <TableCell className="text-xs">
-                          <div className="flex flex-col gap-0.5">
-                            <Badge variant="outline" className="text-[10px] bg-muted w-fit">Supplier</Badge>
-                            <span className="text-[11px] text-muted-foreground truncate max-w-[160px]">{supplierLabel}</span>
-                          </div>
-                        </TableCell>
                         <TableCell className="text-xs font-medium">{it.invoice_number || '—'}</TableCell>
                         <TableCell className="text-xs">{fmtDate(it.date)}</TableCell>
-                        <TableCell className="text-xs">{fmtDate(it.payment_date)}</TableCell>
-                        <TableCell className="text-xs text-right">{fmtQty(it.quantity ?? null)}</TableCell>
-                        <TableCell className="text-xs text-right">{fmtMoney(it.amount ?? null)}</TableCell>
+                        <TableCell className="text-xs text-right">{fmtMoney(num(it.amount))}</TableCell>
+                        <TableCell className="text-xs text-right">{fmtMoney(num(it.balance_due ?? it.balance))}</TableCell>
                         <TableCell className="text-xs"><PaidPill paid={isPaidInvoice(it)} /></TableCell>
                       </TableRow>
                     ))}
@@ -324,6 +361,7 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
     </Card>
   );
 }
+
 
 export default function AdminThreeWayMatch() {
   const [rows, setRows] = useState<Match[]>([]);
@@ -466,60 +504,66 @@ export default function AdminThreeWayMatch() {
     };
   }, [load]);
 
-  // Top-level KPIs (mirror the email report)
+  // Top-level KPIs computed from JSONB arrays
   const kpis = useMemo(() => {
-    let clientTotal = 0, clientPaid = 0, supplierTotal = 0, supplierPaid = 0;
+    let clientTotal = 0, clientPaid = 0, clientBalance = 0;
+    let supplierTotal = 0, supplierBalance = 0;
     rows.forEach((r) => {
-      clientTotal += Number(r.client_invoice_amount || 0);
-      supplierTotal += Number(r.supplier_invoice_amount || 0);
       (r.client_invoices || []).forEach((i) => {
-        if (isPaidInvoice(i)) clientPaid += Number(i.payment_amount || i.amount || 0);
-        else clientPaid += Number(i.payment_amount || 0);
+        clientTotal += num(i.amount);
+        clientBalance += num(i.balance);
+        if (isPaidInvoice(i)) clientPaid += num(i.payment_amount);
       });
       (r.supplier_invoices || []).forEach((i) => {
-        if (isPaidInvoice(i)) supplierPaid += Number(i.payment_amount || i.amount || 0);
-        else supplierPaid += Number(i.payment_amount || 0);
+        supplierTotal += num(i.amount);
+        supplierBalance += num(i.balance_due ?? i.balance);
       });
     });
     return {
       activeSOs: rows.length,
-      clientTotal, clientPaid, clientBalance: clientTotal - clientPaid,
-      supplierTotal, supplierPaid, supplierBalance: supplierTotal - supplierPaid,
+      clientTotal, clientPaid, clientBalance,
+      supplierTotal, supplierBalance,
     };
   }, [rows]);
 
-  // Overdue supplier bills: client fully paid + supplier unpaid + > 45 days
+  // Overdue supplier bills: unpaid + balance_due > 0 + 45+ days
   const overdue = useMemo(() => {
     const items: { r: Match; bill: InvoiceItem; days: number }[] = [];
     rows.forEach((r) => {
-      if (!r.client_payment_received) return;
       (r.supplier_invoices || []).forEach((b) => {
         if (isPaidInvoice(b)) return;
+        if (num(b.balance_due ?? b.balance) <= 0) return;
         const d = daysSince(b.date) ?? 0;
         if (d >= 45) items.push({ r, bill: b, days: d });
       });
     });
     return items;
   }, [rows]);
-  const overdueTotal = overdue.reduce((s, x) => s + Number(x.bill.amount || 0), 0);
+  const overdueTotal = overdue.reduce((s, x) => s + num(x.bill.balance_due ?? x.bill.balance ?? x.bill.amount), 0);
 
-  const counts = useMemo(() => ({
-    all: rows.length,
-    matched: rows.filter((r) => (r.match_status || '').toLowerCase() === 'matched').length,
-    partial: rows.filter((r) => (r.match_status || '').toLowerCase() === 'partial').length,
-    mismatch: rows.filter((r) => (r.match_status || '').toLowerCase() === 'mismatch').length,
-    release: rows.filter((r) => r.supplier_payment_eligible).length,
-  }), [rows]);
+  const counts = useMemo(() => {
+    const byStatus = (pred: (s: string) => boolean) =>
+      rows.filter((r) => pred(getN8nStatus(r))).length;
+    return {
+      all: rows.length,
+      matched: byStatus((s) => MATCHED_STATUSES.has(s)),
+      partial: byStatus((s) => PARTIAL_STATUSES.has(s)),
+      mismatch: 0,
+      release: byStatus((s) => s === 'Release to Supplier'),
+    };
+  }, [rows]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      if (tab === 'matched' && (r.match_status || '').toLowerCase() !== 'matched') return false;
-      if (tab === 'partial' && (r.match_status || '').toLowerCase() !== 'partial') return false;
-      if (tab === 'mismatch' && (r.match_status || '').toLowerCase() !== 'mismatch') return false;
-      if (tab === 'release' && !r.supplier_payment_eligible) return false;
+      const s = getN8nStatus(r);
+      if (tab === 'matched' && !MATCHED_STATUSES.has(s)) return false;
+      if (tab === 'partial' && !PARTIAL_STATUSES.has(s)) return false;
+      if (tab === 'mismatch') return false;
+      if (tab === 'release' && s !== 'Release to Supplier') return false;
       if (!q) return true;
       const inv = [
+
         ...(r.client_invoices || []).map((i) => i.invoice_number || ''),
         ...(r.supplier_invoices || []).map((i) => i.invoice_number || ''),
       ].join(' ').toLowerCase();
@@ -534,9 +578,9 @@ export default function AdminThreeWayMatch() {
     { key: 'all', label: 'All', count: counts.all, cls: 'data-[state=active]:bg-foreground data-[state=active]:text-background' },
     { key: 'matched', label: 'Matched', count: counts.matched, cls: 'data-[state=active]:bg-success data-[state=active]:text-success-foreground' },
     { key: 'partial', label: 'Partial', count: counts.partial, cls: 'data-[state=active]:bg-warning data-[state=active]:text-warning-foreground' },
-    { key: 'mismatch', label: 'Mismatch', count: counts.mismatch, cls: 'data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground' },
     { key: 'release', label: 'Payment Eligible', count: counts.release, cls: 'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground' },
   ];
+
 
   return (
     <DashboardLayout
@@ -608,7 +652,8 @@ export default function AdminThreeWayMatch() {
               <Badge variant="destructive" className="ml-1">{overdue.length} bill{overdue.length > 1 ? 's' : ''}</Badge>
               <span className="ml-auto text-sm font-semibold">Total Due: {fmtMoney(overdueTotal)}</span>
             </CardTitle>
-            <p className="text-xs text-muted-foreground">45-day terms crossed · Client has fully paid</p>
+            <p className="text-xs text-muted-foreground">45-day terms crossed · Balance due to supplier</p>
+
           </CardHeader>
           <CardContent>
             <div className="rounded-md border bg-background overflow-x-auto">
@@ -632,8 +677,9 @@ export default function AdminThreeWayMatch() {
                       <TableCell className="text-xs">{x.r.client_name || '—'}</TableCell>
                       <TableCell className="text-xs font-mono">{x.bill.invoice_number || '—'}</TableCell>
                       <TableCell className="text-xs">{fmtDate(x.bill.date)}</TableCell>
-                      <TableCell className="text-xs text-right font-semibold">{fmtMoney(x.bill.amount ?? null)}</TableCell>
+                      <TableCell className="text-xs text-right font-semibold">{fmtMoney(num(x.bill.balance_due ?? x.bill.balance ?? x.bill.amount))}</TableCell>
                       <TableCell className="text-xs text-right"><Badge variant="destructive">{x.days}d</Badge></TableCell>
+
                     </TableRow>
                   ))}
                 </TableBody>
@@ -715,9 +761,10 @@ export default function AdminThreeWayMatch() {
                           <div className="text-[10px] text-muted-foreground">{fmtQty(r.client_quantity)} / {fmtQty(r.supplier_quantity)}</div>
                         </TableCell>
                         <TableCell className="text-center"><BoolIcon v={r.client_payment_received} /></TableCell>
-                        <TableCell><StatusBadge value={r.match_status} /></TableCell>
-                        <TableCell><PayBadge value={r.supplier_payment_status} /></TableCell>
+                        <TableCell><N8nStatusBadge value={getN8nStatus(r)} /></TableCell>
+                        <TableCell><N8nStatusBadge value={getN8nStatus(r)} /></TableCell>
                         <TableCell>
+
                           <Button variant="ghost" size="icon" onClick={() => setSelected(r)}>
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -752,7 +799,7 @@ export default function AdminThreeWayMatch() {
                   <div><span className="text-muted-foreground">Supplier:</span> <b>{selected.supplier_company || selected.supplier_name || '—'}</b></div>
                   <div><span className="text-muted-foreground">Supplier total:</span> {fmtMoney(selected.supplier_invoice_amount)}</div>
                   <div><span className="text-muted-foreground">Supplier qty:</span> {fmtQty(selected.supplier_quantity)}</div>
-                  <div><span className="text-muted-foreground">Supplier payment:</span> <PayBadge value={selected.supplier_payment_status} /></div>
+                  <div><span className="text-muted-foreground">Supplier payment:</span> <N8nStatusBadge value={getN8nStatus(selected)} /></div>
                 </div>
               </div>
               <div>
