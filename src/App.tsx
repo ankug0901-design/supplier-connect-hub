@@ -90,6 +90,7 @@ import RfqRequests from "./pages/RfqRequests";
 import ResetPassword from "./pages/ResetPassword";
 import { SupplierSectionGuard } from "./components/SupplierSectionGuard";
 import NotFound from "./pages/NotFound";
+import OAuthConsent from "./pages/OAuthConsent";
 
 const queryClient = new QueryClient();
 
@@ -185,6 +186,7 @@ function AppRoutes() {
       <Route path="/admin/user-access-report" element={<SuperAdminRoute><AdminUserAccessReport /></SuperAdminRoute>} />
       <Route path="/admin/exception-requests" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-exception-requests"><AdminExceptionRequests /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
