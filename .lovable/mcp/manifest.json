@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://agrhkarauqxkgyvfthvc.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "emboss-supplier-portal",
+      "version": "0.1.0",
+      "title": "Emboss Supplier Portal"
+    },
+    "tools": [
+      {
+        "name": "list_purchase_orders",
+        "title": "List purchase orders",
+        "description": "List purchase orders (POs) for the signed-in supplier. Returns PO number, date, status, amount, and expected delivery date.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "status": {
+              "description": "Optional status filter, e.g. 'pending', 'open', 'closed'.",
+              "type": "string"
+            },
+            "limit": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_invoices",
+        "title": "List invoices",
+        "description": "List invoices submitted by the signed-in supplier, including status, amount, balance and due date.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "status": {
+              "description": "Optional status filter, e.g. 'pending', 'paid', 'open'.",
+              "type": "string"
+            },
+            "limit": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_payments",
+        "title": "List payments",
+        "description": "List payments the signed-in supplier has received against their invoices, with amount, mode, date, and reference.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_supplier_profile",
+        "title": "Get supplier profile",
+        "description": "Return the signed-in supplier's profile: contact name, company, email, phone, GST number, and address.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
