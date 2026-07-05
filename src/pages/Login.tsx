@@ -73,7 +73,12 @@ export default function Login() {
       const { error } = await login(email, password);
       if (!error) {
         toast({ title: 'Welcome back!', description: 'Successfully logged in.' });
-        navigate('/dashboard');
+        // Honor ?next= for OAuth consent and other post-login redirects.
+        // Only allow same-origin relative paths.
+        const params = new URLSearchParams(window.location.search);
+        const nextRaw = params.get('next');
+        const next = nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : null;
+        navigate(next ?? '/dashboard');
       } else {
         toast({ title: 'Login failed', description: error, variant: 'destructive' });
       }
