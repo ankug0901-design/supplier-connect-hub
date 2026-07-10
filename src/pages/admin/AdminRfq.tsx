@@ -109,6 +109,10 @@ function RankCell({ rank }: { rank?: number | null }) {
 
 export default function AdminRfq() {
   const [rows, setRows] = useState<Rfq[]>([]);
+  const [itemsByRfq, setItemsByRfq] = useState<Record<string, any[]>>({});
+  const [itemQuotesByRfq, setItemQuotesByRfq] = useState<Record<string, any[]>>({});
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [expandedBreakdown, setExpandedBreakdown] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'awaiting' | 'compare' | 'decided'>('all');
   const [rejectTarget, setRejectTarget] = useState<Rfq | null>(null);
