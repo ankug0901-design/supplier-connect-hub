@@ -627,6 +627,117 @@ export type Database = {
           },
         ]
       }
+      rfq_item_quotes: {
+        Row: {
+          created_at: string
+          id: string
+          item_number: number
+          lead_time_days: number | null
+          quote_notes: string | null
+          quote_source: string | null
+          quoted_gst_percent: number | null
+          quoted_unit_price: number | null
+          rfq_id: string
+          setup_charges: number | null
+          supplier_email: string
+          total_price: number | null
+          unit_basis: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_number: number
+          lead_time_days?: number | null
+          quote_notes?: string | null
+          quote_source?: string | null
+          quoted_gst_percent?: number | null
+          quoted_unit_price?: number | null
+          rfq_id: string
+          setup_charges?: number | null
+          supplier_email: string
+          total_price?: number | null
+          unit_basis?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_number?: number
+          lead_time_days?: number | null
+          quote_notes?: string | null
+          quote_source?: string | null
+          quoted_gst_percent?: number | null
+          quoted_unit_price?: number | null
+          rfq_id?: string
+          setup_charges?: number | null
+          supplier_email?: string
+          total_price?: number | null
+          unit_basis?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rfq_items: {
+        Row: {
+          artwork_status: string | null
+          attachment_name: string | null
+          attachment_url: string | null
+          colours: string | null
+          created_at: string
+          dimensions: string | null
+          extra_specs: string | null
+          finish: string | null
+          id: string
+          item_number: number
+          material: string | null
+          print_process: string | null
+          product_category: string | null
+          product_name: string
+          quantity: string
+          rfq_id: string
+          updated_at: string
+        }
+        Insert: {
+          artwork_status?: string | null
+          attachment_name?: string | null
+          attachment_url?: string | null
+          colours?: string | null
+          created_at?: string
+          dimensions?: string | null
+          extra_specs?: string | null
+          finish?: string | null
+          id?: string
+          item_number: number
+          material?: string | null
+          print_process?: string | null
+          product_category?: string | null
+          product_name: string
+          quantity: string
+          rfq_id: string
+          updated_at?: string
+        }
+        Update: {
+          artwork_status?: string | null
+          attachment_name?: string | null
+          attachment_url?: string | null
+          colours?: string | null
+          created_at?: string
+          dimensions?: string | null
+          extra_specs?: string | null
+          finish?: string | null
+          id?: string
+          item_number?: number
+          material?: string | null
+          print_process?: string | null
+          product_category?: string | null
+          product_name?: string
+          quantity?: string
+          rfq_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       rfq_portal_requests: {
         Row: {
           artwork_drive_url: string | null
@@ -644,6 +755,8 @@ export type Database = {
           extra_specs: string | null
           finish: string | null
           id: string
+          is_multi_item: boolean
+          item_count: number
           item_specs: string | null
           last_revised_at: string | null
           lead_time_days: number | null
@@ -691,6 +804,8 @@ export type Database = {
           extra_specs?: string | null
           finish?: string | null
           id?: string
+          is_multi_item?: boolean
+          item_count?: number
           item_specs?: string | null
           last_revised_at?: string | null
           lead_time_days?: number | null
@@ -738,6 +853,8 @@ export type Database = {
           extra_specs?: string | null
           finish?: string | null
           id?: string
+          is_multi_item?: boolean
+          item_count?: number
           item_specs?: string | null
           last_revised_at?: string | null
           lead_time_days?: number | null

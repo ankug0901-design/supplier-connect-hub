@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Loader2, Plus, Trash2, Zap, X } from 'lucide-react';
+import { CalendarIcon, ChevronDown, ChevronRight, Loader2, Plus, Trash2, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,27 @@ const MANUAL_SUPPLIER = '__manual__';
 type Supplier = { company: string; email: string; selectedId?: string };
 type DirectorySupplier = { id: string; company: string; name: string; email: string };
 
+type Item = {
+  product_category: string;
+  product_name: string;
+  quantity: string;
+  dimensions: string;
+  material: string;
+  print_process: string;
+  finish: string;
+  colours: string;
+  artwork_status: string;
+  extra_specs: string;
+  attachment_url: string;
+  attachment_name: string;
+};
+
+const emptyItem = (): Item => ({
+  product_category: '', product_name: '', quantity: '', dimensions: '',
+  material: '', print_process: '', finish: '', colours: '',
+  artwork_status: '', extra_specs: '', attachment_url: '', attachment_name: '',
+});
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -62,26 +83,17 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const [clientEmail, setClientEmail] = useState('');
   const [requiredBy, setRequiredBy] = useState<Date | undefined>();
   const [clientBudget, setClientBudget] = useState('');
-  // Product
-  const [productCategory, setProductCategory] = useState('');
-  const [productName, setProductName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [dimensions, setDimensions] = useState('');
-  const [material, setMaterial] = useState('');
-  const [printProcess, setPrintProcess] = useState('');
-  const [finish, setFinish] = useState('');
-  const [colours, setColours] = useState('');
-  const [artworkStatus, setArtworkStatus] = useState('');
-  const [extraSpecs, setExtraSpecs] = useState('');
+  // Items
+  const [items, setItems] = useState<Item[]>([emptyItem()]);
+  const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   // Timing
   const [closingDate, setClosingDate] = useState<Date | undefined>();
   const [closingTime, setClosingTime] = useState('17:00');
   // Suppliers
   const [suppliers, setSuppliers] = useState<Supplier[]>([{ company: '', email: '' }]);
   const [directory, setDirectory] = useState<DirectorySupplier[]>([]);
-  // Attachments
-  const [attachmentUrl, setAttachmentUrl] = useState('');
-  const [attachmentName, setAttachmentName] = useState('');
+  // Special instructions
+  const [instructions, setInstructions] = useState('');
   // Submitted by
   const [submittedByName, setSubmittedByName] = useState('');
   const [submittedByEmail, setSubmittedByEmail] = useState('');
@@ -90,7 +102,6 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     if (!open) return;
     setSubmittedByName(supplier?.name || user?.user_metadata?.name || '');
     setSubmittedByEmail(supplier?.email || user?.email || '');
-    // Load supplier directory for the dropdown (only when drawer opens)
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
@@ -100,18 +111,15 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       if (!cancelled && !error && data) setDirectory(data as DirectorySupplier[]);
     })();
     return () => { cancelled = true; };
-    // Intentionally exclude supplier/user — they change reference on every auth
-    // token refresh and would cause the form to re-fetch and reset repeatedly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const reset = () => {
     setClientCompany(''); setClientContact(''); setClientEmail(''); setRequiredBy(undefined); setClientBudget('');
-    setProductCategory(''); setProductName(''); setQuantity(''); setDimensions(''); setMaterial('');
-    setPrintProcess(''); setFinish(''); setColours(''); setArtworkStatus(''); setExtraSpecs('');
+    setItems([emptyItem()]); setCollapsed({});
     setClosingDate(undefined); setClosingTime('17:00');
     setSuppliers([{ company: '', email: '' }]);
-    setAttachmentUrl(''); setAttachmentName('');
+    setInstructions('');
   };
 
   const isUrgent = (() => {
@@ -123,6 +131,26 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     const todayStr = new Date().toDateString();
     return target.toDateString() === todayStr && diff > 0 && diff < 2 * 60 * 60 * 1000;
   })();
+
+  const updateItem = (i: number, patch: Partial<Item>) =>
+    setItems((s) => s.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+  const addItem = () => {
+    if (items.length >= 10) return;
+    setItems((s) => [...s, emptyItem()]);
+  };
+  const removeItem = (i: number) => {
+    if (items.length === 1) return;
+    setItems((s) => s.filter((_, idx) => idx !== i));
+    setCollapsed((c) => {
+      const next: Record<number, boolean> = {};
+      Object.entries(c).forEach(([k, v]) => {
+        const n = Number(k);
+        if (n < i) next[n] = v;
+        else if (n > i) next[n - 1] = v;
+      });
+      return next;
+    });
+  };
 
   const updateSupplier = (i: number, patch: Partial<Supplier>) => {
     setSuppliers((s) => s.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
@@ -146,28 +174,30 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     }
   };
 
-  const validateAttachment = () => {
-    if (attachmentUrl.trim()) {
-      if (!isDriveUrl(attachmentUrl)) {
-        toast.error("⚠️ Link doesn't look like a Google Drive URL. Please check and re-paste.");
+  const validateItems = () => {
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (!it.product_name.trim() || !it.quantity.trim()) {
+        toast.error(`Item ${i + 1}: product name and quantity are required`);
         return false;
       }
-      if (!attachmentName.trim()) {
-        toast.error('Please enter a filename so suppliers know what the document is');
-        return false;
+      if (it.attachment_url.trim()) {
+        if (!isDriveUrl(it.attachment_url)) {
+          toast.error(`Item ${i + 1}: attachment link doesn't look like a Google Drive URL`);
+          return false;
+        }
+        if (!it.attachment_name.trim()) {
+          toast.error(`Item ${i + 1}: please provide an attachment filename`);
+          return false;
+        }
       }
     }
     return true;
   };
 
   const submit = async () => {
-    // Required validation
     if (!clientCompany || !clientContact || !clientEmail || !requiredBy) {
       toast.error('Please fill all required client details');
-      return;
-    }
-    if (!productName || !quantity) {
-      toast.error('Product name and quantity are required');
       return;
     }
     if (!closingDate || !closingTime) {
@@ -181,35 +211,72 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       toast.error('Closing date/time must be in the future');
       return;
     }
+    if (!validateItems()) return;
     const validSuppliers = suppliers.filter((s) => s.company.trim() && s.email.trim());
     if (validSuppliers.length === 0) {
       toast.error('At least one supplier (with company and email) is required');
       return;
     }
-    if (!validateAttachment()) return;
 
-    const payload = {
+    const itemsPayload = items.map((it, idx) => ({
+      item_number: idx + 1,
+      product_category: it.product_category,
+      product_name: it.product_name,
+      quantity: it.quantity,
+      dimensions: it.dimensions,
+      material: it.material,
+      print_process: it.print_process,
+      finish: it.finish,
+      colours: it.colours,
+      artwork_status: it.artwork_status,
+      extra_specs: it.extra_specs,
+      attachment_url: it.attachment_url,
+      attachment_name: it.attachment_name,
+    }));
+
+    const isMulti = items.length > 1;
+    const first = items[0];
+    // Flat summary fields (backward compatible with existing n8n workflows)
+    const joinedNames = isMulti
+      ? items.map((it) => it.product_name).filter(Boolean).join(' + ')
+      : first.product_name;
+    const summaryCategory = isMulti
+      ? (items.every((it) => it.product_category === first.product_category) ? first.product_category : 'Multiple')
+      : first.product_category;
+    const summaryQty = isMulti ? 'Multiple items' : first.quantity;
+
+    const payload: any = {
       client_name: clientContact,
       client_company: clientCompany,
       client_email: clientEmail,
       required_by_date: format(requiredBy, 'yyyy-MM-dd'),
       client_budget: clientBudget,
-      product_category: productCategory,
-      product_name: productName,
-      quantity,
-      dimensions,
-      material,
-      print_process: printProcess,
-      finish,
-      colours,
-      artwork_status: artworkStatus,
-      extra_specs: extraSpecs,
+      // Flat product fields (mirror item 1 for single-item, summary values for multi)
+      product_category: summaryCategory,
+      product_name: joinedNames,
+      quantity: summaryQty,
+      dimensions: first.dimensions,
+      material: first.material,
+      print_process: first.print_process,
+      finish: first.finish,
+      colours: first.colours,
+      artwork_status: first.artwork_status,
+      extra_specs: first.extra_specs,
+      attachment_url: first.attachment_url,
+      attachment_name: first.attachment_name,
+      // Timing
       closing_date: format(closingDate, 'yyyy-MM-dd'),
       closing_time: closingTime,
       response_deadline: format(closingDate, 'yyyy-MM-dd'),
+      // Suppliers
       suppliers: validSuppliers.map((s) => ({ name: s.company, email: s.email })),
-      attachment_url: attachmentUrl.trim(),
-      attachment_name: attachmentName.trim(),
+      // Items (new)
+      items: itemsPayload,
+      is_multi_item: isMulti,
+      item_count: items.length,
+      // Instructions + submitter
+      instructions,
+      special_instructions: instructions,
       submitted_by: submittedByName,
       submitted_by_name: submittedByName,
       submitted_by_email: submittedByEmail,
@@ -232,7 +299,11 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
         console.error('RFQ submit failed', res.status, bodyText);
         throw new Error(typeof errMsg === 'string' ? errMsg.slice(0, 300) : `HTTP ${res.status}`);
       }
-      toast.success('RFQ submitted — suppliers will be notified ✅');
+      toast.success(
+        isMulti
+          ? `RFQ submitted with ${items.length} items — suppliers will be notified ✅`
+          : 'RFQ submitted — suppliers will be notified ✅'
+      );
       onOpenChange(false);
       reset();
       setTimeout(() => { onSuccess?.(); }, 3000);
@@ -242,6 +313,11 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       setSubmitting(false);
     }
   };
+
+  const toggleCollapse = (i: number) =>
+    setCollapsed((c) => ({ ...c, [i]: !c[i] }));
+
+  const shouldAutoCollapse = items.length >= 3;
 
   return (
     <Sheet open={open} onOpenChange={(o) => !submitting && onOpenChange(o)}>
@@ -288,98 +364,132 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
             </div>
           </section>
 
-          {/* Product Details */}
+          {/* Items */}
           <section className="space-y-3">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Product Details</h3>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label>Product Category</Label>
-                <Select value={productCategory} onValueChange={setProductCategory}>
-                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                  <SelectContent>{PRODUCT_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Product Name / Item Description *</Label>
-                <Input value={productName} onChange={(e) => setProductName(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Quantity Required *</Label>
-                <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="e.g. 5000 pcs" />
-              </div>
-              <div className="space-y-1">
-                <Label>Size / Dimensions</Label>
-                <Input value={dimensions} onChange={(e) => setDimensions(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Material</Label>
-                <Select value={material} onValueChange={setMaterial}>
-                  <SelectTrigger><SelectValue placeholder="Select material" /></SelectTrigger>
-                  <SelectContent>{MATERIALS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Print Process</Label>
-                <Select value={printProcess} onValueChange={setPrintProcess}>
-                  <SelectTrigger><SelectValue placeholder="Select process" /></SelectTrigger>
-                  <SelectContent>{PRINT_PROCESSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Finish</Label>
-                <Select value={finish} onValueChange={setFinish}>
-                  <SelectTrigger><SelectValue placeholder="Select finish" /></SelectTrigger>
-                  <SelectContent>{FINISHES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Colours</Label>
-                <Input value={colours} onChange={(e) => setColours(e.target.value)} placeholder="e.g. 4+0 CMYK" />
-              </div>
-              <div className="space-y-1 sm:col-span-2">
-                <Label>Artwork Status</Label>
-                <Select value={artworkStatus} onValueChange={setArtworkStatus}>
-                  <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                  <SelectContent>{ARTWORK_STATUSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1 sm:col-span-2">
-                <Label>Additional Specifications</Label>
-                <Textarea value={extraSpecs} onChange={(e) => setExtraSpecs(e.target.value)} rows={3} />
-              </div>
-              <div className="space-y-1 sm:col-span-2">
-                <Label>Attachment — Google Drive Link (optional)</Label>
-                <Input
-                  value={attachmentUrl}
-                  onChange={(e) => setAttachmentUrl(e.target.value)}
-                  placeholder="https://drive.google.com/file/d/..."
-                />
-                <p className="text-xs text-muted-foreground">
-                  Share file on Google Drive → click Share → "Anyone with the link can view" → Copy link → Paste here
-                </p>
-                {attachmentUrl.trim() && isDriveUrl(attachmentUrl) && (
-                  <p className="text-xs text-green-600">
-                    ✅ Drive link added — suppliers will receive a download button in their email
-                  </p>
-                )}
-                {attachmentUrl.trim() && !isDriveUrl(attachmentUrl) && (
-                  <p className="text-xs text-amber-600">
-                    ⚠️ Link doesn't look like a Google Drive URL. Please check and re-paste.
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1 sm:col-span-2">
-                <Label>Attachment Filename</Label>
-                <Input
-                  value={attachmentName}
-                  onChange={(e) => setAttachmentName(e.target.value)}
-                  placeholder="e.g. Quantity_Sheet.xlsx or Reference_Brief.pdf"
-                />
-                <p className="text-xs text-muted-foreground">
-                  This name will be shown to suppliers in the email
-                </p>
-              </div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Items ({items.length}/10)
+              </h3>
             </div>
+            <div className="space-y-3">
+              {items.map((it, i) => {
+                const isCollapsed = collapsed[i] ?? (shouldAutoCollapse && i > 0);
+                return (
+                  <div key={i} className="rounded-md border">
+                    <button
+                      type="button"
+                      onClick={() => toggleCollapse(i)}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        <span className="text-sm font-semibold">
+                          Item {i + 1}: {it.product_name || 'New item'}
+                        </span>
+                        {it.quantity && (
+                          <span className="text-xs text-muted-foreground">· {it.quantity}</span>
+                        )}
+                      </div>
+                      {items.length > 1 && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); removeItem(i); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); removeItem(i); } }}
+                          className="rounded p-1 hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={`Remove item ${i + 1}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </span>
+                      )}
+                    </button>
+                    {!isCollapsed && (
+                      <div className="grid grid-cols-1 gap-3 border-t p-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label>Product Category</Label>
+                          <Select value={it.product_category} onValueChange={(v) => updateItem(i, { product_category: v })}>
+                            <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                            <SelectContent>{PRODUCT_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Product Name *</Label>
+                          <Input value={it.product_name} onChange={(e) => updateItem(i, { product_name: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Quantity *</Label>
+                          <Input value={it.quantity} onChange={(e) => updateItem(i, { quantity: e.target.value })} placeholder="e.g. 5000 pcs" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Size / Dimensions</Label>
+                          <Input value={it.dimensions} onChange={(e) => updateItem(i, { dimensions: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Material</Label>
+                          <Select value={it.material} onValueChange={(v) => updateItem(i, { material: v })}>
+                            <SelectTrigger><SelectValue placeholder="Select material" /></SelectTrigger>
+                            <SelectContent>{MATERIALS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Print Process</Label>
+                          <Select value={it.print_process} onValueChange={(v) => updateItem(i, { print_process: v })}>
+                            <SelectTrigger><SelectValue placeholder="Select process" /></SelectTrigger>
+                            <SelectContent>{PRINT_PROCESSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Finish</Label>
+                          <Select value={it.finish} onValueChange={(v) => updateItem(i, { finish: v })}>
+                            <SelectTrigger><SelectValue placeholder="Select finish" /></SelectTrigger>
+                            <SelectContent>{FINISHES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Colours</Label>
+                          <Input value={it.colours} onChange={(e) => updateItem(i, { colours: e.target.value })} placeholder="e.g. 4+0 CMYK" />
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label>Artwork Status</Label>
+                          <Select value={it.artwork_status} onValueChange={(v) => updateItem(i, { artwork_status: v })}>
+                            <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                            <SelectContent>{ARTWORK_STATUSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label>Additional Specifications</Label>
+                          <Textarea value={it.extra_specs} onChange={(e) => updateItem(i, { extra_specs: e.target.value })} rows={2} />
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label>Attachment — Google Drive Link (optional)</Label>
+                          <Input
+                            value={it.attachment_url}
+                            onChange={(e) => updateItem(i, { attachment_url: e.target.value })}
+                            placeholder="https://drive.google.com/file/d/..."
+                          />
+                          {it.attachment_url.trim() && !isDriveUrl(it.attachment_url) && (
+                            <p className="text-xs text-amber-600">⚠️ Link doesn't look like a Google Drive URL.</p>
+                          )}
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label>Attachment Filename</Label>
+                          <Input
+                            value={it.attachment_name}
+                            onChange={(e) => updateItem(i, { attachment_name: e.target.value })}
+                            placeholder="e.g. Quantity_Sheet.xlsx"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {items.length < 10 && (
+              <Button variant="outline" size="sm" onClick={addItem}>
+                <Plus className="mr-1 h-4 w-4" /> Add another item
+              </Button>
+            )}
           </section>
 
           {/* Timing */}
@@ -420,6 +530,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
             </div>
             <p className="text-xs text-muted-foreground">
               Pick from registered suppliers — or choose "Enter manually" to add an unregistered one.
+              Suppliers are shared across all items.
             </p>
             <div className="space-y-3">
               {suppliers.map((s, i) => (
@@ -469,6 +580,17 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
                 <Plus className="mr-1 h-4 w-4" /> Add another supplier
               </Button>
             )}
+          </section>
+
+          {/* Special instructions */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Special Instructions</h3>
+            <Textarea
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder="Any instructions that apply to all items (e.g. delivery location, packaging)"
+              rows={3}
+            />
           </section>
 
           {/* Submitted by */}

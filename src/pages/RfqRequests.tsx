@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, FileQuestion, Loader2, ExternalLink, Trophy } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -20,6 +20,24 @@ import { toast } from 'sonner';
 import { n8nPost } from '@/lib/n8n';
 
 type RfqRow = any;
+type RfqItem = any;
+type ItemQuote = any;
+
+type ItemPriceInput = {
+  unit_price: string;
+  gst_percent: string;
+  lead_time_days: string;
+  setup_charges: string;
+  quote_notes: string;
+};
+
+const emptyPrice = (): ItemPriceInput => ({
+  unit_price: '',
+  gst_percent: '18',
+  lead_time_days: '',
+  setup_charges: '0',
+  quote_notes: '',
+});
 
 const statusStyles: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
@@ -42,7 +60,6 @@ function formatDate(d?: string | null) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// Returns the Date corresponding to 17:00 IST on the given YYYY-MM-DD (or ISO) deadline.
 function deadlineCutoff(d?: string | null): Date | null {
   if (!d) return null;
   const datePart = d.length >= 10 ? d.slice(0, 10) : d;
@@ -115,7 +132,6 @@ export default function RfqRequests() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplier?.email]);
 
-  // Keep the selected row in sync with refreshed list
   useEffect(() => {
     if (selected) {
       const fresh = rfqs.find((r) => r.id === selected.id);
@@ -163,6 +179,9 @@ export default function RfqRequests() {
                     {r.product_category && (
                       <p className="text-sm text-muted-foreground">{r.product_category}</p>
                     )}
+                    {r.is_multi_item && r.item_count > 1 && (
+                      <Badge variant="secondary" className="mt-1">{r.item_count} items</Badge>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {[r.quantity, r.material, r.print_process, r.finish].filter(Boolean).join(' · ') || '—'}
@@ -194,6 +213,7 @@ export default function RfqRequests() {
       <RfqDetailSheet
         rfq={selected}
         supplierName={supplier?.name}
+        supplierEmail={supplier?.email}
         onClose={() => setSelected(null)}
         onSubmitted={() => { setSelected(null); load(); }}
         onNavigatePOs={() => navigate('/purchase-orders')}
@@ -203,49 +223,127 @@ export default function RfqRequests() {
 }
 
 function RfqDetailSheet({
-  rfq, supplierName, onClose, onSubmitted, onNavigatePOs,
-}: { rfq: RfqRow | null; supplierName?: string; onClose: () => void; onSubmitted: () => void; onNavigatePOs: () => void }) {
+  rfq, supplierName, supplierEmail, onClose, onSubmitted, onNavigatePOs,
+}: { rfq: RfqRow | null; supplierName?: string; supplierEmail?: string; onClose: () => void; onSubmitted: () => void; onNavigatePOs: () => void }) {
+  // Legacy single-item form state
   const [unitPrice, setUnitPrice] = useState('');
   const [gstPercent, setGstPercent] = useState('18');
   const [leadTime, setLeadTime] = useState('');
+  // Common per-quote fields (used both flows)
   const [paymentTerms, setPaymentTerms] = useState('30 days net');
   const [validity, setValidity] = useState('30');
   const [setupCharges, setSetupCharges] = useState('0');
   const [notes, setNotes] = useState('');
+  // Multi-item state
+  const [items, setItems] = useState<RfqItem[]>([]);
+  const [existingQuotes, setExistingQuotes] = useState<ItemQuote[]>([]);
+  const [itemPrices, setItemPrices] = useState<Record<number, ItemPriceInput>>({});
+  const [itemsLoading, setItemsLoading] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [reviseMode, setReviseMode] = useState(false);
   const [totalSuppliers, setTotalSuppliers] = useState<number | null>(null);
 
+  const isMulti = !!(rfq?.is_multi_item && (rfq?.item_count ?? 1) > 1);
+
+  // Load supplier count + items when rfq changes
   useEffect(() => {
-    if (!rfq?.rfq_id) { setTotalSuppliers(null); return; }
+    if (!rfq?.rfq_id) { setTotalSuppliers(null); setItems([]); setExistingQuotes([]); return; }
     supabase
       .from('rfq_portal_requests')
       .select('id', { count: 'exact', head: true })
       .eq('rfq_id', rfq.rfq_id)
       .then(({ count }) => setTotalSuppliers(count ?? null));
-  }, [rfq?.rfq_id]);
+
+    setItemsLoading(true);
+    (async () => {
+      const [{ data: itemsData }, { data: quotesData }] = await Promise.all([
+        supabase.from('rfq_items').select('*').eq('rfq_id', rfq.rfq_id).order('item_number'),
+        supabase
+          .from('rfq_item_quotes')
+          .select('*')
+          .eq('rfq_id', rfq.rfq_id)
+          .eq('supplier_email', supplierEmail || ''),
+      ]);
+      setItems(itemsData || []);
+      setExistingQuotes(quotesData || []);
+      setItemsLoading(false);
+    })();
+  }, [rfq?.rfq_id, supplierEmail]);
 
   const closed = isDeadlinePassed(rfq?.response_deadline);
 
+  // Initialize form state whenever rfq / items / quotes change
   useEffect(() => {
+    if (!rfq) return;
     setReviseMode(false);
-    if (rfq?.status === 'pending') {
-      setUnitPrice(''); setGstPercent('18'); setLeadTime('');
-      setPaymentTerms('30 days net'); setValidity('30');
-      setSetupCharges('0'); setNotes('');
+    // Common fields
+    if (rfq.status === 'pending') {
+      setPaymentTerms('30 days net'); setValidity('30'); setNotes('');
     } else {
-      setUnitPrice(rfq?.quoted_unit_price?.toString() || '');
-      setGstPercent(rfq?.quoted_gst_percent?.toString() || '18');
-      setLeadTime(rfq?.lead_time_days?.toString() || '');
-      setPaymentTerms(rfq?.payment_terms || '30 days net');
-      setValidity(rfq?.validity_days?.toString() || '30');
-      setSetupCharges(rfq?.setup_charges?.toString() || '0');
-      setNotes(rfq?.supplier_notes || '');
+      setPaymentTerms(rfq.payment_terms || '30 days net');
+      setValidity(rfq.validity_days?.toString() || '30');
+      setNotes(rfq.supplier_notes || '');
     }
-  }, [rfq?.id]);
+
+    if (isMulti) {
+      // Seed per-item price inputs from existing quotes (revise) or blanks
+      const seeded: Record<number, ItemPriceInput> = {};
+      items.forEach((it: RfqItem) => {
+        const q = existingQuotes.find((eq) => eq.item_number === it.item_number);
+        seeded[it.item_number] = q
+          ? {
+              unit_price: q.quoted_unit_price?.toString() || '',
+              gst_percent: q.quoted_gst_percent?.toString() || '18',
+              lead_time_days: q.lead_time_days?.toString() || '',
+              setup_charges: q.setup_charges?.toString() || '0',
+              quote_notes: q.quote_notes || '',
+            }
+          : emptyPrice();
+      });
+      setItemPrices(seeded);
+    } else {
+      // Legacy single-item
+      if (rfq.status === 'pending') {
+        setUnitPrice(''); setGstPercent('18'); setLeadTime(''); setSetupCharges('0');
+      } else {
+        setUnitPrice(rfq.quoted_unit_price?.toString() || '');
+        setGstPercent(rfq.quoted_gst_percent?.toString() || '18');
+        setLeadTime(rfq.lead_time_days?.toString() || '');
+        setSetupCharges(rfq.setup_charges?.toString() || '0');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rfq?.id, isMulti, items.length, existingQuotes.length]);
+
+  const setItemPrice = (n: number, patch: Partial<ItemPriceInput>) => {
+    setItemPrices((prev) => ({ ...prev, [n]: { ...(prev[n] || emptyPrice()), ...patch } }));
+  };
+
+  // ---- Totals for multi-item ----
+  const multiTotals = useMemo(() => {
+    if (!isMulti) return { grandTotal: 0, maxLead: 0, valid: false };
+    let grand = 0;
+    let maxLead = 0;
+    let valid = true;
+    for (const it of items) {
+      const p = itemPrices[it.item_number] || emptyPrice();
+      const qty = Number(it.quantity) || 0;
+      const up = Number(p.unit_price);
+      const gst = Number(p.gst_percent) || 0;
+      const setup = Number(p.setup_charges) || 0;
+      const lead = Number(p.lead_time_days) || 0;
+      if (!p.unit_price || !p.lead_time_days) valid = false;
+      const perUnit = up * (1 + gst / 100);
+      grand += perUnit * qty + setup;
+      if (lead > maxLead) maxLead = lead;
+    }
+    return { grandTotal: grand, maxLead, valid };
+  }, [isMulti, items, itemPrices]);
 
   if (!rfq) return null;
 
+  // Single-item computations
   const qty = Number(rfq.quantity) || 0;
   const up = Number(unitPrice) || 0;
   const gstPct = Number(gstPercent) || 0;
@@ -257,7 +355,7 @@ function RfqDetailSheet({
   const overdue = deadlineDays !== null && deadlineDays < 0;
   const isRevision = rfq.status === 'quote_submitted';
 
-  const submit = async () => {
+  const submitSingle = async () => {
     if (!unitPrice || !leadTime) {
       toast.error('Unit price and lead time are required');
       return;
@@ -280,11 +378,25 @@ function RfqDetailSheet({
         update.revision_count = (Number(rfq.revision_count) || 0) + 1;
         update.last_revised_at = new Date().toISOString();
       }
-      const { error } = await supabase
-        .from('rfq_portal_requests')
-        .update(update)
-        .eq('id', rfq.id);
+      const { error } = await supabase.from('rfq_portal_requests').update(update).eq('id', rfq.id);
       if (error) throw error;
+
+      // Also mirror into rfq_item_quotes (item 1) so the item-level table stays authoritative
+      await supabase.from('rfq_item_quotes').upsert(
+        {
+          rfq_id: rfq.rfq_id,
+          item_number: 1,
+          supplier_email: (supplierEmail || rfq.supplier_email || '').toLowerCase(),
+          quoted_unit_price: up,
+          quoted_gst_percent: gstPct,
+          total_price: perUnit,
+          lead_time_days: Number(leadTime),
+          setup_charges: Number(setupCharges) || 0,
+          quote_notes: notes,
+          quote_source: 'portal',
+        },
+        { onConflict: 'rfq_id,item_number,supplier_email' }
+      );
 
       n8nPost('rfq-quote-received', {
         rfq_id: rfq.rfq_id,
@@ -311,6 +423,93 @@ function RfqDetailSheet({
     }
   };
 
+  const submitMulti = async () => {
+    // Validation
+    for (const it of items) {
+      const p = itemPrices[it.item_number] || emptyPrice();
+      if (!p.unit_price || !p.lead_time_days) {
+        toast.error(`Item ${it.item_number} (${it.product_name}): unit price and lead time are required`);
+        return;
+      }
+    }
+    setSubmitting(true);
+    try {
+      const email = (supplierEmail || rfq.supplier_email || '').toLowerCase();
+      const nowIso = new Date().toISOString();
+
+      // 1. Upsert per-item quotes
+      const rows = items.map((it) => {
+        const p = itemPrices[it.item_number] || emptyPrice();
+        const upn = Number(p.unit_price) || 0;
+        const gstN = Number(p.gst_percent) || 0;
+        const perUnitN = upn * (1 + gstN / 100);
+        return {
+          rfq_id: rfq.rfq_id,
+          item_number: it.item_number,
+          supplier_email: email,
+          quoted_unit_price: upn,
+          quoted_gst_percent: gstN,
+          total_price: perUnitN,
+          lead_time_days: Number(p.lead_time_days) || 0,
+          setup_charges: Number(p.setup_charges) || 0,
+          quote_notes: p.quote_notes || null,
+          quote_source: 'portal',
+        };
+      });
+      const { error: qErr } = await supabase
+        .from('rfq_item_quotes')
+        .upsert(rows, { onConflict: 'rfq_id,item_number,supplier_email' });
+      if (qErr) throw qErr;
+
+      // 2. Update rfq_portal_requests with grand-total summary for backward compat
+      // quoted_unit_price = grand total (across all items, incl GST + setup) — used
+      // by existing comparison logic and ranking. This matches the previous meaning
+      // of "total quote from this supplier for this RFQ".
+      const update: any = {
+        quoted_unit_price: Number(multiTotals.grandTotal.toFixed(2)),
+        total_price: Number(multiTotals.grandTotal.toFixed(2)),
+        lead_time_days: multiTotals.maxLead,
+        payment_terms: paymentTerms,
+        validity_days: Number(validity) || 30,
+        supplier_notes: notes,
+        status: 'quote_submitted',
+        quote_submitted_at: nowIso,
+      };
+      if (isRevision) {
+        update.revision_count = (Number(rfq.revision_count) || 0) + 1;
+        update.last_revised_at = nowIso;
+      }
+      const { error: uErr } = await supabase.from('rfq_portal_requests').update(update).eq('id', rfq.id);
+      if (uErr) throw uErr;
+
+      n8nPost('rfq-quote-received', {
+        rfq_id: rfq.rfq_id,
+        supplier_email: rfq.supplier_email,
+        supplier_name: supplierName || rfq.supplier_email,
+        submitted_by_name: rfq.submitted_by_name,
+        submitted_by_email: rfq.submitted_by_email,
+        is_revision: isRevision,
+        is_multi_item: true,
+        item_count: items.length,
+        grand_total: Number(multiTotals.grandTotal.toFixed(2)),
+        max_lead_time_days: multiTotals.maxLead,
+        payment_terms: paymentTerms,
+        validity_days: Number(validity) || 30,
+        supplier_notes: notes,
+        items: rows,
+      }).catch(() => {});
+
+      toast.success(isRevision ? 'Quote revised successfully!' : 'Quote submitted! Emboss Marketing will review and get back to you.');
+      onSubmitted();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to submit quote');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submit = () => (isMulti ? submitMulti() : submitSingle());
+
   const Spec = ({ label, value }: { label: string; value?: string | number | null }) => (
     <div>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
@@ -328,32 +527,72 @@ function RfqDetailSheet({
             <span>{rfq.product_name}</span>
             <span className="font-mono text-sm text-muted-foreground">{rfq.rfq_id}</span>
             <RankBadge rank={rfq.price_rank} />
+            {isMulti && <Badge variant="secondary">{items.length} items</Badge>}
           </SheetTitle>
           <SheetDescription>{rfq.client_name}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* LEFT */}
+          {/* LEFT — specs */}
           <div className="space-y-6">
             <section>
               <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Product Specification
+                {isMulti ? `Items (${items.length})` : 'Product Specification'}
               </h4>
-              <div className="grid grid-cols-2 gap-4 rounded-lg border p-4">
-                <Spec label="Category" value={rfq.product_category} />
-                <Spec label="Product Name" value={rfq.product_name} />
-                <Spec label="Quantity" value={rfq.quantity} />
-                <Spec label="Dimensions" value={rfq.dimensions} />
-                <Spec label="Material" value={rfq.material} />
-                <Spec label="Print Process" value={rfq.print_process} />
-                <Spec label="Finish" value={rfq.finish} />
-                <Spec label="Colours" value={rfq.colours} />
-                <Spec label="Artwork Status" value={rfq.artwork_status} />
-                <Spec label="Item Specs" value={rfq.item_specs} />
-                <div className="col-span-2">
-                  <Spec label="Additional Specs" value={rfq.extra_specs} />
+              {isMulti ? (
+                <div className="space-y-3">
+                  {itemsLoading && <div className="text-sm text-muted-foreground">Loading items…</div>}
+                  {items.map((it) => (
+                    <div key={it.id} className="rounded-lg border p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <h5 className="font-semibold">
+                          Item {it.item_number}: {it.product_name}
+                        </h5>
+                        {it.product_category && (
+                          <Badge variant="outline">{it.product_category}</Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <Spec label="Quantity" value={it.quantity} />
+                        <Spec label="Dimensions" value={it.dimensions} />
+                        <Spec label="Material" value={it.material} />
+                        <Spec label="Print Process" value={it.print_process} />
+                        <Spec label="Finish" value={it.finish} />
+                        <Spec label="Colours" value={it.colours} />
+                        <Spec label="Artwork" value={it.artwork_status} />
+                        {it.extra_specs && (
+                          <div className="col-span-2">
+                            <Spec label="Specs" value={it.extra_specs} />
+                          </div>
+                        )}
+                      </div>
+                      {it.attachment_url && (
+                        <a href={it.attachment_url} target="_blank" rel="noreferrer" className="mt-2 inline-block">
+                          <Button variant="outline" size="sm">
+                            <ExternalLink className="mr-1 h-3 w-3" /> {it.attachment_name || 'Attachment'}
+                          </Button>
+                        </a>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 rounded-lg border p-4">
+                  <Spec label="Category" value={rfq.product_category} />
+                  <Spec label="Product Name" value={rfq.product_name} />
+                  <Spec label="Quantity" value={rfq.quantity} />
+                  <Spec label="Dimensions" value={rfq.dimensions} />
+                  <Spec label="Material" value={rfq.material} />
+                  <Spec label="Print Process" value={rfq.print_process} />
+                  <Spec label="Finish" value={rfq.finish} />
+                  <Spec label="Colours" value={rfq.colours} />
+                  <Spec label="Artwork Status" value={rfq.artwork_status} />
+                  <Spec label="Item Specs" value={rfq.item_specs} />
+                  <div className="col-span-2">
+                    <Spec label="Additional Specs" value={rfq.extra_specs} />
+                  </div>
+                </div>
+              )}
             </section>
 
             <section>
@@ -383,7 +622,7 @@ function RfqDetailSheet({
               </div>
             </section>
 
-            {rfq.artwork_drive_url && (
+            {!isMulti && rfq.artwork_drive_url && (
               <a href={rfq.artwork_drive_url} target="_blank" rel="noreferrer">
                 <Button variant="outline" className="w-full">
                   <ExternalLink className="mr-2 h-4 w-4" /> View Artwork Files
@@ -392,7 +631,7 @@ function RfqDetailSheet({
             )}
           </div>
 
-          {/* RIGHT */}
+          {/* RIGHT — quote / status */}
           <div className="space-y-4">
             {showForm && (
               <>
@@ -404,65 +643,179 @@ function RfqDetailSheet({
                     Closes: {formatDeadline(rfq.response_deadline)} — quote can be revised until then
                   </div>
                 )}
-                <div className="space-y-4 rounded-lg border p-4">
-                  <div>
-                    <Label>Unit Price (₹, ex-GST) *</Label>
-                    <Input type="number" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label>GST % *</Label>
-                    <Select value={gstPercent} onValueChange={setGstPercent}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {['0', '5', '12', '18', '28'].map((v) => (
-                          <SelectItem key={v} value={v}>{v}%</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Lead Time (days) *</Label>
-                    <Input type="number" value={leadTime} onChange={(e) => setLeadTime(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label>Payment Terms</Label>
-                    <Input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label>Validity (days)</Label>
-                    <Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label>Setup / Plate Charges (₹)</Label>
-                    <Input type="number" value={setupCharges} onChange={(e) => setSetupCharges(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label>Notes / Remarks</Label>
-                    <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
-                  </div>
 
-                  <div className="space-y-1 rounded-md bg-muted p-3 text-sm">
-                    <div className="flex justify-between"><span>Unit Price:</span><span>₹{up.toFixed(2)}</span></div>
-                    <div className="flex justify-between"><span>GST ({gstPct}%):</span><span>₹{gstAmt.toFixed(2)}</span></div>
-                    <div className="my-1 border-t" />
-                    <div className="flex justify-between font-bold"><span>Total per unit:</span><span>₹{perUnit.toFixed(2)}</span></div>
-                    <div className="flex justify-between font-bold text-green-700">
-                      <span>Total for {qty}:</span><span>₹{totalForQty.toFixed(2)}</span>
+                {isMulti ? (
+                  <div className="space-y-4 rounded-lg border p-4">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                            <th className="pb-2">Item</th>
+                            <th className="pb-2">Unit ₹*</th>
+                            <th className="pb-2">GST%*</th>
+                            <th className="pb-2">Lead*</th>
+                            <th className="pb-2">Setup ₹</th>
+                            <th className="pb-2 text-right">Line Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((it) => {
+                            const p = itemPrices[it.item_number] || emptyPrice();
+                            const qtyN = Number(it.quantity) || 0;
+                            const upn = Number(p.unit_price) || 0;
+                            const gstN = Number(p.gst_percent) || 0;
+                            const perUnitN = upn * (1 + gstN / 100);
+                            const line = perUnitN * qtyN + (Number(p.setup_charges) || 0);
+                            return (
+                              <tr key={it.id} className="border-t align-top">
+                                <td className="py-2 pr-2">
+                                  <div className="font-medium">{it.item_number}. {it.product_name}</div>
+                                  <div className="text-xs text-muted-foreground">{it.quantity}</div>
+                                </td>
+                                <td className="py-2 pr-2">
+                                  <Input
+                                    type="number"
+                                    className="w-24"
+                                    value={p.unit_price}
+                                    onChange={(e) => setItemPrice(it.item_number, { unit_price: e.target.value })}
+                                  />
+                                </td>
+                                <td className="py-2 pr-2">
+                                  <Select
+                                    value={p.gst_percent}
+                                    onValueChange={(v) => setItemPrice(it.item_number, { gst_percent: v })}
+                                  >
+                                    <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      {['0', '5', '12', '18', '28'].map((v) => (
+                                        <SelectItem key={v} value={v}>{v}%</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                                <td className="py-2 pr-2">
+                                  <Input
+                                    type="number"
+                                    className="w-20"
+                                    placeholder="days"
+                                    value={p.lead_time_days}
+                                    onChange={(e) => setItemPrice(it.item_number, { lead_time_days: e.target.value })}
+                                  />
+                                </td>
+                                <td className="py-2 pr-2">
+                                  <Input
+                                    type="number"
+                                    className="w-20"
+                                    value={p.setup_charges}
+                                    onChange={(e) => setItemPrice(it.item_number, { setup_charges: e.target.value })}
+                                  />
+                                </td>
+                                <td className="py-2 pl-2 text-right font-semibold">
+                                  ₹{line.toFixed(2)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 text-green-700">
+                            <td colSpan={5} className="py-2 text-right font-bold">Grand Total</td>
+                            <td className="py-2 pl-2 text-right font-bold">
+                              ₹{multiTotals.grandTotal.toFixed(2)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Payment Terms *</Label>
+                        <Input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label>Quote Validity (days) *</Label>
+                        <Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Additional Notes</Label>
+                      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+                    </div>
+
+                    <div className="flex gap-2">
+                      {isRevision && (
+                        <Button variant="outline" onClick={() => setReviseMode(false)} disabled={submitting}>
+                          Cancel
+                        </Button>
+                      )}
+                      <Button className="flex-1" onClick={submit} disabled={submitting}>
+                        {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isRevision ? 'Submit Revised Quote' : 'Submit Quote to Emboss Marketing'}
+                      </Button>
                     </div>
                   </div>
+                ) : (
+                  <div className="space-y-4 rounded-lg border p-4">
+                    <div>
+                      <Label>Unit Price (₹, ex-GST) *</Label>
+                      <Input type="number" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>GST % *</Label>
+                      <Select value={gstPercent} onValueChange={setGstPercent}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {['0', '5', '12', '18', '28'].map((v) => (
+                            <SelectItem key={v} value={v}>{v}%</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Lead Time (days) *</Label>
+                      <Input type="number" value={leadTime} onChange={(e) => setLeadTime(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Payment Terms</Label>
+                      <Input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Validity (days)</Label>
+                      <Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Setup / Plate Charges (₹)</Label>
+                      <Input type="number" value={setupCharges} onChange={(e) => setSetupCharges(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Notes / Remarks</Label>
+                      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+                    </div>
 
-                  <div className="flex gap-2">
-                    {isRevision && (
-                      <Button variant="outline" onClick={() => setReviseMode(false)} disabled={submitting}>
-                        Cancel
+                    <div className="space-y-1 rounded-md bg-muted p-3 text-sm">
+                      <div className="flex justify-between"><span>Unit Price:</span><span>₹{up.toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span>GST ({gstPct}%):</span><span>₹{gstAmt.toFixed(2)}</span></div>
+                      <div className="my-1 border-t" />
+                      <div className="flex justify-between font-bold"><span>Total per unit:</span><span>₹{perUnit.toFixed(2)}</span></div>
+                      <div className="flex justify-between font-bold text-green-700">
+                        <span>Total for {qty}:</span><span>₹{totalForQty.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      {isRevision && (
+                        <Button variant="outline" onClick={() => setReviseMode(false)} disabled={submitting}>
+                          Cancel
+                        </Button>
+                      )}
+                      <Button className="flex-1" onClick={submit} disabled={submitting}>
+                        {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isRevision ? 'Submit Revised Quote' : 'Submit Quote to Emboss Marketing'}
                       </Button>
-                    )}
-                    <Button className="flex-1" onClick={submit} disabled={submitting}>
-                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {isRevision ? 'Submit Revised Quote' : 'Submit Quote to Emboss Marketing'}
-                    </Button>
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
 
@@ -479,7 +832,11 @@ function RfqDetailSheet({
                     Your current rank: <span className="font-bold">#{rfq.price_rank}</span> of {totalSuppliers} suppliers
                   </div>
                 )}
-                <SubmittedQuote rfq={rfq} />
+                {isMulti ? (
+                  <SubmittedItemQuotes items={items} quotes={existingQuotes} rfq={rfq} />
+                ) : (
+                  <SubmittedQuote rfq={rfq} />
+                )}
                 {closed ? (
                   <div className="rounded-lg border border-red-300 bg-red-50 p-4 font-semibold text-red-800">
                     RFQ Closed — No further revisions accepted
@@ -503,7 +860,11 @@ function RfqDetailSheet({
                 <div className="rounded-lg border border-green-300 bg-green-50 p-4 font-semibold text-green-800">
                   Your Quote Was Accepted!
                 </div>
-                <SubmittedQuote rfq={rfq} />
+                {isMulti ? (
+                  <SubmittedItemQuotes items={items} quotes={existingQuotes} rfq={rfq} />
+                ) : (
+                  <SubmittedQuote rfq={rfq} />
+                )}
                 {rfq.emboss_notes && (
                   <div className="rounded-md bg-muted p-3 text-sm">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Notes from Emboss</p>
@@ -561,6 +922,65 @@ function SubmittedQuote({ rfq }: { rfq: RfqRow }) {
       )}
       {rfq.supplier_notes && (
         <div className="mt-2 border-t pt-2 text-sm">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Your Notes</p>
+          <p>{rfq.supplier_notes}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubmittedItemQuotes({ items, quotes, rfq }: { items: RfqItem[]; quotes: ItemQuote[]; rfq: RfqRow }) {
+  const total = quotes.reduce((sum, q) => {
+    const it = items.find((i) => i.item_number === q.item_number);
+    const qty = Number(it?.quantity) || 0;
+    const perUnit = Number(q.total_price) || 0;
+    return sum + perUnit * qty + (Number(q.setup_charges) || 0);
+  }, 0);
+  return (
+    <div className="rounded-lg border p-4">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <th className="pb-2">Item</th>
+            <th className="pb-2 text-right">Unit ₹</th>
+            <th className="pb-2 text-right">GST</th>
+            <th className="pb-2 text-right">Lead</th>
+            <th className="pb-2 text-right">Line ₹</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((it) => {
+            const q = quotes.find((x) => x.item_number === it.item_number);
+            const qty = Number(it.quantity) || 0;
+            const perUnit = Number(q?.total_price) || 0;
+            const line = perUnit * qty + (Number(q?.setup_charges) || 0);
+            return (
+              <tr key={it.id} className="border-t">
+                <td className="py-1">{it.item_number}. {it.product_name}</td>
+                <td className="py-1 text-right">{q?.quoted_unit_price != null ? `₹${q.quoted_unit_price}` : '—'}</td>
+                <td className="py-1 text-right">{q?.quoted_gst_percent != null ? `${q.quoted_gst_percent}%` : '—'}</td>
+                <td className="py-1 text-right">{q?.lead_time_days ?? '—'}d</td>
+                <td className="py-1 text-right font-semibold">₹{line.toFixed(2)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 text-green-700">
+            <td colSpan={4} className="py-1 text-right font-bold">Grand Total</td>
+            <td className="py-1 text-right font-bold">₹{total.toFixed(2)}</td>
+          </tr>
+        </tfoot>
+      </table>
+      {rfq.payment_terms && (
+        <div className="mt-3 border-t pt-2 text-sm">
+          <span className="text-muted-foreground">Payment: </span>{rfq.payment_terms}
+          {rfq.validity_days && <span className="ml-3 text-muted-foreground">Valid: {rfq.validity_days} days</span>}
+        </div>
+      )}
+      {rfq.supplier_notes && (
+        <div className="mt-2 text-sm">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Your Notes</p>
           <p>{rfq.supplier_notes}</p>
         </div>

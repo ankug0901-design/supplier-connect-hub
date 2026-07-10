@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart, ChevronDown, ChevronRight, Package } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import jsPDF from 'jspdf';
@@ -109,6 +109,10 @@ function RankCell({ rank }: { rank?: number | null }) {
 
 export default function AdminRfq() {
   const [rows, setRows] = useState<Rfq[]>([]);
+  const [itemsByRfq, setItemsByRfq] = useState<Record<string, any[]>>({});
+  const [itemQuotesByRfq, setItemQuotesByRfq] = useState<Record<string, any[]>>({});
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [expandedBreakdown, setExpandedBreakdown] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'awaiting' | 'compare' | 'decided'>('all');
   const [rejectTarget, setRejectTarget] = useState<Rfq | null>(null);
@@ -217,21 +221,32 @@ export default function AdminRfq() {
   };
 
   const load = async () => {
-    const { data } = await supabase
-      .from('rfq_portal_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    const { data: sups } = await supabase
-      .from('suppliers')
-      .select('email,company')
-      .limit(5000);
+    const [{ data }, { data: sups }, { data: allItems }, { data: allItemQuotes }] = await Promise.all([
+      supabase.from('rfq_portal_requests').select('*').order('created_at', { ascending: false }),
+      supabase.from('suppliers').select('email,company').limit(5000),
+      supabase.from('rfq_items').select('*').order('item_number', { ascending: true }),
+      supabase.from('rfq_item_quotes').select('*'),
+    ]);
 
     const companyByEmail: Record<string, string> = {};
     (sups || []).forEach((s: any) => {
       const emailKey = String(s.email || '').trim().toLowerCase();
       if (emailKey && s.company) companyByEmail[emailKey] = s.company;
     });
+
+    const itemsMap: Record<string, any[]> = {};
+    (allItems || []).forEach((it: any) => {
+      if (!itemsMap[it.rfq_id]) itemsMap[it.rfq_id] = [];
+      itemsMap[it.rfq_id].push(it);
+    });
+    setItemsByRfq(itemsMap);
+
+    const quotesMap: Record<string, any[]> = {};
+    (allItemQuotes || []).forEach((q: any) => {
+      if (!quotesMap[q.rfq_id]) quotesMap[q.rfq_id] = [];
+      quotesMap[q.rfq_id].push(q);
+    });
+    setItemQuotesByRfq(quotesMap);
 
     setRows((data || []).map((r: any) => ({
       ...r,
@@ -533,6 +548,10 @@ export default function AdminRfq() {
               countdown?.tone === 'expired' ? 'border-red-400 bg-red-100 text-red-800' :
               'border-muted bg-muted text-muted-foreground';
             const deadlineToneCls = deadlineToneClass(first.response_deadline, first.closing_time);
+            const rfqItems: any[] = itemsByRfq[rfq_id] || [];
+            const rfqItemQuotes: any[] = itemQuotesByRfq[rfq_id] || [];
+            const isMulti = !!first.is_multi_item && rfqItems.length > 1;
+            const itemsExpanded = expandedItems[rfq_id] ?? false;
             return (
               <Card key={rfq_id}>
                 <CardContent className="space-y-4 p-5">
@@ -541,6 +560,11 @@ export default function AdminRfq() {
                       <div className="flex items-center gap-3">
                         <span className="font-mono text-sm text-muted-foreground">{rfq_id}</span>
                         <h3 className="text-lg font-bold">{first.product_name}</h3>
+                        {isMulti && (
+                          <Badge variant="secondary" className="border border-indigo-300 bg-indigo-50 text-indigo-800">
+                            <Package className="mr-1 h-3 w-3" /> {rfqItems.length} items
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Closes: <span className={deadlineToneCls}>{fmtDeadline(first.response_deadline, first.closing_time)}</span>
@@ -597,6 +621,38 @@ export default function AdminRfq() {
                     </div>
                   </div>
 
+                  {isMulti && (
+                    <div className="rounded-md border">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedItems((e) => ({ ...e, [rfq_id]: !itemsExpanded }))}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50"
+                      >
+                        <span className="flex items-center gap-2 font-medium">
+                          {itemsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          Items ({rfqItems.length})
+                        </span>
+                        <span className="text-xs text-muted-foreground">Click to {itemsExpanded ? 'hide' : 'show'} item specs</span>
+                      </button>
+                      {itemsExpanded && (
+                        <div className="border-t p-3 space-y-2">
+                          {rfqItems.map((it) => (
+                            <div key={it.id} className="text-sm">
+                              <span className="font-semibold">Item {it.item_number}:</span> {it.product_name}
+                              {it.product_category && <span className="text-muted-foreground"> — {it.product_category}</span>}
+                              <span className="text-muted-foreground"> — {it.quantity}</span>
+                              {(it.material || it.print_process || it.finish) && (
+                                <div className="pl-4 text-xs text-muted-foreground">
+                                  {[it.material, it.print_process, it.finish].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {items.length >= 1 && (
                     <div className="overflow-x-auto rounded-md border">
                       <table className="w-full text-sm">
@@ -630,14 +686,38 @@ export default function AdminRfq() {
                             const rowRank = isPending ? null : effectiveRank(r);
                             const isTopRank = rowRank === 1;
                             const revisionCount = Number(r.revision_count) || 0;
+                            const supplierEmail = String(r.supplier_email || '').toLowerCase();
+                            const supplierItemQuotes = isMulti && !isPending
+                              ? rfqItemQuotes
+                                  .filter((q) => String(q.supplier_email || '').toLowerCase() === supplierEmail)
+                                  .sort((a, b) => a.item_number - b.item_number)
+                              : [];
+                            const breakdownKey = `${rfq_id}::${r.id}`;
+                            const showBreakdown = expandedBreakdown[breakdownKey] ?? false;
+                            const canExpand = supplierItemQuotes.length > 0;
                             return (
-                              <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending && !rfqIsClosed ? 'bg-yellow-50/40' : ''} ${isPending && rfqIsClosed ? 'bg-muted/40 text-muted-foreground' : ''}`}>
+                              <Fragment key={r.id}>
+                              <tr className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending && !rfqIsClosed ? 'bg-yellow-50/40' : ''} ${isPending && rfqIsClosed ? 'bg-muted/40 text-muted-foreground' : ''}`}>
                                 <td className="p-2">
                                   {isPending ? <span className="text-muted-foreground">—</span> : <RankCell rank={rowRank} />}
                                 </td>
                                 <td className="p-2">
-                                  <div className="font-medium">{sName || r.supplier_email}</div>
-                                  {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
+                                  <div className="flex items-center gap-1.5">
+                                    {canExpand && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedBreakdown((e) => ({ ...e, [breakdownKey]: !showBreakdown }))}
+                                        className="rounded p-0.5 hover:bg-muted"
+                                        aria-label="Show item breakdown"
+                                      >
+                                        {showBreakdown ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                      </button>
+                                    )}
+                                    <div>
+                                      <div className="font-medium">{sName || r.supplier_email}</div>
+                                      {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
+                                    </div>
+                                  </div>
                                   {revisionCount > 0 && (
                                     <Badge variant="secondary" className="mt-1 text-xs">Revised {revisionCount}x</Badge>
                                   )}
@@ -657,6 +737,18 @@ export default function AdminRfq() {
                                       </Badge>
                                     )}
                                   </td>
+                                ) : isMulti ? (
+                                  <>
+                                    <td className="p-2 italic text-muted-foreground" colSpan={2}>Multi-item</td>
+                                    <td className={`p-2 font-semibold ${isTopRank ? 'bg-green-100 text-green-800' : ''}`}>
+                                      ₹{(Number(r.total_price) || Number(r.quoted_unit_price) || 0).toFixed(2)}
+                                      <div className="text-xs font-normal text-muted-foreground">grand total</div>
+                                    </td>
+                                    <td className="p-2">{r.lead_time_days ?? '—'}d max</td>
+                                    <td className="p-2">{r.payment_terms || '—'}</td>
+                                    <td className="p-2">{r.validity_days ?? '—'}d</td>
+                                    <td className="p-2">—</td>
+                                  </>
                                 ) : (
                                   <>
                                     <td className="p-2">₹{up.toFixed(2)}</td>
@@ -695,6 +787,48 @@ export default function AdminRfq() {
                                   </div>
                                 </td>
                               </tr>
+                              {showBreakdown && canExpand && (
+                                <tr className="border-t bg-muted/30">
+                                  <td colSpan={11} className="p-3">
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Per-item breakdown</div>
+                                    <table className="w-full text-xs">
+                                      <thead className="text-left text-muted-foreground">
+                                        <tr>
+                                          <th className="pb-1">Item</th>
+                                          <th className="pb-1 text-right">Unit ₹</th>
+                                          <th className="pb-1 text-right">GST</th>
+                                          <th className="pb-1 text-right">Total/unit</th>
+                                          <th className="pb-1 text-right">Qty</th>
+                                          <th className="pb-1 text-right">Lead</th>
+                                          <th className="pb-1 text-right">Setup ₹</th>
+                                          <th className="pb-1 text-right">Line total</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {supplierItemQuotes.map((q) => {
+                                          const it = rfqItems.find((i) => i.item_number === q.item_number);
+                                          const qtyN = Number(it?.quantity) || 0;
+                                          const perU = Number(q.total_price) || 0;
+                                          const line = perU * qtyN + (Number(q.setup_charges) || 0);
+                                          return (
+                                            <tr key={q.id} className="border-t border-border/50">
+                                              <td className="py-1">{q.item_number}. {it?.product_name || '—'}</td>
+                                              <td className="py-1 text-right">₹{Number(q.quoted_unit_price || 0).toFixed(2)}</td>
+                                              <td className="py-1 text-right">{q.quoted_gst_percent ?? 0}%</td>
+                                              <td className="py-1 text-right">₹{perU.toFixed(2)}</td>
+                                              <td className="py-1 text-right">{it?.quantity ?? '—'}</td>
+                                              <td className="py-1 text-right">{q.lead_time_days ?? '—'}d</td>
+                                              <td className="py-1 text-right">₹{Number(q.setup_charges || 0).toFixed(2)}</td>
+                                              <td className="py-1 text-right font-semibold">₹{line.toFixed(2)}</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </td>
+                                </tr>
+                              )}
+                              </Fragment>
                             );
                           })}
                         </tbody>
