@@ -696,8 +696,8 @@ export default function AdminRfq() {
                             const showBreakdown = expandedBreakdown[breakdownKey] ?? false;
                             const canExpand = supplierItemQuotes.length > 0;
                             return (
-                              <>
-                              <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending && !rfqIsClosed ? 'bg-yellow-50/40' : ''} ${isPending && rfqIsClosed ? 'bg-muted/40 text-muted-foreground' : ''}`}>
+                              <Fragment key={r.id}>
+                              <tr className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending && !rfqIsClosed ? 'bg-yellow-50/40' : ''} ${isPending && rfqIsClosed ? 'bg-muted/40 text-muted-foreground' : ''}`}>
                                 <td className="p-2">
                                   {isPending ? <span className="text-muted-foreground">—</span> : <RankCell rank={rowRank} />}
                                 </td>
