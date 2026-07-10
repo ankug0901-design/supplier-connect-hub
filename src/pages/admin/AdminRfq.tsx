@@ -221,21 +221,32 @@ export default function AdminRfq() {
   };
 
   const load = async () => {
-    const { data } = await supabase
-      .from('rfq_portal_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    const { data: sups } = await supabase
-      .from('suppliers')
-      .select('email,company')
-      .limit(5000);
+    const [{ data }, { data: sups }, { data: allItems }, { data: allItemQuotes }] = await Promise.all([
+      supabase.from('rfq_portal_requests').select('*').order('created_at', { ascending: false }),
+      supabase.from('suppliers').select('email,company').limit(5000),
+      supabase.from('rfq_items').select('*').order('item_number', { ascending: true }),
+      supabase.from('rfq_item_quotes').select('*'),
+    ]);
 
     const companyByEmail: Record<string, string> = {};
     (sups || []).forEach((s: any) => {
       const emailKey = String(s.email || '').trim().toLowerCase();
       if (emailKey && s.company) companyByEmail[emailKey] = s.company;
     });
+
+    const itemsMap: Record<string, any[]> = {};
+    (allItems || []).forEach((it: any) => {
+      if (!itemsMap[it.rfq_id]) itemsMap[it.rfq_id] = [];
+      itemsMap[it.rfq_id].push(it);
+    });
+    setItemsByRfq(itemsMap);
+
+    const quotesMap: Record<string, any[]> = {};
+    (allItemQuotes || []).forEach((q: any) => {
+      if (!quotesMap[q.rfq_id]) quotesMap[q.rfq_id] = [];
+      quotesMap[q.rfq_id].push(q);
+    });
+    setItemQuotesByRfq(quotesMap);
 
     setRows((data || []).map((r: any) => ({
       ...r,
