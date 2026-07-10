@@ -686,14 +686,38 @@ export default function AdminRfq() {
                             const rowRank = isPending ? null : effectiveRank(r);
                             const isTopRank = rowRank === 1;
                             const revisionCount = Number(r.revision_count) || 0;
+                            const supplierEmail = String(r.supplier_email || '').toLowerCase();
+                            const supplierItemQuotes = isMulti && !isPending
+                              ? rfqItemQuotes
+                                  .filter((q) => String(q.supplier_email || '').toLowerCase() === supplierEmail)
+                                  .sort((a, b) => a.item_number - b.item_number)
+                              : [];
+                            const breakdownKey = `${rfq_id}::${r.id}`;
+                            const showBreakdown = expandedBreakdown[breakdownKey] ?? false;
+                            const canExpand = supplierItemQuotes.length > 0;
                             return (
+                              <>
                               <tr key={r.id} className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending && !rfqIsClosed ? 'bg-yellow-50/40' : ''} ${isPending && rfqIsClosed ? 'bg-muted/40 text-muted-foreground' : ''}`}>
                                 <td className="p-2">
                                   {isPending ? <span className="text-muted-foreground">—</span> : <RankCell rank={rowRank} />}
                                 </td>
                                 <td className="p-2">
-                                  <div className="font-medium">{sName || r.supplier_email}</div>
-                                  {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
+                                  <div className="flex items-center gap-1.5">
+                                    {canExpand && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedBreakdown((e) => ({ ...e, [breakdownKey]: !showBreakdown }))}
+                                        className="rounded p-0.5 hover:bg-muted"
+                                        aria-label="Show item breakdown"
+                                      >
+                                        {showBreakdown ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                      </button>
+                                    )}
+                                    <div>
+                                      <div className="font-medium">{sName || r.supplier_email}</div>
+                                      {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
+                                    </div>
+                                  </div>
                                   {revisionCount > 0 && (
                                     <Badge variant="secondary" className="mt-1 text-xs">Revised {revisionCount}x</Badge>
                                   )}
@@ -713,6 +737,18 @@ export default function AdminRfq() {
                                       </Badge>
                                     )}
                                   </td>
+                                ) : isMulti ? (
+                                  <>
+                                    <td className="p-2 italic text-muted-foreground" colSpan={2}>Multi-item</td>
+                                    <td className={`p-2 font-semibold ${isTopRank ? 'bg-green-100 text-green-800' : ''}`}>
+                                      ₹{(Number(r.total_price) || Number(r.quoted_unit_price) || 0).toFixed(2)}
+                                      <div className="text-xs font-normal text-muted-foreground">grand total</div>
+                                    </td>
+                                    <td className="p-2">{r.lead_time_days ?? '—'}d max</td>
+                                    <td className="p-2">{r.payment_terms || '—'}</td>
+                                    <td className="p-2">{r.validity_days ?? '—'}d</td>
+                                    <td className="p-2">—</td>
+                                  </>
                                 ) : (
                                   <>
                                     <td className="p-2">₹{up.toFixed(2)}</td>
@@ -751,6 +787,48 @@ export default function AdminRfq() {
                                   </div>
                                 </td>
                               </tr>
+                              {showBreakdown && canExpand && (
+                                <tr className="border-t bg-muted/30">
+                                  <td colSpan={11} className="p-3">
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Per-item breakdown</div>
+                                    <table className="w-full text-xs">
+                                      <thead className="text-left text-muted-foreground">
+                                        <tr>
+                                          <th className="pb-1">Item</th>
+                                          <th className="pb-1 text-right">Unit ₹</th>
+                                          <th className="pb-1 text-right">GST</th>
+                                          <th className="pb-1 text-right">Total/unit</th>
+                                          <th className="pb-1 text-right">Qty</th>
+                                          <th className="pb-1 text-right">Lead</th>
+                                          <th className="pb-1 text-right">Setup ₹</th>
+                                          <th className="pb-1 text-right">Line total</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {supplierItemQuotes.map((q) => {
+                                          const it = rfqItems.find((i) => i.item_number === q.item_number);
+                                          const qtyN = Number(it?.quantity) || 0;
+                                          const perU = Number(q.total_price) || 0;
+                                          const line = perU * qtyN + (Number(q.setup_charges) || 0);
+                                          return (
+                                            <tr key={q.id} className="border-t border-border/50">
+                                              <td className="py-1">{q.item_number}. {it?.product_name || '—'}</td>
+                                              <td className="py-1 text-right">₹{Number(q.quoted_unit_price || 0).toFixed(2)}</td>
+                                              <td className="py-1 text-right">{q.quoted_gst_percent ?? 0}%</td>
+                                              <td className="py-1 text-right">₹{perU.toFixed(2)}</td>
+                                              <td className="py-1 text-right">{it?.quantity ?? '—'}</td>
+                                              <td className="py-1 text-right">{q.lead_time_days ?? '—'}d</td>
+                                              <td className="py-1 text-right">₹{Number(q.setup_charges || 0).toFixed(2)}</td>
+                                              <td className="py-1 text-right font-semibold">₹{line.toFixed(2)}</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </td>
+                                </tr>
+                              )}
+                              </>
                             );
                           })}
                         </tbody>
