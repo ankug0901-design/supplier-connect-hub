@@ -828,7 +828,7 @@ export default function AdminRfq() {
                                   </td>
                                 </tr>
                               )}
-                              </>
+                              </Fragment>
                             );
                           })}
                         </tbody>
