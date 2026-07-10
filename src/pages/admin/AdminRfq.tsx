@@ -621,6 +621,38 @@ export default function AdminRfq() {
                     </div>
                   </div>
 
+                  {isMulti && (
+                    <div className="rounded-md border">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedItems((e) => ({ ...e, [rfq_id]: !itemsExpanded }))}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50"
+                      >
+                        <span className="flex items-center gap-2 font-medium">
+                          {itemsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          Items ({rfqItems.length})
+                        </span>
+                        <span className="text-xs text-muted-foreground">Click to {itemsExpanded ? 'hide' : 'show'} item specs</span>
+                      </button>
+                      {itemsExpanded && (
+                        <div className="border-t p-3 space-y-2">
+                          {rfqItems.map((it) => (
+                            <div key={it.id} className="text-sm">
+                              <span className="font-semibold">Item {it.item_number}:</span> {it.product_name}
+                              {it.product_category && <span className="text-muted-foreground"> — {it.product_category}</span>}
+                              <span className="text-muted-foreground"> — {it.quantity}</span>
+                              {(it.material || it.print_process || it.finish) && (
+                                <div className="pl-4 text-xs text-muted-foreground">
+                                  {[it.material, it.print_process, it.finish].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {items.length >= 1 && (
                     <div className="overflow-x-auto rounded-md border">
                       <table className="w-full text-sm">
