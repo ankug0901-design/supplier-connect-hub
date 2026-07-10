@@ -560,6 +560,11 @@ export default function AdminRfq() {
                       <div className="flex items-center gap-3">
                         <span className="font-mono text-sm text-muted-foreground">{rfq_id}</span>
                         <h3 className="text-lg font-bold">{first.product_name}</h3>
+                        {isMulti && (
+                          <Badge variant="secondary" className="border border-indigo-300 bg-indigo-50 text-indigo-800">
+                            <Package className="mr-1 h-3 w-3" /> {rfqItems.length} items
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Closes: <span className={deadlineToneCls}>{fmtDeadline(first.response_deadline, first.closing_time)}</span>
