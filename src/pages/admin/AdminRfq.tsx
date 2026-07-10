@@ -548,6 +548,10 @@ export default function AdminRfq() {
               countdown?.tone === 'expired' ? 'border-red-400 bg-red-100 text-red-800' :
               'border-muted bg-muted text-muted-foreground';
             const deadlineToneCls = deadlineToneClass(first.response_deadline, first.closing_time);
+            const rfqItems: any[] = itemsByRfq[rfq_id] || [];
+            const rfqItemQuotes: any[] = itemQuotesByRfq[rfq_id] || [];
+            const isMulti = !!first.is_multi_item && rfqItems.length > 1;
+            const itemsExpanded = expandedItems[rfq_id] ?? false;
             return (
               <Card key={rfq_id}>
                 <CardContent className="space-y-4 p-5">
