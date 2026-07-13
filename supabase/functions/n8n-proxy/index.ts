@@ -200,7 +200,9 @@ Deno.serve(async (req) => {
           res = new Response(await r.arrayBuffer(), { status: r.status, statusText: r.statusText, headers });
         } catch (retryErr) {
           const rmsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
-          console.error('n8n-proxy insecure retry failed', { path, rmsg });
+          const cause = (retryErr as any)?.cause;
+          const causeMsg = cause instanceof Error ? cause.message : cause ? String(cause) : '';
+          console.error('n8n-proxy insecure retry failed', { path, rmsg, causeMsg });
           return json({
             error: 'Automation service is temporarily unreachable (upstream TLS certificate issue). Please try again shortly or contact support.',
             upstream: rmsg,
