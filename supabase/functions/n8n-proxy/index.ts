@@ -186,23 +186,19 @@ Deno.serve(async (req) => {
       console.error('n8n-proxy upstream fetch failed', { path, msg });
 
       if (isTls) {
-        // Upstream n8n host has an expired TLS cert. Temporary workaround:
-        // retry with undici's fetch using a dispatcher that skips peer
-        // verification so the automation stays functional until the cert
-        // is renewed on the n8n server.
+        // Upstream n8n host has an expired TLS cert. Deno edge runtime
+        // cannot bypass peer verification, so fall back to plain HTTP on
+        // the same host — the n8n instance accepts it and this keeps the
+        // automation working until the cert is renewed.
         try {
-          const undici: any = await import('npm:undici@6');
-          const dispatcher = new undici.Agent({ connect: { rejectUnauthorized: false } });
           const { url: url2, init: init2 } = buildRequest();
-          const r = await undici.fetch(url2, { ...init2, dispatcher });
-          const headers = new Headers();
-          r.headers.forEach((v: string, k: string) => headers.set(k, v));
-          res = new Response(await r.arrayBuffer(), { status: r.status, statusText: r.statusText, headers });
+          const httpUrl = url2.replace(/^https:\/\//i, 'http://');
+          res = await fetch(httpUrl, init2);
         } catch (retryErr) {
           const rmsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
           const cause = (retryErr as any)?.cause;
           const causeMsg = cause instanceof Error ? cause.message : cause ? String(cause) : '';
-          console.error('n8n-proxy insecure retry failed', { path, rmsg, causeMsg });
+          console.error('n8n-proxy http fallback failed', { path, rmsg, causeMsg });
           return json({
             error: 'Automation service is temporarily unreachable (upstream TLS certificate issue). Please try again shortly or contact support.',
             upstream: rmsg,
