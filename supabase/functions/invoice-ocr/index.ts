@@ -67,12 +67,9 @@ Deno.serve(async (req) => {
     const { object } = await generateObject({
       model,
       schema: InvoiceSchema,
+      system:
+        "You extract structured invoice data from supplier invoices for an Indian B2B portal. Return null for fields that are not present. Normalize dates to YYYY-MM-DD. Amounts must be numbers without currency symbols or commas.",
       messages: [
-        {
-          role: "system",
-          content:
-            "You extract structured invoice data from supplier invoices for an Indian B2B portal. Return null for fields that are not present. Normalize dates to YYYY-MM-DD. Amounts must be numbers without currency symbols or commas.",
-        },
         {
           role: "user",
           content: [
