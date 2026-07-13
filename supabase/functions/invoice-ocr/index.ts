@@ -8,27 +8,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// NOTE: OpenAI strict structured-output mode requires every property to appear
+// in the schema's `required` array (nullable is fine, missing is not). We use
+// `.nullable()` throughout so keys stay required but the model can emit null.
 const InvoiceSchema = z.object({
-  invoice_number: z.string().nullish(),
-  invoice_date: z.string().nullish(),
-  po_number: z.string().nullish(),
-  supplier_name: z.string().nullish(),
-  gst_number: z.string().nullish(),
-  subtotal: z.number().nullish(),
-  tax_amount: z.number().nullish(),
-  total_amount: z.number().nullish(),
-  currency: z.string().nullish(),
+  invoice_number: z.string().nullable(),
+  invoice_date: z.string().nullable(),
+  po_number: z.string().nullable(),
+  supplier_name: z.string().nullable(),
+  gst_number: z.string().nullable(),
+  subtotal: z.number().nullable(),
+  tax_amount: z.number().nullable(),
+  total_amount: z.number().nullable(),
+  currency: z.string().nullable(),
   line_items: z
     .array(
       z.object({
-        item_name: z.string().nullish(),
-        quantity: z.number().nullish(),
-        rate: z.number().nullish(),
-        amount: z.number().nullish(),
+        item_name: z.string().nullable(),
+        quantity: z.number().nullable(),
+        rate: z.number().nullable(),
+        amount: z.number().nullable(),
       }),
     )
-    .nullish()
-    .default([]),
+    .nullable(),
 });
 
 Deno.serve(async (req) => {
