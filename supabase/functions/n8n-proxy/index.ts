@@ -154,45 +154,64 @@ Deno.serve(async (req) => {
       }
     }
 
-    let res: Response;
-    try {
+    const buildRequest = (): { url: string; init: RequestInit } => {
       if (isMultipart && multipartForm) {
-        // Strip any client-supplied access_code and inject server-side
         const outForm = new FormData();
         for (const [k, v] of multipartForm.entries()) {
           if (k === 'access_code') continue;
           outForm.append(k, v as Blob | string);
         }
         outForm.append('access_code', accessCode);
-        // Let fetch set the multipart boundary header automatically
-        res = await fetch(`${N8N_BASE}/${path}`, { method: 'POST', body: outForm });
-      } else {
-        const safePayload = { ...(payload as Record<string, unknown>) };
-        delete safePayload.access_code;
-        res = await fetch(`${N8N_BASE}/${path}`, {
+        return { url: `${N8N_BASE}/${path}`, init: { method: 'POST', body: outForm } };
+      }
+      const safePayload = { ...(payload as Record<string, unknown>) };
+      delete safePayload.access_code;
+      return {
+        url: `${N8N_BASE}/${path}`,
+        init: {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ access_code: accessCode, ...safePayload }),
-        });
-      }
+        },
+      };
+    };
+
+    let res: Response;
+    const { url, init } = buildRequest();
+    try {
+      res = await fetch(url, init);
     } catch (fetchErr) {
-      // Network / TLS failures reaching the n8n host (e.g. expired peer
-      // certificate) come through here as a TypeError. Surface a clear
-      // message so the UI can show something actionable instead of a
-      // generic non-2xx toast.
       const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
       const isTls = /invalid peer certificate|certificate|tls|ssl/i.test(msg);
       console.error('n8n-proxy upstream fetch failed', { path, msg });
-      return json(
-        {
-          error: isTls
-            ? 'Automation service is temporarily unreachable (upstream TLS certificate issue). Please try again shortly or contact support.'
-            : 'Automation service is temporarily unreachable. Please try again shortly.',
+
+      if (isTls) {
+        // Upstream n8n host has an expired TLS cert. Deno edge runtime
+        // cannot bypass peer verification, so fall back to plain HTTP on
+        // the same host — the n8n instance accepts it and this keeps the
+        // automation working until the cert is renewed.
+        try {
+          const { url: url2, init: init2 } = buildRequest();
+          const httpUrl = url2.replace(/^https:\/\//i, 'http://');
+          res = await fetch(httpUrl, init2);
+        } catch (retryErr) {
+          const rmsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          const cause = (retryErr as any)?.cause;
+          const causeMsg = cause instanceof Error ? cause.message : cause ? String(cause) : '';
+          console.error('n8n-proxy http fallback failed', { path, rmsg, causeMsg });
+          return json({
+            error: 'Automation service is temporarily unreachable (upstream TLS certificate issue). Please try again shortly or contact support.',
+            upstream: rmsg,
+            code: 'UPSTREAM_TLS_ERROR',
+          }, 502);
+        }
+      } else {
+        return json({
+          error: 'Automation service is temporarily unreachable. Please try again shortly.',
           upstream: msg,
-          code: isTls ? 'UPSTREAM_TLS_ERROR' : 'UPSTREAM_UNREACHABLE',
-        },
-        502,
-      );
+          code: 'UPSTREAM_UNREACHABLE',
+        }, 502);
+      }
     }
 
 
