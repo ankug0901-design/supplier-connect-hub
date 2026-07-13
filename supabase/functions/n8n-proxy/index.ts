@@ -155,25 +155,46 @@ Deno.serve(async (req) => {
     }
 
     let res: Response;
-    if (isMultipart && multipartForm) {
-      // Strip any client-supplied access_code and inject server-side
-      const outForm = new FormData();
-      for (const [k, v] of multipartForm.entries()) {
-        if (k === 'access_code') continue;
-        outForm.append(k, v as Blob | string);
+    try {
+      if (isMultipart && multipartForm) {
+        // Strip any client-supplied access_code and inject server-side
+        const outForm = new FormData();
+        for (const [k, v] of multipartForm.entries()) {
+          if (k === 'access_code') continue;
+          outForm.append(k, v as Blob | string);
+        }
+        outForm.append('access_code', accessCode);
+        // Let fetch set the multipart boundary header automatically
+        res = await fetch(`${N8N_BASE}/${path}`, { method: 'POST', body: outForm });
+      } else {
+        const safePayload = { ...(payload as Record<string, unknown>) };
+        delete safePayload.access_code;
+        res = await fetch(`${N8N_BASE}/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ access_code: accessCode, ...safePayload }),
+        });
       }
-      outForm.append('access_code', accessCode);
-      // Let fetch set the multipart boundary header automatically
-      res = await fetch(`${N8N_BASE}/${path}`, { method: 'POST', body: outForm });
-    } else {
-      const safePayload = { ...(payload as Record<string, unknown>) };
-      delete safePayload.access_code;
-      res = await fetch(`${N8N_BASE}/${path}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_code: accessCode, ...safePayload }),
-      });
+    } catch (fetchErr) {
+      // Network / TLS failures reaching the n8n host (e.g. expired peer
+      // certificate) come through here as a TypeError. Surface a clear
+      // message so the UI can show something actionable instead of a
+      // generic non-2xx toast.
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      const isTls = /invalid peer certificate|certificate|tls|ssl/i.test(msg);
+      console.error('n8n-proxy upstream fetch failed', { path, msg });
+      return json(
+        {
+          error: isTls
+            ? 'Automation service is temporarily unreachable (upstream TLS certificate issue). Please try again shortly or contact support.'
+            : 'Automation service is temporarily unreachable. Please try again shortly.',
+          upstream: msg,
+          code: isTls ? 'UPSTREAM_TLS_ERROR' : 'UPSTREAM_UNREACHABLE',
+        },
+        502,
+      );
     }
+
 
     const text = await res.text();
     const upstreamCT = res.headers.get('content-type') || '';
