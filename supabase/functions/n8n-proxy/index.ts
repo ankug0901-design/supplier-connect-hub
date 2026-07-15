@@ -186,32 +186,20 @@ Deno.serve(async (req) => {
       console.error('n8n-proxy upstream fetch failed', { path, msg });
 
       if (isTls) {
-        // Upstream n8n host has an expired TLS cert. Deno edge runtime
-        // cannot bypass peer verification, so fall back to plain HTTP on
-        // the same host — the n8n instance accepts it and this keeps the
-        // automation working until the cert is renewed.
-        try {
-          const { url: url2, init: init2 } = buildRequest();
-          const httpUrl = url2.replace(/^https:\/\//i, 'http://');
-          res = await fetch(httpUrl, init2);
-        } catch (retryErr) {
-          const rmsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
-          const cause = (retryErr as any)?.cause;
-          const causeMsg = cause instanceof Error ? cause.message : cause ? String(cause) : '';
-          console.error('n8n-proxy http fallback failed', { path, rmsg, causeMsg });
-          return json({
-            error: 'Automation service is temporarily unreachable (upstream TLS certificate issue). Please try again shortly or contact support.',
-            upstream: rmsg,
-            code: 'UPSTREAM_TLS_ERROR',
-          }, 502);
-        }
-      } else {
+        // Do NOT fall back to plain HTTP: that would leak the N8N access
+        // code and payload in cleartext. Surface a clear error so the
+        // upstream certificate gets renewed.
         return json({
-          error: 'Automation service is temporarily unreachable. Please try again shortly.',
+          error: 'Automation service is temporarily unreachable (upstream TLS certificate is invalid). Please contact support to renew the certificate.',
           upstream: msg,
-          code: 'UPSTREAM_UNREACHABLE',
+          code: 'UPSTREAM_TLS_ERROR',
         }, 502);
       }
+      return json({
+        error: 'Automation service is temporarily unreachable. Please try again shortly.',
+        upstream: msg,
+        code: 'UPSTREAM_UNREACHABLE',
+      }, 502);
     }
 
 
