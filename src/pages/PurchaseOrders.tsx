@@ -136,7 +136,8 @@ function SkeletonRow({ cols }: { cols: number }) {
 const PAGE_SIZE = 20;
 
 export default function PurchaseOrders() {
-  const { supplier, isAdmin } = useAuth();
+  const { supplier, isAdmin, isImpersonating } = useAuth();
+  const adminMode = isAdmin && !isImpersonating;
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -168,16 +169,16 @@ export default function PurchaseOrders() {
   };
 
   useEffect(() => {
-    if (!isAdmin && !supplier?.zoho_vendor_id) { setIsLoading(false); return; }
+    if (!adminMode && !supplier?.zoho_vendor_id) { setIsLoading(false); return; }
     let cancelled = false;
     (async () => {
       setIsLoading(true);
       try {
-        const data = isAdmin
+        const data = adminMode
           ? await fetchPurchaseOrdersFromDb(false)
-          : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
+          : await fetchPurchaseOrders(supplier!.zoho_vendor_id!, supplier!.id);
         if (!cancelled) setPurchaseOrders(data);
-        if (isAdmin) {
+        if (adminMode) {
           syncAndFetchPurchaseOrdersFromDb()
             .then((fresh) => { if (!cancelled) setPurchaseOrders(fresh); })
             .catch((e) => console.warn('Background PO refresh failed', e));
@@ -187,7 +188,7 @@ export default function PurchaseOrders() {
       } finally { if (!cancelled) setIsLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [supplier?.zoho_vendor_id, isAdmin]);
+  }, [supplier?.zoho_vendor_id, supplier?.id, adminMode]);
 
   const availableStatuses = useMemo(
     () => Array.from(new Set(
@@ -279,7 +280,7 @@ export default function PurchaseOrders() {
 
   useEffect(() => { setPage(1); }, [searchQuery, statusFilter, supplierFilter, awaitingOnly]);
 
-  if (!isAdmin && !supplier?.zoho_vendor_id) {
+  if (!adminMode && !supplier?.zoho_vendor_id) {
     return (
       <DashboardLayout title="Purchase Orders" subtitle="View and manage all your purchase orders">
         <AccountSetupBanner />
@@ -336,7 +337,7 @@ export default function PurchaseOrders() {
     return null;
   };
 
-  const columnCount = isAdmin ? 8 : 7;
+  const columnCount = adminMode ? 8 : 7;
 
   return (
     <DashboardLayout title="Purchase Orders" subtitle={subtitle as any}>
@@ -346,7 +347,7 @@ export default function PurchaseOrders() {
           <div className="relative w-full max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
             <Input
-              placeholder={isAdmin ? 'Search by PO #, supplier, or item…' : 'Search by PO # or item…'}
+              placeholder={adminMode ? 'Search by PO #, supplier, or item…' : 'Search by PO # or item…'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-9 border-[#E5E7EB] bg-white pl-9 text-[13px]"
@@ -441,7 +442,7 @@ export default function PurchaseOrders() {
             </Chip>
           ))}
           <div className="mx-1 h-5 w-px bg-[#E5E7EB]" />
-          {isAdmin && availableSuppliers.length > 0 && (
+          {adminMode && availableSuppliers.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="inline-flex items-center gap-1 rounded-full border border-[#E5E7EB] bg-white px-3 py-1 text-[12px] font-medium text-[#374151] hover:bg-[#F9FAFB]">
@@ -498,7 +499,7 @@ export default function PurchaseOrders() {
             <table className="w-full min-w-[1100px]">
               <thead className="sticky top-0" style={{ background: '#F9FAFB' }}>
                 <tr>
-                  {['PO Number', ...(isAdmin ? ['Supplier'] : []), 'Date', 'Expected Delivery', 'Amount', 'Items', 'Status'].map((h) => (
+                  {['PO Number', ...(adminMode ? ['Supplier'] : []), 'Date', 'Expected Delivery', 'Amount', 'Items', 'Status'].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-3 text-left text-[10px] font-semibold uppercase"
@@ -531,7 +532,7 @@ export default function PurchaseOrders() {
                           {order.poNumber}
                         </Link>
                       </td>
-                      {isAdmin && (
+                      {adminMode && (
                         <td className="whitespace-nowrap px-4 py-3">
                           <div className="font-medium text-[#111827]">{order.supplierName || '—'}</div>
                           {order.supplierZohoVendorId && (
@@ -656,7 +657,7 @@ export default function PurchaseOrders() {
                       <Link to={`/purchase-orders/${order.id}`} className="font-mono text-[13px] font-medium text-[#111827] hover:underline">
                         {order.poNumber}
                       </Link>
-                      {isAdmin && order.supplierName && (
+                      {adminMode && order.supplierName && (
                         <div className="text-[12px] text-[#6B7280]">{order.supplierName}</div>
                       )}
                     </div>

@@ -57,23 +57,24 @@ const formatDate = (d?: string | null) =>
 
 export default function PODetail() {
   const { id } = useParams();
-  const { supplier, isAdmin } = useAuth();
+  const { supplier, isAdmin, isImpersonating } = useAuth();
+  const adminMode = isAdmin && !isImpersonating;
   const [order, setOrder] = useState<any | null>(null);
   const [invoicedMap, setInvoicedMap] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   const loadOrder = useCallback(async () => {
-    if (!isAdmin && !supplier?.zoho_vendor_id) {
+    if (!adminMode && !supplier?.zoho_vendor_id) {
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
     try {
-      const data = isAdmin
+      const data = adminMode
         ? await fetchPurchaseOrdersFromDb(false)
-        : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
+        : await fetchPurchaseOrders(supplier!.zoho_vendor_id!, supplier!.id);
       const target = String(id);
-      let found =
+      let found: any =
         data.find(
           (po: any) =>
             String(po.id) === target ||
@@ -138,7 +139,7 @@ export default function PODetail() {
           }
         }
 
-        const supplierIdForLookup = isAdmin ? found.supplier_id || supplier?.id : supplier?.id;
+        const supplierIdForLookup = adminMode ? found.supplier_id || supplier?.id : supplier?.id;
         if (supplierIdForLookup && found.poNumber) {
           try {
             const map = await fetchInvoicedQuantitiesForPo(supplierIdForLookup, found.poNumber);
@@ -155,13 +156,13 @@ export default function PODetail() {
     } finally {
       setIsLoading(false);
     }
-  }, [supplier?.zoho_vendor_id, supplier?.id, isAdmin, id]);
+  }, [supplier?.zoho_vendor_id, supplier?.id, adminMode, id]);
 
   useEffect(() => {
     void loadOrder();
   }, [loadOrder]);
 
-  if (!isAdmin && !supplier?.zoho_vendor_id) {
+  if (!adminMode && !supplier?.zoho_vendor_id) {
     return (
       <DashboardLayout title="Purchase Order">
         <AccountSetupBanner />

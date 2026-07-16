@@ -22,6 +22,21 @@ type SupplierRow = { id: string; company?: string | null; zoho_vendor_id?: strin
 const unique = (values: Array<string | null | undefined>) =>
   Array.from(new Set(values.filter(Boolean) as string[]));
 
+const normalizePoStatus = (status?: string | null) =>
+  String(status || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+
+const SUPPLIER_HIDDEN_PO_STATUSES = new Set(['draft', 'pending', 'pending_approval', 'rejected']);
+
+export const isSupplierVisiblePurchaseOrder = (po: any) => {
+  const status = normalizePoStatus(po?.rawStatus || po?.status || po?.status_formatted || po?.statusFormatted);
+  const approvalStatus = normalizePoStatus(
+    po?.approval_status || po?.approvalStatus || po?.approval_status_formatted || po?.approvalStatusFormatted,
+  );
+  if (SUPPLIER_HIDDEN_PO_STATUSES.has(status)) return false;
+  if (approvalStatus && SUPPLIER_HIDDEN_PO_STATUSES.has(approvalStatus)) return false;
+  return true;
+};
+
 const groupBy = <T extends Record<string, any>>(rows: T[], key: keyof T) =>
   rows.reduce<Record<string, T[]>>((acc, row) => {
     const value = row[key];
@@ -254,6 +269,25 @@ async function fetchSupplierByZohoVendorId(zohoVendorId: string) {
   return data as SupplierRow | null;
 }
 
+async function fetchSupplierById(supplierId: string) {
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('id, company, zoho_vendor_id')
+    .eq('id', supplierId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as SupplierRow | null;
+}
+
+async function resolveSupplierForPortal(zohoVendorId: string, supplierId?: string) {
+  const supplier = supplierId
+    ? await fetchSupplierById(supplierId)
+    : await fetchSupplierByZohoVendorId(zohoVendorId);
+  if (!supplier?.id) return null;
+  if (zohoVendorId && supplier.zoho_vendor_id && supplier.zoho_vendor_id.trim() !== zohoVendorId.trim()) return null;
+  return supplier;
+}
+
 // On-demand sync so portal reads happen after the newest Zoho/n8n data has
 // been persisted locally. Calls are deduped/throttled to avoid sync storms.
 const lastSyncAt: Record<string, number> = {};
@@ -282,9 +316,7 @@ function triggerSupplierSync(supplierId: string, force = false) {
   return runSync(`supplier:${supplierId}`, { supplier_id: supplierId }, force);
 }
 
-async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string) {
-  const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (!supplier?.id) return [];
+async function fetchPurchaseOrdersFromDbForSupplier(supplier: SupplierRow) {
   const { data, error } = await supabase
     .from('purchase_orders')
     .select('id, zoho_id, po_number, date, expected_delivery, delivery_address, amount, status, supplier_id, delivery_dates_confirmed_at, delivery_first_notified_at, exception_requested_at, exception_approved_at, exception_rejected_at')
@@ -296,23 +328,22 @@ async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string) {
     fetchPoItemsByPoIds(poIds),
     fetchPoAggregates(poIds),
   ]);
-  return (data || []).map((p: any) =>
-    mapDbPurchaseOrder(p, supplier, itemsByPo[p.id] || [], aggByPo[p.id]),
-  );
+  return (data || [])
+    .map((p: any) => mapDbPurchaseOrder(p, supplier, itemsByPo[p.id] || [], aggByPo[p.id]))
+    .filter(isSupplierVisiblePurchaseOrder);
 }
 
-export async function fetchPurchaseOrders(zohoVendorId: string) {
-  const supplier = await fetchSupplierByZohoVendorId(zohoVendorId);
-  if (supplier?.id) void triggerSupplierSync(supplier.id, false);
-  const rows = await fetchPurchaseOrdersFromDbByVendor(zohoVendorId);
-  if (rows.length) return rows;
-  try {
-    const data = await zohoProxy('get_pos', zohoVendorId);
-    return data.purchaseOrders || [];
-  } catch (err) {
-    console.warn('Zoho PO webhook fallback failed', err);
-    return [];
-  }
+async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string, supplierId?: string) {
+  const supplier = await resolveSupplierForPortal(zohoVendorId, supplierId);
+  if (!supplier?.id) return [];
+  return fetchPurchaseOrdersFromDbForSupplier(supplier);
+}
+
+export async function fetchPurchaseOrders(zohoVendorId: string, supplierId?: string) {
+  const supplier = await resolveSupplierForPortal(zohoVendorId, supplierId);
+  if (!supplier?.id) return [];
+  await triggerSupplierSync(supplier.id, false);
+  return fetchPurchaseOrdersFromDbForSupplier(supplier);
 }
 
 // Directly fetch live POs from Zoho (via n8n) for enrichment with fields we
