@@ -71,9 +71,9 @@ export default function PODetail() {
     try {
       const data = isAdmin
         ? await fetchPurchaseOrdersFromDb(false)
-        : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
+        : await fetchPurchaseOrders(supplier!.zoho_vendor_id!, supplier!.id);
       const target = String(id);
-      let found =
+      let found: any =
         data.find(
           (po: any) =>
             String(po.id) === target ||

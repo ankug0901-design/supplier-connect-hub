@@ -34,7 +34,7 @@ export default function DeliveryChallan() {
   useEffect(() => {
     if (!supplier) return;
     if (supplier.zoho_vendor_id) {
-      fetchPurchaseOrders(supplier.zoho_vendor_id).then(setPurchaseOrders).catch(console.error);
+      fetchPurchaseOrders(supplier.zoho_vendor_id, supplier.id).then(setPurchaseOrders).catch(console.error);
     }
     fetchChallans(supplier.id).then(setPastChallans).catch(console.error);
   }, [supplier]);

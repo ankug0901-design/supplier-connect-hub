@@ -175,7 +175,7 @@ export default function PurchaseOrders() {
       try {
         const data = isAdmin
           ? await fetchPurchaseOrdersFromDb(false)
-          : await fetchPurchaseOrders(supplier!.zoho_vendor_id!);
+          : await fetchPurchaseOrders(supplier!.zoho_vendor_id!, supplier!.id);
         if (!cancelled) setPurchaseOrders(data);
         if (isAdmin) {
           syncAndFetchPurchaseOrdersFromDb()

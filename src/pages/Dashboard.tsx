@@ -507,7 +507,7 @@ export default function Dashboard() {
       setPoLoading(true);
       try {
         const [pos, invs, pays] = await Promise.all([
-          fetchPurchaseOrders(supplier.zoho_vendor_id!),
+          fetchPurchaseOrders(supplier.zoho_vendor_id!, supplier.id),
           fetchInvoices(supplier.zoho_vendor_id!),
           fetchPayments(supplier.zoho_vendor_id!),
         ]);
