@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   title: string;
-  subtitle?: React.ReactNode;
+  subtitle?: ReactNode;
   actions?: ReactNode;
 }
 
