@@ -470,7 +470,8 @@ function SkeletonPage() {
 
 // ─── Main page ──────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const { supplier, isAdmin, user } = useAuth();
+  const { supplier, isAdmin, isImpersonating, user } = useAuth();
+  const adminMode = isAdmin && !isImpersonating;
   const navigate = useNavigate();
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -480,10 +481,10 @@ export default function Dashboard() {
   const [adminStats, setAdminStats] = useState({ suppliers: 0, pendingRegs: 0, challans: 0, awbs: 0 });
   const [adminLoading, setAdminLoading] = useState(false);
 
-  const { data: dash, loading: dashLoading } = useSupplierDashboard(!isAdmin ? supplier?.id : null);
+  const { data: dash, loading: dashLoading } = useSupplierDashboard(!adminMode ? supplier?.id : null);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (adminMode) {
       let cancelled = false;
       setAdminLoading(true);
       (async () => {
@@ -516,7 +517,7 @@ export default function Dashboard() {
       } finally { if (!cancelled) setPoLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [supplier?.zoho_vendor_id, isAdmin]);
+  }, [supplier?.zoho_vendor_id, supplier?.id, adminMode]);
 
   const stripHonorific = (n: string) => n.replace(/^\s*(mr|mrs|ms|mx|dr|sri|smt|shri)\.?\s+/i, '').trim();
   const fullName = (user?.user_metadata as any)?.full_name as string | undefined;

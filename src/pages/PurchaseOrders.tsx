@@ -136,7 +136,8 @@ function SkeletonRow({ cols }: { cols: number }) {
 const PAGE_SIZE = 20;
 
 export default function PurchaseOrders() {
-  const { supplier, isAdmin } = useAuth();
+  const { supplier, isAdmin, isImpersonating } = useAuth();
+  const adminMode = isAdmin && !isImpersonating;
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -168,16 +169,16 @@ export default function PurchaseOrders() {
   };
 
   useEffect(() => {
-    if (!isAdmin && !supplier?.zoho_vendor_id) { setIsLoading(false); return; }
+    if (!adminMode && !supplier?.zoho_vendor_id) { setIsLoading(false); return; }
     let cancelled = false;
     (async () => {
       setIsLoading(true);
       try {
-        const data = isAdmin
+        const data = adminMode
           ? await fetchPurchaseOrdersFromDb(false)
           : await fetchPurchaseOrders(supplier!.zoho_vendor_id!, supplier!.id);
         if (!cancelled) setPurchaseOrders(data);
-        if (isAdmin) {
+        if (adminMode) {
           syncAndFetchPurchaseOrdersFromDb()
             .then((fresh) => { if (!cancelled) setPurchaseOrders(fresh); })
             .catch((e) => console.warn('Background PO refresh failed', e));
@@ -187,7 +188,7 @@ export default function PurchaseOrders() {
       } finally { if (!cancelled) setIsLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [supplier?.zoho_vendor_id, isAdmin]);
+  }, [supplier?.zoho_vendor_id, supplier?.id, adminMode]);
 
   const availableStatuses = useMemo(
     () => Array.from(new Set(

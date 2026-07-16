@@ -500,11 +500,11 @@ export default function InvoiceUpload() {
     setIsLoadingPOs(true);
     (async () => {
       try {
-        const data = isAdmin
+        const data = isAdmin && !isReadOnly
           ? await fetchPurchaseOrdersFromDb(false)
           : await fetchPurchaseOrders(supplier!.zoho_vendor_id!, supplier!.id);
         if (!cancelled) setPurchaseOrders(data);
-        if (isAdmin) {
+        if (isAdmin && !isReadOnly) {
           syncAndFetchPurchaseOrdersFromDb()
             .then((freshData) => {
               if (!cancelled) setPurchaseOrders(freshData);
@@ -520,7 +520,7 @@ export default function InvoiceUpload() {
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id, isAdmin]);
+  }, [supplier?.zoho_vendor_id, supplier?.id, isAdmin, isReadOnly]);
 
   // Helper: extract a line-items array from a PO object regardless of which
   // field name Zoho/n8n returned (items / line_items / lineItems / purchaseorder_items).
