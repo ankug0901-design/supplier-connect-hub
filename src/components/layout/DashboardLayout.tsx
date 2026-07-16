@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 interface DashboardLayoutProps {
   children: ReactNode;
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   actions?: ReactNode;
 }
 
