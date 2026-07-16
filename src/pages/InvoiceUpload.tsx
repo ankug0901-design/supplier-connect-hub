@@ -355,6 +355,7 @@ export default function InvoiceUpload() {
   const { toast } = useToast();
   const { supplier, isAdmin } = useAuth();
   const isReadOnly = useReadOnly();
+  const adminMode = isAdmin && !isReadOnly;
   const preselectedPO = searchParams.get('po');
 
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
@@ -495,16 +496,16 @@ export default function InvoiceUpload() {
   };
 
   useEffect(() => {
-    if (!isAdmin && !supplier?.zoho_vendor_id) return;
+    if (!adminMode && !supplier?.zoho_vendor_id) return;
     let cancelled = false;
     setIsLoadingPOs(true);
     (async () => {
       try {
-        const data = isAdmin && !isReadOnly
+        const data = adminMode
           ? await fetchPurchaseOrdersFromDb(false)
           : await fetchPurchaseOrders(supplier!.zoho_vendor_id!, supplier!.id);
         if (!cancelled) setPurchaseOrders(data);
-        if (isAdmin && !isReadOnly) {
+        if (adminMode) {
           syncAndFetchPurchaseOrdersFromDb()
             .then((freshData) => {
               if (!cancelled) setPurchaseOrders(freshData);
@@ -520,7 +521,7 @@ export default function InvoiceUpload() {
     return () => {
       cancelled = true;
     };
-  }, [supplier?.zoho_vendor_id, supplier?.id, isAdmin, isReadOnly]);
+  }, [supplier?.zoho_vendor_id, supplier?.id, adminMode]);
 
   // Helper: extract a line-items array from a PO object regardless of which
   // field name Zoho/n8n returned (items / line_items / lineItems / purchaseorder_items).
@@ -619,7 +620,7 @@ export default function InvoiceUpload() {
       if (cancelled) return;
 
       let invoicedMap: Record<string, number> = {};
-      const supplierIdForLookup = isAdmin ? po.supplier_id || supplier?.id : supplier?.id;
+      const supplierIdForLookup = adminMode ? po.supplier_id || supplier?.id : supplier?.id;
       if (supplierIdForLookup && po.poNumber) {
         try {
           invoicedMap = await fetchInvoicedQuantitiesForPo(supplierIdForLookup, po.poNumber);
@@ -671,7 +672,7 @@ export default function InvoiceUpload() {
     return () => {
       cancelled = true;
     };
-  }, [selectedPO, purchaseOrders, supplier?.id, supplier?.zoho_vendor_id, isAdmin]);
+  }, [selectedPO, purchaseOrders, supplier?.id, supplier?.zoho_vendor_id, adminMode]);
 
   // Auto-compute invoice amount from selected line items (qty × rate),
   // unless the user has manually edited the amount.
@@ -794,7 +795,7 @@ export default function InvoiceUpload() {
     }
   };
 
-  if (!isAdmin && !supplier?.zoho_vendor_id) {
+  if (!adminMode && !supplier?.zoho_vendor_id) {
     return (
       <DashboardLayout title="Upload Invoice" subtitle="Submit invoice against a purchase order">
         <AccountSetupBanner />
@@ -837,7 +838,7 @@ export default function InvoiceUpload() {
                       purchaseOrders.map((po: any) => (
                         <SelectItem key={po.id} value={po.id}>
                           {po.poNumber}
-                          {isAdmin && po.supplierName ? ` — ${po.supplierName}` : ''}
+                          {adminMode && po.supplierName ? ` — ${po.supplierName}` : ''}
                           {!po.deliveryDatesConfirmedAt ? ' · ⚠ delivery dates pending' : ''}
                         </SelectItem>
                       ))

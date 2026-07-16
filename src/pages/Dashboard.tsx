@@ -544,7 +544,7 @@ export default function Dashboard() {
   );
 
   // ───────── Admin branch (unchanged) ─────────
-  if (isAdmin) {
+  if (adminMode) {
     if (adminLoading) {
       return (
         <DashboardLayout title="Admin Dashboard" subtitle="Emboss Marketing — Admin Panel">
