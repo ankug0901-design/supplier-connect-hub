@@ -459,19 +459,31 @@ export default function AdminRfq() {
     setReopenReason('');
     setReopenDate(undefined);
     setReopenTime('17:00');
-    toast.success(action === 'extend' ? 'RFQ deadline extended — suppliers have been notified' : 'RFQ reopened successfully');
     try {
-      const res = await n8nPost('rfq-manage', {
-        rfq_id: targetId,
-        action,
-        new_deadline: newDeadline,
-        new_deadline_time: newDeadlineTime,
-        reason,
-        actioned_by: supplier?.name || user?.email || 'Admin',
+      const { data, error } = await supabase.functions.invoke('rfq-reopen-extend', {
+        body: {
+          rfq_id: targetId,
+          action,
+          new_deadline: newDeadline,
+          new_deadline_time: newDeadlineTime,
+          reason,
+          actioned_by: supplier?.name || user?.email || 'Admin',
+        },
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (error) {
+        const ctx: any = (error as any).context;
+        let msg = error.message || 'Unknown error';
+        try { if (ctx?.text) msg = await ctx.text(); } catch { /* ignore */ }
+        throw new Error(msg);
+      }
+      const queued = data?.emails_queued ?? 0;
+      toast.success(
+        action === 'extend'
+          ? `RFQ deadline extended — ${queued} supplier${queued === 1 ? '' : 's'} notified`
+          : `RFQ reopened — ${queued} supplier${queued === 1 ? '' : 's'} notified`,
+      );
     } catch (e: any) {
-      toast.error(`${action === 'extend' ? 'Extend' : 'Reopen'} webhook failed: ${e.message || 'Unknown error'}`);
+      toast.error(`${action === 'extend' ? 'Extend' : 'Reopen'} failed: ${e.message || 'Unknown error'}`);
     } finally {
       setBusyId(null);
     }
