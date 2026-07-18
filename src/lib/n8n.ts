@@ -7,6 +7,7 @@ export type N8nPath =
   | 'rfq-quote-received'
   | 'rfq-quote-accepted'
   | 'rfq-manage'
+  | 'rfq-operations'
   | 'rfq-send-attachment'
   | 'rfq-issue-po'
   | 'bulk-register-suppliers'

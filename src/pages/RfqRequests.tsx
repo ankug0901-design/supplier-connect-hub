@@ -398,7 +398,8 @@ function RfqDetailSheet({
         { onConflict: 'rfq_id,item_number,supplier_email' }
       );
 
-      n8nPost('rfq-quote-received', {
+      n8nPost('rfq-operations', {
+        action: 'quote_received',
         rfq_id: rfq.rfq_id,
         supplier_email: rfq.supplier_email,
         supplier_name: supplierName || rfq.supplier_email,
@@ -482,7 +483,8 @@ function RfqDetailSheet({
       const { error: uErr } = await supabase.from('rfq_portal_requests').update(update).eq('id', rfq.id);
       if (uErr) throw uErr;
 
-      n8nPost('rfq-quote-received', {
+      n8nPost('rfq-operations', {
+        action: 'quote_received',
         rfq_id: rfq.rfq_id,
         supplier_email: rfq.supplier_email,
         supplier_name: supplierName || rfq.supplier_email,
