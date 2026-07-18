@@ -138,6 +138,7 @@ Deno.serve(async (req) => {
       return json({ error: "No quote fields provided" }, 400);
     }
 
+    console.log("rfq-quote-upsert patch", JSON.stringify(patch));
     const { data: updated, error: updErr } = await supabase
       .from("rfq_portal_requests")
       .update(patch)
@@ -145,9 +146,13 @@ Deno.serve(async (req) => {
       .select()
       .single();
 
-    if (updErr) return json({ error: updErr.message, details: updErr }, 500);
+    if (updErr) {
+      console.error("rfq-quote-upsert update error", updErr);
+      return json({ error: updErr.message, details: updErr }, 500);
+    }
     return json({ ok: true, row: updated }, 200);
   } catch (e: any) {
-    return json({ error: e?.message ?? "Server error" }, 500);
+    console.error("rfq-quote-upsert unhandled", e);
+    return json({ error: e?.message ?? "Server error", stack: e?.stack }, 500);
   }
 });
