@@ -460,22 +460,16 @@ export default function AdminRfq() {
     setReopenDate(undefined);
     setReopenTime('17:00');
     try {
-      const { data, error } = await supabase.functions.invoke('rfq-reopen-extend', {
-        body: {
-          rfq_id: targetId,
-          action,
-          new_deadline: newDeadline,
-          new_deadline_time: newDeadlineTime,
-          reason,
-          actioned_by: supplier?.name || user?.email || 'Admin',
-        },
+      const res = await n8nPost('rfq-operations', {
+        rfq_id: targetId,
+        action,
+        new_deadline: newDeadline,
+        new_deadline_time: newDeadlineTime,
+        reason,
+        actioned_by: supplier?.name || user?.email || 'Admin',
       });
-      if (error) {
-        const ctx: any = (error as any).context;
-        let msg = error.message || 'Unknown error';
-        try { if (ctx?.text) msg = await ctx.text(); } catch { /* ignore */ }
-        throw new Error(msg);
-      }
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      const data: any = res.data || {};
       const queued = data?.emails_queued ?? 0;
       toast.success(
         action === 'extend'
