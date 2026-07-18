@@ -16,6 +16,7 @@ const ALLOWED_PATHS = new Set([
   'rfq-quote-received',
   'rfq-quote-accepted',
   'rfq-manage',
+  'rfq-operations',
   'rfq-send-attachment',
   'rfq-issue-po',
   'bulk-register-suppliers',
@@ -34,6 +35,7 @@ const ADMIN_ONLY_PATHS = new Set([
 // RFQ operators may invoke these when they have RFQ Management page access.
 const RFQ_MANAGEMENT_PATHS = new Set([
   'rfq-manage',
+  'rfq-operations',
   'rfq-quote-accepted',
   'rfq-tca-report',
 ]);
