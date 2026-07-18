@@ -484,6 +484,7 @@ function RfqDetailSheet({
       if (uErr) throw uErr;
 
       n8nPost('rfq-operations', {
+        action: 'quote_received',
         rfq_id: rfq.rfq_id,
         supplier_email: rfq.supplier_email,
         supplier_name: supplierName || rfq.supplier_email,
