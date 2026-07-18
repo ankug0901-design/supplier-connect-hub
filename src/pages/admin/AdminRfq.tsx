@@ -409,7 +409,7 @@ export default function AdminRfq() {
     setForceCloseReason('');
     toast.success('RFQ closed successfully');
     try {
-      const res = await n8nPost('rfq-manage', {
+      const res = await n8nPost('rfq-operations', {
         rfq_id: targetId,
         action: 'force_close',
         reason,
