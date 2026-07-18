@@ -718,12 +718,35 @@ export default function AdminRfq() {
                                       {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
                                     </div>
                                   </div>
-                                  {revisionCount > 0 && (
-                                    <Badge variant="secondary" className="mt-1 text-xs">Revised {revisionCount}x</Badge>
-                                  )}
-                                  {isPending && rfqIsClosed && (
-                                    <Badge variant="secondary" className="mt-1 text-xs">Did not respond</Badge>
-                                  )}
+                                   {revisionCount > 0 && (
+                                     <Badge variant="secondary" className="mt-1 text-xs">Revised {revisionCount}x</Badge>
+                                   )}
+                                   {isPending && rfqIsClosed && (
+                                     <Badge variant="secondary" className="mt-1 text-xs">Did not respond</Badge>
+                                   )}
+                                   {!isPending && (() => {
+                                     const src = String((r as any).quote_source || '').toLowerCase();
+                                     const conf = Number((r as any).quote_parsing_confidence);
+                                     const label = src === 'email_auto_parsed' ? 'Email'
+                                       : src === 'admin_manual' ? 'Manual'
+                                       : src === 'portal' ? 'Portal'
+                                       : null;
+                                     const cls = src === 'email_auto_parsed' ? 'border-blue-300 bg-blue-50 text-blue-700'
+                                       : src === 'admin_manual' ? 'border-purple-300 bg-purple-50 text-purple-700'
+                                       : 'border-slate-300 bg-slate-50 text-slate-700';
+                                     return (
+                                       <div className="mt-1 flex flex-wrap items-center gap-1">
+                                         {label && <Badge variant="outline" className={`text-xs ${cls}`}>{label}</Badge>}
+                                         {r.status === 'quoted_incomplete' && (
+                                           <Badge variant="outline" className="border-orange-300 bg-orange-50 text-orange-700 text-xs">Incomplete</Badge>
+                                         )}
+                                         {Number.isFinite(conf) && conf < 0.8 && (
+                                           <span title={`Low parsing confidence (${conf.toFixed(2)})`} className="text-yellow-600" aria-label="Low parsing confidence">⚠️</span>
+                                         )}
+                                       </div>
+                                     );
+                                   })()}
+
                                 </td>
                                 {isPending ? (
                                   <td className="p-2" colSpan={7}>

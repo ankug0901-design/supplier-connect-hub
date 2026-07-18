@@ -767,7 +767,13 @@ export type Database = {
           product_category: string | null
           product_name: string
           quantity: string | null
+          quote_email_message_id: string | null
+          quote_parsing_confidence: number | null
+          quote_raw_email_body: string | null
+          quote_received_at: string | null
+          quote_source: string | null
           quote_submitted_at: string | null
+          quote_validity_days: number | null
           quoted_gst_percent: number | null
           quoted_unit_price: number | null
           required_by_date: string | null
@@ -816,7 +822,13 @@ export type Database = {
           product_category?: string | null
           product_name: string
           quantity?: string | null
+          quote_email_message_id?: string | null
+          quote_parsing_confidence?: number | null
+          quote_raw_email_body?: string | null
+          quote_received_at?: string | null
+          quote_source?: string | null
           quote_submitted_at?: string | null
+          quote_validity_days?: number | null
           quoted_gst_percent?: number | null
           quoted_unit_price?: number | null
           required_by_date?: string | null
@@ -865,7 +877,13 @@ export type Database = {
           product_category?: string | null
           product_name?: string
           quantity?: string | null
+          quote_email_message_id?: string | null
+          quote_parsing_confidence?: number | null
+          quote_raw_email_body?: string | null
+          quote_received_at?: string | null
+          quote_source?: string | null
           quote_submitted_at?: string | null
+          quote_validity_days?: number | null
           quoted_gst_percent?: number | null
           quoted_unit_price?: number | null
           required_by_date?: string | null
