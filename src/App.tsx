@@ -86,6 +86,7 @@ import AdminPagePermissions from "./pages/admin/AdminPagePermissions";
 import AdminUserRoles from "./pages/admin/AdminUserRoles";
 import AdminUserAccessReport from "./pages/admin/AdminUserAccessReport";
 import AdminExceptionRequests from "./pages/admin/AdminExceptionRequests";
+import AdminLiveDashboard from "./pages/admin/AdminLiveDashboard";
 import RfqRequests from "./pages/RfqRequests";
 import ResetPassword from "./pages/ResetPassword";
 import { SupplierSectionGuard } from "./components/SupplierSectionGuard";
@@ -185,6 +186,7 @@ function AppRoutes() {
       <Route path="/admin/page-permissions" element={<SuperAdminRoute><AdminPagePermissions /></SuperAdminRoute>} />
       <Route path="/admin/user-access-report" element={<SuperAdminRoute><AdminUserAccessReport /></SuperAdminRoute>} />
       <Route path="/admin/exception-requests" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-exception-requests"><AdminExceptionRequests /></SupplierSectionGuard></AdminRoute>} />
+      <Route path="/admin/live-dashboard" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-live-dashboard"><AdminLiveDashboard /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
       <Route path="*" element={<NotFound />} />
