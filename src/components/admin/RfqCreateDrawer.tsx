@@ -72,7 +72,7 @@ interface Props {
   onSuccess?: () => void;
 }
 
-const isDriveUrl = (url: string) => url.includes('drive.google.com');
+
 
 export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const { user, supplier } = useAuth();
