@@ -22,6 +22,8 @@ const ALLOWED_PATHS = new Set([
   'bulk-register-suppliers',
   'rfq-tca-report',
   'delhivery-b2b-master',
+  'rfq-dashboard',
+  'rfq-price-trends',
 ]);
 
 // Subset of paths that only top-tier admins are allowed to invoke.

@@ -5,8 +5,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, Minus, RefreshCw, AlertCircle } from 'lucide-react';
-
-const ENDPOINT = 'http://172.17.0.1:8100/dashboard/price-trends';
+import { n8nPost } from '@/lib/n8n';
 
 interface TrendPoint {
   date: string;
@@ -47,12 +46,12 @@ export default function PriceTrendsPanel() {
     setLoading(true);
     setError(null);
     try {
-      const url = new URL(ENDPOINT);
-      if (category.trim()) url.searchParams.set('category', category.trim());
-      if (supplierEmail.trim()) url.searchParams.set('supplier_email', supplierEmail.trim());
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: RawResponse | TrendPoint[] = await res.json();
+      const payload: Record<string, unknown> = {};
+      if (category.trim()) payload.category = category.trim();
+      if (supplierEmail.trim()) payload.supplier_email = supplierEmail.trim();
+      const res = await n8nPost('rfq-price-trends', payload);
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      const json: RawResponse | TrendPoint[] = res.data;
       const arr: TrendPoint[] = Array.isArray(json)
         ? json
         : (json.points || json.data || json.trends || []);
@@ -162,7 +161,7 @@ export default function PriceTrendsPanel() {
             <div className="font-medium">Unable to load price trends</div>
             <div className="text-xs opacity-80">{error}</div>
             <div className="mt-1 text-xs opacity-70">
-              This dashboard queries an internal host (172.17.0.1:8100). It only works from machines on the same internal network.
+              The price trend service is temporarily unreachable. Please retry shortly.
             </div>
           </div>
         </div>

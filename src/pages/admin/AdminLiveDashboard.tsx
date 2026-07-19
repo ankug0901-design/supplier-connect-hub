@@ -5,8 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { n8nPost } from '@/lib/n8n';
 
-const ENDPOINT = 'http://172.17.0.1:8100/dashboard/open-rfqs';
 const REFRESH_MS = 60_000;
 
 type Quote = {
@@ -88,10 +88,11 @@ export default function AdminLiveDashboard() {
     abortRef.current = ctrl;
     setRefreshing(true);
     try {
-      const res = await fetch(ENDPOINT, { signal: ctrl.signal, headers: { accept: 'application/json' } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const list: OpenRfq[] = Array.isArray(data) ? data : (data?.rfqs || data?.rows || []);
+      const res = await n8nPost('rfq-dashboard', {});
+      if (ctrl.signal.aborted) return;
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      const data = res.data;
+      const list: OpenRfq[] = Array.isArray(data) ? data : (data?.rfqs || data?.rows || data?.data || []);
       setRows(list);
       setError(null);
       setLastFetched(new Date());
@@ -136,7 +137,7 @@ export default function AdminLiveDashboard() {
         {error && (
           <Card className="border-red-300 bg-red-50">
             <CardContent className="py-4 text-sm text-red-800">
-              Failed to load live data: {error}. Endpoint: <span className="font-mono">{ENDPOINT}</span>
+              Failed to load live data: {error}
             </CardContent>
           </Card>
         )}
