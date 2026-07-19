@@ -88,7 +88,12 @@ export default function AdminVendorScores() {
 
   return (
     <DashboardLayout title="Supplier Performance" subtitle="Vendor scores, grades, and history across all suppliers">
-      <div className="space-y-4">
+      <Tabs defaultValue="scores" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="scores">Scores</TabsTrigger>
+          <TabsTrigger value="price-trends">Price Trends</TabsTrigger>
+        </TabsList>
+        <TabsContent value="scores" className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
