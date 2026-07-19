@@ -1113,6 +1113,49 @@ export default function AdminRfq() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!negotiateTarget} onOpenChange={(o) => { if (!o) setNegotiateTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Negotiate with Suppliers</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Requests all suppliers on <span className="font-mono">{negotiateTarget}</span> to improve on the current L1 price by the target percentage.
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">L1 improvement target</label>
+                <span className="text-sm font-semibold text-teal-700">{negotiatePct}%</span>
+              </div>
+              <Slider
+                value={[negotiatePct]}
+                min={1}
+                max={15}
+                step={1}
+                onValueChange={(v) => setNegotiatePct(v[0] ?? 5)}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground"><span>1%</span><span>15%</span></div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Message (optional)</label>
+              <Textarea
+                value={negotiateMessage}
+                onChange={(e) => setNegotiateMessage(e.target.value)}
+                placeholder="Add a short note for suppliers"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setNegotiateTarget(null)} disabled={negotiateBusy}>Cancel</Button>
+            <Button onClick={sendNegotiate} disabled={negotiateBusy} className="bg-teal-600 hover:bg-teal-700 text-white">
+              {negotiateBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Handshake className="mr-2 h-4 w-4" />}
+              Send Negotiation Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <RfqCreateDrawer open={createOpen} onOpenChange={setCreateOpen} onSuccess={load} />
 
 
