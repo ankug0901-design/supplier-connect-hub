@@ -24,6 +24,8 @@ import { RfqCreateDrawer } from '@/components/admin/RfqCreateDrawer';
 import { useAuth } from '@/contexts/AuthContext';
 import { n8nPost } from '@/lib/n8n';
 import { RfqAttachmentUpload, UploadedFileBadge } from '@/components/RfqAttachmentUpload';
+import { Slider } from '@/components/ui/slider';
+import { Handshake } from 'lucide-react';
 
 type Rfq = any;
 
@@ -125,6 +127,10 @@ export default function AdminRfq() {
   const [reopenReason, setReopenReason] = useState('');
   const [reopenDate, setReopenDate] = useState<Date | undefined>(undefined);
   const [reopenTime, setReopenTime] = useState<string>('17:00');
+  const [negotiateTarget, setNegotiateTarget] = useState<string | null>(null);
+  const [negotiatePct, setNegotiatePct] = useState<number>(5);
+  const [negotiateMessage, setNegotiateMessage] = useState<string>('');
+  const [negotiateBusy, setNegotiateBusy] = useState(false);
   const [attachmentTarget, setAttachmentTarget] = useState<string | null>(null);
   const [attachmentUrl, setAttachmentUrl] = useState('');
   const [attachmentName, setAttachmentName] = useState('');
@@ -529,6 +535,31 @@ export default function AdminRfq() {
     }
   };
 
+  const sendNegotiate = async () => {
+    if (!negotiateTarget) return;
+    const pct = Math.round(negotiatePct);
+    if (pct < 1 || pct > 15) { toast.error('L1 improvement must be between 1% and 15%'); return; }
+    setNegotiateBusy(true);
+    try {
+      const res = await n8nPost('rfq-operations', {
+        action: 'negotiate',
+        rfq_id: negotiateTarget,
+        l1_improvement_pct: pct,
+        message: negotiateMessage.trim() || undefined,
+        actioned_by: supplier?.name || user?.email || 'Admin',
+      });
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      toast.success('Negotiation request sent to suppliers');
+      setNegotiateTarget(null);
+      setNegotiatePct(5);
+      setNegotiateMessage('');
+    } catch (e: any) {
+      toast.error(`Negotiate failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setNegotiateBusy(false);
+    }
+  };
+
 
   return (
     <DashboardLayout title="RFQ Management" subtitle="All quote requests across suppliers">
@@ -649,6 +680,11 @@ export default function AdminRfq() {
                       {!decided && !isClosed && (
                         <Button size="sm" variant="destructive" disabled={!!busyId} onClick={() => setForceCloseTarget(rfq_id)}>
                           Force Close
+                        </Button>
+                      )}
+                      {!decided && !rfqIsClosed && submitted.length >= 2 && (
+                        <Button size="sm" variant="outline" className="border-teal-300 bg-teal-50 text-teal-800 hover:bg-teal-100" disabled={!!busyId} onClick={() => { setNegotiateTarget(rfq_id); setNegotiatePct(5); setNegotiateMessage(''); }}>
+                          <Handshake className="mr-1 h-3.5 w-3.5" /> Negotiate
                         </Button>
                       )}
                       {!decided && !rfqIsClosed && (
@@ -1072,6 +1108,49 @@ export default function AdminRfq() {
             <Button onClick={sendAttachment} disabled={attachmentBusy} className="bg-purple-600 hover:bg-purple-700 text-white">
               {attachmentBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Paperclip className="mr-2 h-4 w-4" />}
               Send to Suppliers
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!negotiateTarget} onOpenChange={(o) => { if (!o) setNegotiateTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Negotiate with Suppliers</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Requests all suppliers on <span className="font-mono">{negotiateTarget}</span> to improve on the current L1 price by the target percentage.
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">L1 improvement target</label>
+                <span className="text-sm font-semibold text-teal-700">{negotiatePct}%</span>
+              </div>
+              <Slider
+                value={[negotiatePct]}
+                min={1}
+                max={15}
+                step={1}
+                onValueChange={(v) => setNegotiatePct(v[0] ?? 5)}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground"><span>1%</span><span>15%</span></div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Message (optional)</label>
+              <Textarea
+                value={negotiateMessage}
+                onChange={(e) => setNegotiateMessage(e.target.value)}
+                placeholder="Add a short note for suppliers"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setNegotiateTarget(null)} disabled={negotiateBusy}>Cancel</Button>
+            <Button onClick={sendNegotiate} disabled={negotiateBusy} className="bg-teal-600 hover:bg-teal-700 text-white">
+              {negotiateBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Handshake className="mr-2 h-4 w-4" />}
+              Send Negotiation Request
             </Button>
           </DialogFooter>
         </DialogContent>
