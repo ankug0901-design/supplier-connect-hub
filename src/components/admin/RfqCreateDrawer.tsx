@@ -98,6 +98,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   // Submitted by
   const [submittedByName, setSubmittedByName] = useState('');
   const [submittedByEmail, setSubmittedByEmail] = useState('');
+  // Stable per-drawer-open folder used for uploads before an rfq_id exists.
+  const draftFolder = useMemo(() => `draft_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, [open]);
 
   useEffect(() => {
     if (!open) return;
