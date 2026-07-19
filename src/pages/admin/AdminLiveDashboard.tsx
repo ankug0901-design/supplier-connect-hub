@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-const DASHBOARD_URL = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-dashboard';
+import { n8nPost } from '@/lib/n8n';
 
 const REFRESH_MS = 60_000;
 
@@ -88,21 +88,13 @@ export default function AdminLiveDashboard() {
     abortRef.current = ctrl;
     setRefreshing(true);
     try {
-      console.log('[LiveDashboard] POST', DASHBOARD_URL);
-      const resp = await fetch(DASHBOARD_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-        signal: ctrl.signal,
-      });
+      console.log('[LiveDashboard] invoking n8n-proxy → rfq-dashboard');
+      const resp = await n8nPost('rfq-dashboard', {});
       if (ctrl.signal.aborted) return;
-      console.log('[LiveDashboard] status', resp.status, resp.statusText);
-      const raw = await resp.text();
-      console.log('[LiveDashboard] body (first 500):', raw.slice(0, 500));
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${raw.slice(0, 200)}`);
-      let data: any;
-      try { data = raw ? JSON.parse(raw) : []; }
-      catch (parseErr) { throw new Error(`Invalid JSON response: ${raw.slice(0, 200)}`); }
+      console.log('[LiveDashboard] status', resp.status, 'ok', resp.ok);
+      console.log('[LiveDashboard] body (first 500):', (resp.text || '').slice(0, 500));
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${(resp.text || '').slice(0, 200)}`);
+      const data = resp.data;
       const list: OpenRfq[] = Array.isArray(data) ? data : (data?.rfqs || data?.rows || data?.data || []);
       setRows(list);
       setError(null);
