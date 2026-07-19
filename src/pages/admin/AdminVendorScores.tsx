@@ -232,7 +232,11 @@ export default function AdminVendorScores() {
             </table>
           </div>
         )}
-      </div>
+        </TabsContent>
+        <TabsContent value="price-trends">
+          <PriceTrendsPanel />
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 }
