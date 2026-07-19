@@ -46,6 +46,7 @@ const supplierNavigation: NavItem[] = [
 
 const adminNavigation: NavItem[] = [
   { name: 'Admin Dashboard', href: '/admin', icon: LayoutDashboard, sectionKey: 'admin-dashboard' },
+  { name: 'Live Dashboard', href: '/admin/live-dashboard', icon: Activity, sectionKey: 'admin-live-dashboard' },
   { name: 'All Suppliers', href: '/admin/suppliers', icon: Users, sectionKey: 'admin-suppliers' },
   { name: 'Registrations', href: '/admin/registrations', icon: ClipboardList, badgeKey: 'pending_regs', sectionKey: 'admin-registrations' },
   { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all', sectionKey: 'admin-rfq' },
