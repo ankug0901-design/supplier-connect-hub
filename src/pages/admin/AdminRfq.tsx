@@ -498,6 +498,37 @@ export default function AdminRfq() {
     setReopenReason('');
   };
 
+  const sendAttachment = async () => {
+    if (!attachmentTarget) return;
+    const url = attachmentUrl.trim();
+    const name = attachmentName.trim();
+    const message = attachmentMessage.trim();
+    if (!url) { toast.error('File URL is required'); return; }
+    try { new URL(url); } catch { toast.error('Enter a valid URL'); return; }
+    if (!name) { toast.error('File name is required'); return; }
+    setAttachmentBusy(true);
+    try {
+      const res = await n8nPost('rfq-operations', {
+        action: 'send_attachment',
+        rfq_id: attachmentTarget,
+        attachment_url: url,
+        attachment_name: name,
+        message,
+      });
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      toast.success('Attachment sent to all suppliers');
+      setAttachmentTarget(null);
+      setAttachmentUrl('');
+      setAttachmentName('');
+      setAttachmentMessage('');
+    } catch (e: any) {
+      toast.error(`Send attachment failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setAttachmentBusy(false);
+    }
+  };
+
+
   return (
     <DashboardLayout title="RFQ Management" subtitle="All quote requests across suppliers">
       {loading ? (
