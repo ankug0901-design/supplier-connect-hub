@@ -1,4 +1,5 @@
 // Read rfq_portal_requests via service role, authenticated with N8N_ACCESS_CODE.
+// Joins suppliers on email to resolve the company name for TCA reporting.
 // POST { rfq_id: "..." } OR { select?: "*", filters?: { col: value | [values] }, limit?, order? }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -14,6 +15,10 @@ function json(data: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function lower(s: unknown): string {
+  return String(s ?? "").toLowerCase();
 }
 
 Deno.serve(async (req) => {
@@ -68,7 +73,36 @@ Deno.serve(async (req) => {
   const limit = Number.isFinite(body.limit) ? Number(body.limit) : 1000;
   q = q.limit(Math.min(Math.max(limit, 1), 5000));
 
-  const { data, error } = await q;
+  const { data: rows, error } = await q;
   if (error) return json({ error: error.message, details: error }, 500);
-  return json({ ok: true, count: data?.length ?? 0, rows: data ?? [] });
+
+  const normalizedRows = rows ?? [];
+
+  // Resolve supplier company names via email join.
+  const supplierEmails = [
+    ...new Set(normalizedRows.map((r: any) => r.supplier_email).filter(Boolean)),
+  ];
+
+  const emailToCompany: Record<string, string | null> = {};
+  if (supplierEmails.length > 0) {
+    const { data: suppliersData, error: suppliersError } = await supabase
+      .from("suppliers")
+      .select("email, company")
+      .in("email", supplierEmails);
+
+    if (!suppliersError && suppliersData) {
+      for (const s of suppliersData) {
+        if (s.email) {
+          emailToCompany[lower(s.email)] = s.company ?? null;
+        }
+      }
+    }
+  }
+
+  const enrichedRows = normalizedRows.map((row: any) => ({
+    ...row,
+    resolved_supplier_company: emailToCompany[lower(row.supplier_email)] ?? null,
+  }));
+
+  return json({ ok: true, count: enrichedRows.length, rows: enrichedRows });
 });
