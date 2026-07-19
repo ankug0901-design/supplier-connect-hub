@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { RfqCreateDrawer } from '@/components/admin/RfqCreateDrawer';
 import { useAuth } from '@/contexts/AuthContext';
 import { n8nPost } from '@/lib/n8n';
+import { RfqAttachmentUpload, UploadedFileBadge } from '@/components/RfqAttachmentUpload';
 
 type Rfq = any;
 
@@ -1021,7 +1022,27 @@ export default function AdminRfq() {
               Sends a branded follow-up email with the document link to all suppliers on <span className="font-mono">{attachmentTarget}</span>.
             </p>
             <div className="space-y-2">
-              <label className="text-sm font-medium">File URL *</label>
+              <label className="text-sm font-medium">Upload File</label>
+              {attachmentTarget && (
+                <RfqAttachmentUpload
+                  folder={attachmentTarget}
+                  disabled={attachmentBusy}
+                  onUploaded={({ url, name }) => { setAttachmentUrl(url); setAttachmentName(name); }}
+                />
+              )}
+              {attachmentUrl && attachmentName && (
+                <UploadedFileBadge
+                  name={attachmentName}
+                  onClear={() => { setAttachmentUrl(''); setAttachmentName(''); }}
+                />
+              )}
+            </div>
+            <div className="relative py-1 text-center text-[10px] uppercase tracking-wide text-muted-foreground">
+              <span className="bg-background px-2 relative z-10">or paste a link</span>
+              <div className="absolute inset-x-0 top-1/2 h-px bg-border" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">File URL</label>
               <Input
                 value={attachmentUrl}
                 onChange={(e) => setAttachmentUrl(e.target.value)}

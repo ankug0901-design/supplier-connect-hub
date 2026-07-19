@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { CalendarIcon, ChevronDown, ChevronRight, Loader2, Plus, Trash2, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { n8nPost } from '@/lib/n8n';
+import { RfqAttachmentUpload, UploadedFileBadge } from '@/components/RfqAttachmentUpload';
 
 const PRODUCT_CATEGORIES = [
   'Offset Printing', 'Flexographic Printing', 'Digital Printing', 'Screen Printing',
@@ -71,7 +72,7 @@ interface Props {
   onSuccess?: () => void;
 }
 
-const isDriveUrl = (url: string) => url.includes('drive.google.com');
+
 
 export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const { user, supplier } = useAuth();
@@ -97,6 +98,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   // Submitted by
   const [submittedByName, setSubmittedByName] = useState('');
   const [submittedByEmail, setSubmittedByEmail] = useState('');
+  // Stable per-drawer-open folder used for uploads before an rfq_id exists.
+  const draftFolder = useMemo(() => `draft_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -182,8 +185,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
         return false;
       }
       if (it.attachment_url.trim()) {
-        if (!isDriveUrl(it.attachment_url)) {
-          toast.error(`Item ${i + 1}: attachment link doesn't look like a Google Drive URL`);
+        try { new URL(it.attachment_url); } catch {
+          toast.error(`Item ${i + 1}: attachment link is not a valid URL`);
           return false;
         }
         if (!it.attachment_name.trim()) {
@@ -460,16 +463,28 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
                           <Label>Additional Specifications</Label>
                           <Textarea value={it.extra_specs} onChange={(e) => updateItem(i, { extra_specs: e.target.value })} rows={2} />
                         </div>
-                        <div className="space-y-1 sm:col-span-2">
-                          <Label>Attachment — Google Drive Link (optional)</Label>
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label>Attachment (optional)</Label>
+                          <RfqAttachmentUpload
+                            folder={draftFolder}
+                            prefix={String(i + 1)}
+                            onUploaded={({ url, name }) => updateItem(i, { attachment_url: url, attachment_name: name })}
+                          />
+                          {it.attachment_url && it.attachment_name && (
+                            <UploadedFileBadge
+                              name={it.attachment_name}
+                              onClear={() => updateItem(i, { attachment_url: '', attachment_name: '' })}
+                            />
+                          )}
+                          <div className="relative py-1 text-center text-[10px] uppercase tracking-wide text-muted-foreground">
+                            <span className="bg-background px-2 relative z-10">or paste a link</span>
+                            <div className="absolute inset-x-0 top-1/2 h-px bg-border" />
+                          </div>
                           <Input
                             value={it.attachment_url}
                             onChange={(e) => updateItem(i, { attachment_url: e.target.value })}
                             placeholder="https://drive.google.com/file/d/..."
                           />
-                          {it.attachment_url.trim() && !isDriveUrl(it.attachment_url) && (
-                            <p className="text-xs text-amber-600">⚠️ Link doesn't look like a Google Drive URL.</p>
-                          )}
                         </div>
                         <div className="space-y-1 sm:col-span-2">
                           <Label>Attachment Filename</Label>
