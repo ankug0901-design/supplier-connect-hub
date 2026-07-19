@@ -127,6 +127,10 @@ export default function AdminRfq() {
   const [reopenReason, setReopenReason] = useState('');
   const [reopenDate, setReopenDate] = useState<Date | undefined>(undefined);
   const [reopenTime, setReopenTime] = useState<string>('17:00');
+  const [negotiateTarget, setNegotiateTarget] = useState<string | null>(null);
+  const [negotiatePct, setNegotiatePct] = useState<number>(5);
+  const [negotiateMessage, setNegotiateMessage] = useState<string>('');
+  const [negotiateBusy, setNegotiateBusy] = useState(false);
   const [attachmentTarget, setAttachmentTarget] = useState<string | null>(null);
   const [attachmentUrl, setAttachmentUrl] = useState('');
   const [attachmentName, setAttachmentName] = useState('');
