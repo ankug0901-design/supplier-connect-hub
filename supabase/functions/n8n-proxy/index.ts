@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
     // {"code":0,"message":"No item to return was found"} when the terminal
     // node emits nothing (e.g. an email/send node). The workflow itself ran
     // successfully, so surface this to the client as a 200.
-    if (!res.ok && /no item to return was found/i.test(text)) {
+    if (!res.ok && /(no item to return was found|unused respond to webhook node)/i.test(text)) {
       outStatus = 200;
       outBody = JSON.stringify({ ok: true, status: 200, message: 'Workflow executed (no response payload).' });
     } else if (!text || !text.trim()) {
