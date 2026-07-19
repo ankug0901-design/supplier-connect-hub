@@ -5,8 +5,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, Minus, RefreshCw, AlertCircle } from 'lucide-react';
-
-const ENDPOINT = 'http://172.17.0.1:8100/dashboard/price-trends';
+import { n8nPost } from '@/lib/n8n';
 
 interface TrendPoint {
   date: string;
