@@ -561,6 +561,7 @@ export default function AdminRfq() {
   };
 
 
+  return (
     <DashboardLayout title="RFQ Management" subtitle="All quote requests across suppliers">
       {loading ? (
         <div className="flex items-center justify-center py-20">
