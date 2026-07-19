@@ -50,18 +50,25 @@ export default function PriceTrendsPanel() {
         category: category.trim(),
         supplier_email: supplierEmail.trim(),
       };
+      console.log('[PriceTrends] POST', PRICE_TRENDS_URL, payload);
       const resp = await fetch(PRICE_TRENDS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const json: RawResponse | TrendPoint[] = await resp.json();
+      console.log('[PriceTrends] status', resp.status, resp.statusText);
+      const raw = await resp.text();
+      console.log('[PriceTrends] body (first 500):', raw.slice(0, 500));
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${raw.slice(0, 200)}`);
+      let json: RawResponse | TrendPoint[];
+      try { json = raw ? JSON.parse(raw) : []; }
+      catch { throw new Error(`Invalid JSON response: ${raw.slice(0, 200)}`); }
       const arr: TrendPoint[] = Array.isArray(json)
         ? json
         : (json.points || json.data || json.trends || []);
       setPoints(arr);
     } catch (e: any) {
+      console.error('[PriceTrends] fetch failed:', e);
       setError(e?.message || 'Failed to fetch price trends');
       setPoints([]);
     } finally {
