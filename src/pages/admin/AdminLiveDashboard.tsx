@@ -88,10 +88,15 @@ export default function AdminLiveDashboard() {
     abortRef.current = ctrl;
     setRefreshing(true);
     try {
-      const res = await n8nPost('rfq-dashboard', {});
+      const resp = await fetch(DASHBOARD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+        signal: ctrl.signal,
+      });
       if (ctrl.signal.aborted) return;
-      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
-      const data = res.data;
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
       const list: OpenRfq[] = Array.isArray(data) ? data : (data?.rfqs || data?.rows || data?.data || []);
       setRows(list);
       setError(null);
