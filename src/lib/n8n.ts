@@ -11,7 +11,9 @@ export type N8nPath =
   | 'rfq-send-attachment'
   | 'rfq-issue-po'
   | 'bulk-register-suppliers'
-  | 'rfq-tca-report';
+  | 'rfq-tca-report'
+  | 'rfq-dashboard'
+  | 'rfq-price-trends';
 
 export interface N8nResult {
   ok: boolean;
