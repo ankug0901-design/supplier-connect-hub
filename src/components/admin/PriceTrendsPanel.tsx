@@ -5,7 +5,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, Minus, RefreshCw, AlertCircle } from 'lucide-react';
-const PRICE_TRENDS_URL = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-price-trends';
+import { n8nPost } from '@/lib/n8n';
 
 interface TrendPoint {
   date: string;
