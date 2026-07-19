@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart, ChevronDown, ChevronRight, Package } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart, ChevronDown, ChevronRight, Package, Paperclip } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import jsPDF from 'jspdf';
@@ -124,6 +124,11 @@ export default function AdminRfq() {
   const [reopenReason, setReopenReason] = useState('');
   const [reopenDate, setReopenDate] = useState<Date | undefined>(undefined);
   const [reopenTime, setReopenTime] = useState<string>('17:00');
+  const [attachmentTarget, setAttachmentTarget] = useState<string | null>(null);
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentName, setAttachmentName] = useState('');
+  const [attachmentMessage, setAttachmentMessage] = useState('');
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const { supplier, user } = useAuth();
   const [justifyTarget, setJustifyTarget] = useState<{ row: Rfq; rank: number; l1: Rfq | null } | null>(null);
@@ -493,6 +498,37 @@ export default function AdminRfq() {
     setReopenReason('');
   };
 
+  const sendAttachment = async () => {
+    if (!attachmentTarget) return;
+    const url = attachmentUrl.trim();
+    const name = attachmentName.trim();
+    const message = attachmentMessage.trim();
+    if (!url) { toast.error('File URL is required'); return; }
+    try { new URL(url); } catch { toast.error('Enter a valid URL'); return; }
+    if (!name) { toast.error('File name is required'); return; }
+    setAttachmentBusy(true);
+    try {
+      const res = await n8nPost('rfq-operations', {
+        action: 'send_attachment',
+        rfq_id: attachmentTarget,
+        attachment_url: url,
+        attachment_name: name,
+        message,
+      });
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      toast.success('Attachment sent to all suppliers');
+      setAttachmentTarget(null);
+      setAttachmentUrl('');
+      setAttachmentName('');
+      setAttachmentMessage('');
+    } catch (e: any) {
+      toast.error(`Send attachment failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setAttachmentBusy(false);
+    }
+  };
+
+
   return (
     <DashboardLayout title="RFQ Management" subtitle="All quote requests across suppliers">
       {loading ? (
@@ -612,6 +648,11 @@ export default function AdminRfq() {
                       {!decided && !isClosed && (
                         <Button size="sm" variant="destructive" disabled={!!busyId} onClick={() => setForceCloseTarget(rfq_id)}>
                           Force Close
+                        </Button>
+                      )}
+                      {!decided && !rfqIsClosed && (
+                        <Button size="sm" variant="outline" className="border-purple-300 bg-purple-50 text-purple-800 hover:bg-purple-100" disabled={!!busyId} onClick={() => { setAttachmentTarget(rfq_id); setAttachmentUrl(''); setAttachmentName(''); setAttachmentMessage(''); }}>
+                          <Paperclip className="mr-1 h-3.5 w-3.5" /> Send Attachment
                         </Button>
                       )}
                       {!decided && !rfqIsClosed && (
@@ -970,7 +1011,53 @@ export default function AdminRfq() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!attachmentTarget} onOpenChange={(o) => { if (!o) { setAttachmentTarget(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Attachment to Suppliers</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Sends a branded follow-up email with the document link to all suppliers on <span className="font-mono">{attachmentTarget}</span>.
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">File URL *</label>
+              <Input
+                value={attachmentUrl}
+                onChange={(e) => setAttachmentUrl(e.target.value)}
+                placeholder="https://drive.google.com/..."
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">File Name *</label>
+              <Input
+                value={attachmentName}
+                onChange={(e) => setAttachmentName(e.target.value)}
+                placeholder="e.g. Technical Drawing v2.pdf"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Message (optional)</label>
+              <Textarea
+                value={attachmentMessage}
+                onChange={(e) => setAttachmentMessage(e.target.value)}
+                placeholder="Add a short note for suppliers"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setAttachmentTarget(null)} disabled={attachmentBusy}>Cancel</Button>
+            <Button onClick={sendAttachment} disabled={attachmentBusy} className="bg-purple-600 hover:bg-purple-700 text-white">
+              {attachmentBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Paperclip className="mr-2 h-4 w-4" />}
+              Send to Suppliers
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <RfqCreateDrawer open={createOpen} onOpenChange={setCreateOpen} onSuccess={load} />
+
 
 
       <Dialog open={!!justifyTarget} onOpenChange={(o) => { if (!o) { setJustifyTarget(null); setJustifyText(''); } }}>
