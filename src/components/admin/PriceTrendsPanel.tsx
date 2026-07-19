@@ -46,12 +46,12 @@ export default function PriceTrendsPanel() {
     setLoading(true);
     setError(null);
     try {
-      const url = new URL(ENDPOINT);
-      if (category.trim()) url.searchParams.set('category', category.trim());
-      if (supplierEmail.trim()) url.searchParams.set('supplier_email', supplierEmail.trim());
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: RawResponse | TrendPoint[] = await res.json();
+      const payload: Record<string, unknown> = {};
+      if (category.trim()) payload.category = category.trim();
+      if (supplierEmail.trim()) payload.supplier_email = supplierEmail.trim();
+      const res = await n8nPost('rfq-price-trends', payload);
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      const json: RawResponse | TrendPoint[] = res.data;
       const arr: TrendPoint[] = Array.isArray(json)
         ? json
         : (json.points || json.data || json.trends || []);
