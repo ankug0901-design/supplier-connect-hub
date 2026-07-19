@@ -651,6 +651,11 @@ export default function AdminRfq() {
                         </Button>
                       )}
                       {!decided && !rfqIsClosed && (
+                        <Button size="sm" variant="outline" className="border-purple-300 bg-purple-50 text-purple-800 hover:bg-purple-100" disabled={!!busyId} onClick={() => { setAttachmentTarget(rfq_id); setAttachmentUrl(''); setAttachmentName(''); setAttachmentMessage(''); }}>
+                          <Paperclip className="mr-1 h-3.5 w-3.5" /> Send Attachment
+                        </Button>
+                      )}
+                      {!decided && !rfqIsClosed && (
                         <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!!busyId} onClick={() => openReopenOrExtend(rfq_id, first.response_deadline, first.closing_time, false)}>
                           Extend
                         </Button>
