@@ -161,7 +161,7 @@ export default function PriceTrendsPanel() {
             <div className="font-medium">Unable to load price trends</div>
             <div className="text-xs opacity-80">{error}</div>
             <div className="mt-1 text-xs opacity-70">
-              This dashboard queries an internal host (172.17.0.1:8100). It only works from machines on the same internal network.
+              The price trend service is temporarily unreachable. Please retry shortly.
             </div>
           </div>
         </div>
