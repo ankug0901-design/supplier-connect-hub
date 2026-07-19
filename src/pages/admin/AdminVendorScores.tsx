@@ -8,6 +8,8 @@ import {
 } from 'recharts';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import PriceTrendsPanel from '@/components/admin/PriceTrendsPanel';
 
 interface VendorScoreRow {
   id: string;
