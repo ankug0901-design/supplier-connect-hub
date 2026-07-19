@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "rfq_attachments_auth_read" ON storage.objects;
+CREATE POLICY "rfq_attachments_admin_read" ON storage.objects FOR SELECT USING (bucket_id = 'rfq-attachments' AND public.is_admin());
