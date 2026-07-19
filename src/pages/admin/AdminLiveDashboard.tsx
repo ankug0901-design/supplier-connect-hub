@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { n8nPost } from '@/lib/n8n';
+const DASHBOARD_URL = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-dashboard';
 
 const REFRESH_MS = 60_000;
 
@@ -88,10 +88,15 @@ export default function AdminLiveDashboard() {
     abortRef.current = ctrl;
     setRefreshing(true);
     try {
-      const res = await n8nPost('rfq-dashboard', {});
+      const resp = await fetch(DASHBOARD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+        signal: ctrl.signal,
+      });
       if (ctrl.signal.aborted) return;
-      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
-      const data = res.data;
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
       const list: OpenRfq[] = Array.isArray(data) ? data : (data?.rfqs || data?.rows || data?.data || []);
       setRows(list);
       setError(null);
