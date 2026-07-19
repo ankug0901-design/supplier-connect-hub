@@ -682,6 +682,11 @@ export default function AdminRfq() {
                           Force Close
                         </Button>
                       )}
+                      {!decided && !rfqIsClosed && submitted.length >= 2 && (
+                        <Button size="sm" variant="outline" className="border-teal-300 bg-teal-50 text-teal-800 hover:bg-teal-100" disabled={!!busyId} onClick={() => { setNegotiateTarget(rfq_id); setNegotiatePct(5); setNegotiateMessage(''); }}>
+                          <Handshake className="mr-1 h-3.5 w-3.5" /> Negotiate
+                        </Button>
+                      )}
                       {!decided && !rfqIsClosed && (
                         <Button size="sm" variant="outline" className="border-purple-300 bg-purple-50 text-purple-800 hover:bg-purple-100" disabled={!!busyId} onClick={() => { setAttachmentTarget(rfq_id); setAttachmentUrl(''); setAttachmentName(''); setAttachmentMessage(''); }}>
                           <Paperclip className="mr-1 h-3.5 w-3.5" /> Send Attachment
