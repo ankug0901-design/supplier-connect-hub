@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { RfqCreateDrawer } from '@/components/admin/RfqCreateDrawer';
 import { useAuth } from '@/contexts/AuthContext';
 import { n8nPost } from '@/lib/n8n';
+import { RfqAttachmentUpload, UploadedFileBadge } from '@/components/RfqAttachmentUpload';
 
 type Rfq = any;
 
