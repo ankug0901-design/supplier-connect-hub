@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-const DASHBOARD_URL = 'https://n8n.srv1141999.hstgr.cloud/webhook/rfq-dashboard';
+import { n8nPost } from '@/lib/n8n';
 
 const REFRESH_MS = 60_000;
 
