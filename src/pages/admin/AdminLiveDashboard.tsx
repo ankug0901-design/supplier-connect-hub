@@ -5,8 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { n8nPost } from '@/lib/n8n';
 
-const ENDPOINT = 'http://172.17.0.1:8100/dashboard/open-rfqs';
 const REFRESH_MS = 60_000;
 
 type Quote = {
