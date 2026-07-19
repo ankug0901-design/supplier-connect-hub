@@ -18,6 +18,7 @@ import {
   Award,
   BarChart3,
   AlertTriangle,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
