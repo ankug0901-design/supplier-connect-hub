@@ -1011,7 +1011,53 @@ export default function AdminRfq() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!attachmentTarget} onOpenChange={(o) => { if (!o) { setAttachmentTarget(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Attachment to Suppliers</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Sends a branded follow-up email with the document link to all suppliers on <span className="font-mono">{attachmentTarget}</span>.
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">File URL *</label>
+              <Input
+                value={attachmentUrl}
+                onChange={(e) => setAttachmentUrl(e.target.value)}
+                placeholder="https://drive.google.com/..."
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">File Name *</label>
+              <Input
+                value={attachmentName}
+                onChange={(e) => setAttachmentName(e.target.value)}
+                placeholder="e.g. Technical Drawing v2.pdf"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Message (optional)</label>
+              <Textarea
+                value={attachmentMessage}
+                onChange={(e) => setAttachmentMessage(e.target.value)}
+                placeholder="Add a short note for suppliers"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setAttachmentTarget(null)} disabled={attachmentBusy}>Cancel</Button>
+            <Button onClick={sendAttachment} disabled={attachmentBusy} className="bg-purple-600 hover:bg-purple-700 text-white">
+              {attachmentBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Paperclip className="mr-2 h-4 w-4" />}
+              Send to Suppliers
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <RfqCreateDrawer open={createOpen} onOpenChange={setCreateOpen} onSuccess={load} />
+
 
 
       <Dialog open={!!justifyTarget} onOpenChange={(o) => { if (!o) { setJustifyTarget(null); setJustifyText(''); } }}>
