@@ -88,6 +88,7 @@ export default function AdminLiveDashboard() {
     abortRef.current = ctrl;
     setRefreshing(true);
     try {
+      console.log('[LiveDashboard] POST', DASHBOARD_URL);
       const resp = await fetch(DASHBOARD_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -95,14 +96,20 @@ export default function AdminLiveDashboard() {
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted) return;
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
+      console.log('[LiveDashboard] status', resp.status, resp.statusText);
+      const raw = await resp.text();
+      console.log('[LiveDashboard] body (first 500):', raw.slice(0, 500));
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${raw.slice(0, 200)}`);
+      let data: any;
+      try { data = raw ? JSON.parse(raw) : []; }
+      catch (parseErr) { throw new Error(`Invalid JSON response: ${raw.slice(0, 200)}`); }
       const list: OpenRfq[] = Array.isArray(data) ? data : (data?.rfqs || data?.rows || data?.data || []);
       setRows(list);
       setError(null);
       setLastFetched(new Date());
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
+      console.error('[LiveDashboard] fetch failed:', e);
       setError(e?.message || 'Failed to load');
     } finally {
       setRefreshing(false);
