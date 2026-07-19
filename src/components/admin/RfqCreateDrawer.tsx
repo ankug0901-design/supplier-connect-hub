@@ -185,8 +185,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
         return false;
       }
       if (it.attachment_url.trim()) {
-        if (!isDriveUrl(it.attachment_url)) {
-          toast.error(`Item ${i + 1}: attachment link doesn't look like a Google Drive URL`);
+        try { new URL(it.attachment_url); } catch {
+          toast.error(`Item ${i + 1}: attachment link is not a valid URL`);
           return false;
         }
         if (!it.attachment_name.trim()) {
