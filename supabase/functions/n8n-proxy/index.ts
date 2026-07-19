@@ -47,6 +47,11 @@ const MULTIPART_PATHS = new Set([
   'delhivery-b2b-master',
 ]);
 
+// Paths where the upstream n8n webhook is registered as GET (query-string only).
+const GET_PATHS = new Set([
+  'rfq-price-trends',
+]);
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
