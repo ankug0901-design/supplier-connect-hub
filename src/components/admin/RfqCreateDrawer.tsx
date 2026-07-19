@@ -463,16 +463,28 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
                           <Label>Additional Specifications</Label>
                           <Textarea value={it.extra_specs} onChange={(e) => updateItem(i, { extra_specs: e.target.value })} rows={2} />
                         </div>
-                        <div className="space-y-1 sm:col-span-2">
-                          <Label>Attachment — Google Drive Link (optional)</Label>
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label>Attachment (optional)</Label>
+                          <RfqAttachmentUpload
+                            folder={draftFolder}
+                            prefix={String(i + 1)}
+                            onUploaded={({ url, name }) => updateItem(i, { attachment_url: url, attachment_name: name })}
+                          />
+                          {it.attachment_url && it.attachment_name && (
+                            <UploadedFileBadge
+                              name={it.attachment_name}
+                              onClear={() => updateItem(i, { attachment_url: '', attachment_name: '' })}
+                            />
+                          )}
+                          <div className="relative py-1 text-center text-[10px] uppercase tracking-wide text-muted-foreground">
+                            <span className="bg-background px-2 relative z-10">or paste a link</span>
+                            <div className="absolute inset-x-0 top-1/2 h-px bg-border" />
+                          </div>
                           <Input
                             value={it.attachment_url}
                             onChange={(e) => updateItem(i, { attachment_url: e.target.value })}
                             placeholder="https://drive.google.com/file/d/..."
                           />
-                          {it.attachment_url.trim() && !isDriveUrl(it.attachment_url) && (
-                            <p className="text-xs text-amber-600">⚠️ Link doesn't look like a Google Drive URL.</p>
-                          )}
                         </div>
                         <div className="space-y-1 sm:col-span-2">
                           <Label>Attachment Filename</Label>
