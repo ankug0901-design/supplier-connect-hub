@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { n8nPost } from '@/lib/n8n';
+import { RfqAttachmentUpload, UploadedFileBadge } from '@/components/RfqAttachmentUpload';
 
 const PRODUCT_CATEGORIES = [
   'Offset Printing', 'Flexographic Printing', 'Digital Printing', 'Screen Printing',
