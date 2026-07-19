@@ -137,7 +137,7 @@ export default function AdminLiveDashboard() {
         {error && (
           <Card className="border-red-300 bg-red-50">
             <CardContent className="py-4 text-sm text-red-800">
-              Failed to load live data: {error}. Endpoint: <span className="font-mono">{ENDPOINT}</span>
+              Failed to load live data: {error}
             </CardContent>
           </Card>
         )}
