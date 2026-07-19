@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "Authenticated can read role section access" ON public.role_section_access;
+CREATE POLICY "Admins can read role section access" ON public.role_section_access FOR SELECT TO authenticated USING (public.is_admin());
