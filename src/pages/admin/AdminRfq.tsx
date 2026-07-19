@@ -24,6 +24,8 @@ import { RfqCreateDrawer } from '@/components/admin/RfqCreateDrawer';
 import { useAuth } from '@/contexts/AuthContext';
 import { n8nPost } from '@/lib/n8n';
 import { RfqAttachmentUpload, UploadedFileBadge } from '@/components/RfqAttachmentUpload';
+import { Slider } from '@/components/ui/slider';
+import { Handshake } from 'lucide-react';
 
 type Rfq = any;
 
