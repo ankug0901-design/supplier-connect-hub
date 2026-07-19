@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { CalendarIcon, ChevronDown, ChevronRight, Loader2, Plus, Trash2, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
