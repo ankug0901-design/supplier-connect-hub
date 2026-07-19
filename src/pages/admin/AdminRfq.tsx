@@ -535,8 +535,32 @@ export default function AdminRfq() {
     }
   };
 
+  const sendNegotiate = async () => {
+    if (!negotiateTarget) return;
+    const pct = Math.round(negotiatePct);
+    if (pct < 1 || pct > 15) { toast.error('L1 improvement must be between 1% and 15%'); return; }
+    setNegotiateBusy(true);
+    try {
+      const res = await n8nPost('rfq-operations', {
+        action: 'negotiate',
+        rfq_id: negotiateTarget,
+        l1_improvement_pct: pct,
+        message: negotiateMessage.trim() || undefined,
+        actioned_by: supplier?.name || user?.email || 'Admin',
+      });
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      toast.success('Negotiation request sent to suppliers');
+      setNegotiateTarget(null);
+      setNegotiatePct(5);
+      setNegotiateMessage('');
+    } catch (e: any) {
+      toast.error(`Negotiate failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setNegotiateBusy(false);
+    }
+  };
 
-  return (
+
     <DashboardLayout title="RFQ Management" subtitle="All quote requests across suppliers">
       {loading ? (
         <div className="flex items-center justify-center py-20">
