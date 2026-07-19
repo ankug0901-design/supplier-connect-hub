@@ -175,6 +175,14 @@ Deno.serve(async (req) => {
       }
       const safePayload = { ...(payload as Record<string, unknown>) };
       delete safePayload.access_code;
+      if (GET_PATHS.has(path!)) {
+        const qs = new URLSearchParams({ access_code: accessCode });
+        for (const [k, v] of Object.entries(safePayload)) {
+          if (v == null || v === '') continue;
+          qs.append(k, typeof v === 'string' ? v : JSON.stringify(v));
+        }
+        return { url: `${N8N_BASE}/${path}?${qs.toString()}`, init: { method: 'GET' } };
+      }
       return {
         url: `${N8N_BASE}/${path}`,
         init: {
