@@ -25,16 +25,22 @@ const unique = (values: Array<string | null | undefined>) =>
 const normalizePoStatus = (status?: string | null) =>
   String(status || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
 
-const SUPPLIER_HIDDEN_PO_STATUSES = new Set(['draft', 'pending', 'pending_approval', 'rejected']);
+// Only POs whose Zoho status is approved/open (or later in the fulfilment
+// lifecycle) are visible to suppliers. Anything else — draft, pending,
+// pending_approval, rejected, cancelled, or an unknown status — stays hidden
+// until it's approved in Zoho Books.
+const SUPPLIER_VISIBLE_PO_STATUSES = new Set([
+  'open', 'partial', 'partially_billed', 'billed', 'invoiced', 'completed', 'closed',
+]);
 
 export const isSupplierVisiblePurchaseOrder = (po: any) => {
   const status = normalizePoStatus(po?.rawStatus || po?.status || po?.status_formatted || po?.statusFormatted);
   const approvalStatus = normalizePoStatus(
     po?.approval_status || po?.approvalStatus || po?.approval_status_formatted || po?.approvalStatusFormatted,
   );
-  if (SUPPLIER_HIDDEN_PO_STATUSES.has(status)) return false;
-  if (approvalStatus && SUPPLIER_HIDDEN_PO_STATUSES.has(approvalStatus)) return false;
-  return true;
+  // If Zoho reports an approval workflow status, it must be 'approved'.
+  if (approvalStatus && approvalStatus !== 'approved') return false;
+  return SUPPLIER_VISIBLE_PO_STATUSES.has(status);
 };
 
 const groupBy = <T extends Record<string, any>>(rows: T[], key: keyof T) =>
