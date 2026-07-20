@@ -30,7 +30,7 @@ const normalizePoStatus = (status?: string | null) =>
 // pending_approval, rejected, cancelled, or an unknown status — stays hidden
 // until it's approved in Zoho Books.
 const SUPPLIER_VISIBLE_PO_STATUSES = new Set([
-  'open', 'partial', 'partially_billed', 'billed', 'invoiced', 'completed', 'closed',
+  'approved', 'open', 'partial', 'partially_billed', 'billed', 'invoiced', 'completed', 'closed',
 ]);
 
 export const isSupplierVisiblePurchaseOrder = (po: any) => {
