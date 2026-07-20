@@ -161,7 +161,8 @@ export default function RfqRequests() {
           {rfqs.map((r) => {
             const days = daysUntil(r.response_deadline);
             const urgent = days !== null && days <= 2;
-            const locked = ['accepted', 'rejected', 'expired'].includes(r.status);
+            const deadlinePassed = isDeadlinePassed(r.response_deadline);
+            const locked = ['accepted', 'rejected', 'expired'].includes(r.status) || deadlinePassed;
             return (
               <Card key={r.id} className="flex flex-col">
                 <CardContent className="flex flex-1 flex-col gap-3 p-5">
@@ -186,21 +187,24 @@ export default function RfqRequests() {
                   <div className="text-xs text-muted-foreground">
                     {[r.quantity, r.material, r.print_process, r.finish].filter(Boolean).join(' · ') || '—'}
                   </div>
-                  <div className={`flex items-center gap-1.5 text-sm ${urgent ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                    {urgent && <AlertTriangle className="h-4 w-4" />}
+                  <div className={`flex items-center gap-1.5 text-sm ${urgent || deadlinePassed ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                    {(urgent || deadlinePassed) && <AlertTriangle className="h-4 w-4" />}
                     <span>
                       Closes: {formatDeadline(r.response_deadline)}
-                      {days !== null && days >= 0 && ` (${days}d left)`}
-                      {days !== null && days < 0 && ` (closed)`}
+                      {days !== null && days >= 0 && !deadlinePassed && ` (${days}d left)`}
+                      {deadlinePassed && ` (closed)`}
                     </span>
                   </div>
                   <div className="mt-auto pt-2">
                     <Button
                       className="w-full"
+                      variant={deadlinePassed && r.status !== 'accepted' ? 'outline' : 'default'}
                       disabled={locked}
                       onClick={() => setSelected(r)}
                     >
-                      View {r.status === 'quote_submitted' ? '& Revise' : '& Quote'}
+                      {deadlinePassed && !['accepted', 'rejected'].includes(r.status)
+                        ? 'RFQ Closed'
+                        : `View ${r.status === 'quote_submitted' ? '& Revise' : '& Quote'}`}
                     </Button>
                   </div>
                 </CardContent>
@@ -519,7 +523,7 @@ function RfqDetailSheet({
     </div>
   );
 
-  const showForm = rfq.status === 'pending' || (reviseMode && isRevision && !closed);
+  const showForm = !closed && (rfq.status === 'pending' || (reviseMode && isRevision));
 
   return (
     <Sheet open={!!rfq} onOpenChange={(o) => !o && onClose()}>
@@ -635,6 +639,14 @@ function RfqDetailSheet({
 
           {/* RIGHT — quote / status */}
           <div className="space-y-4">
+            {closed && rfq.status === 'pending' && (
+              <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
+                <p className="font-semibold">RFQ Closed</p>
+                <p className="mt-1 text-sm">
+                  The quote deadline ({formatDeadline(rfq.response_deadline)}) has passed. Quoting is disabled unless Emboss Marketing reopens this RFQ.
+                </p>
+              </div>
+            )}
             {showForm && (
               <>
                 <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
