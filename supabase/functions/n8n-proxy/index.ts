@@ -112,35 +112,39 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Enforce admin-only paths server-side
-    if (ADMIN_ONLY_PATHS.has(path)) {
+    // Resolve caller's admin/role posture once, using the authoritative
+    // is_admin() RPC (runs as the caller, honors suppliers.role checks) plus
+    // a service-role fallback lookup for the plain role string.
+    const needsRoleCheck = ADMIN_ONLY_PATHS.has(path) || RFQ_MANAGEMENT_PATHS.has(path);
+    if (needsRoleCheck) {
+      let isAdmin = false;
+      try {
+        const { data: adminRpc } = await supabase.rpc('is_admin');
+        isAdmin = adminRpc === true;
+      } catch {
+        isAdmin = false;
+      }
+
       const adminClient = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       );
-      const { data: callerRow } = await adminClient
-        .from('suppliers')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (callerRow?.role !== 'admin') {
+      let role: string | undefined;
+      if (!isAdmin) {
+        const { data: callerRow } = await adminClient
+          .from('suppliers')
+          .select('role')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        role = callerRow?.role ?? undefined;
+        if (role === 'admin' || role === 'super_user') isAdmin = true;
+      }
+
+      if (ADMIN_ONLY_PATHS.has(path) && !isAdmin) {
         return json({ error: 'Forbidden - admin only' }, 403);
       }
-    }
 
-    // Enforce RFQ-management access server-side for RFQ actions
-    if (RFQ_MANAGEMENT_PATHS.has(path)) {
-      const adminClient = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      );
-      const { data: callerRow } = await adminClient
-        .from('suppliers')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      const role = callerRow?.role;
-      if (role !== 'admin') {
+      if (RFQ_MANAGEMENT_PATHS.has(path) && !isAdmin) {
         const { data: override } = await adminClient
           .from('supplier_section_access')
           .select('enabled')
