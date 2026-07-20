@@ -179,11 +179,17 @@ Deno.serve(async (req) => {
       }
 
       // PO lookup for invoice linkage
-      const { data: poList } = await supabase
-        .from("purchase_orders")
-        .select("id, po_number")
-        .eq("supplier_id", sup.id);
-      const poByNumber = new Map((poList || []).map(p => [p.po_number, p.id]));
+      let poByNumber = new Map<string, string>();
+      try {
+        const { data: poList, error: poListErr } = await supabase
+          .from("purchase_orders")
+          .select("id, po_number")
+          .eq("supplier_id", sup.id);
+        if (poListErr) throw poListErr;
+        poByNumber = new Map((poList || []).map(p => [p.po_number, p.id]));
+      } catch (e: any) {
+        summary.errors.push(`PO lookup ${sup.id}: ${e.message}`);
+      }
 
       // ---- Invoices (Bills) ----
       try {
