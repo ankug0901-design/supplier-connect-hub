@@ -1328,6 +1328,90 @@ export default function AdminRfq() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!addSupTarget} onOpenChange={(o) => !o && !addSupBusy && setAddSupTarget(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Supplier to RFQ</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Invite additional supplier(s) to <span className="font-mono">{addSupTarget}</span>. They'll receive the same RFQ email as other suppliers.
+            </p>
+            {addSupRows.map((row, i) => {
+              const alreadyPicked = new Set(addSupRows.map((r, j) => j === i ? '' : r.email.trim().toLowerCase()));
+              const invitedEmails = new Set(
+                rows.filter((r: any) => r.rfq_id === addSupTarget)
+                  .map((r: any) => String(r.supplier_email || '').trim().toLowerCase())
+              );
+              const options = registeredSuppliers.filter(
+                (s) => !invitedEmails.has(s.email.toLowerCase()) && !alreadyPicked.has(s.email.toLowerCase())
+              );
+              const isManual = !!row.email && !registeredSuppliers.some((s) => s.email.toLowerCase() === row.email.toLowerCase());
+              return (
+                <div key={i} className="flex flex-col gap-2 rounded-md border p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground">Supplier {i + 1}</span>
+                    {addSupRows.length > 1 && (
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-red-600" onClick={() => setAddSupRows((rs) => rs.filter((_, idx) => idx !== i))}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <Select
+                    value={isManual ? '__manual__' : (row.email || '')}
+                    onValueChange={(v) => {
+                      if (v === '__manual__') {
+                        setAddSupRows((rs) => rs.map((r, idx) => idx === i ? { company: '', email: '' } : r));
+                      } else {
+                        const sup = registeredSuppliers.find((s) => s.email === v);
+                        if (sup) setAddSupRows((rs) => rs.map((r, idx) => idx === i ? { company: sup.company, email: sup.email } : r));
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select registered supplier or enter manually" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="__manual__">✏️ Enter manually</SelectItem>
+                      {options.map((s) => (
+                        <SelectItem key={s.email} value={s.email}>
+                          {s.company} — {s.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Company name"
+                      value={row.company}
+                      onChange={(e) => setAddSupRows((rs) => rs.map((r, idx) => idx === i ? { ...r, company: e.target.value } : r))}
+                    />
+                    <Input
+                      type="email"
+                      placeholder="supplier@email.com"
+                      value={row.email}
+                      onChange={(e) => setAddSupRows((rs) => rs.map((r, idx) => idx === i ? { ...r, email: e.target.value } : r))}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            {addSupRows.length < 10 && (
+              <Button variant="outline" size="sm" onClick={() => setAddSupRows((rs) => [...rs, { company: '', email: '' }])}>
+                <Plus className="mr-1 h-4 w-4" /> Add another supplier
+              </Button>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddSupTarget(null)} disabled={addSupBusy}>Cancel</Button>
+            <Button onClick={submitAddSuppliers} disabled={addSupBusy} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {addSupBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Send Invitations
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
