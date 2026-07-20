@@ -640,6 +640,7 @@ export type Database = {
           rfq_id: string
           setup_charges: number | null
           supplier_email: string
+          supplier_id: string | null
           total_price: number | null
           unit_basis: string | null
           updated_at: string
@@ -656,6 +657,7 @@ export type Database = {
           rfq_id: string
           setup_charges?: number | null
           supplier_email: string
+          supplier_id?: string | null
           total_price?: number | null
           unit_basis?: string | null
           updated_at?: string
@@ -672,11 +674,20 @@ export type Database = {
           rfq_id?: string
           setup_charges?: number | null
           supplier_email?: string
+          supplier_id?: string | null
           total_price?: number | null
           unit_basis?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rfq_item_quotes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rfq_items: {
         Row: {
