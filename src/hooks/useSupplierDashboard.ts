@@ -94,13 +94,27 @@ export function useSupplierDashboard(supplierId: string | null | undefined) {
           rpc('supplier_activity_feed', { p_supplier_id: supplierId, p_limit: 8 }),
         ]);
         if (cancelled) return;
+        // supplier_active_rfqs returns a JSON array (or null). Normalize into
+        // the { open_count, responded_count, items } shape the UI expects so
+        // downstream `.items.length` access never blows up.
+        const rawRfqs = rfqs.data;
+        const rfqItems: ActiveRfqItem[] = Array.isArray(rawRfqs)
+          ? rawRfqs
+          : Array.isArray(rawRfqs?.items) ? rawRfqs.items : [];
+        const respondedCount = rfqItems.filter((r) => !!r.quote_submitted_at).length;
         setData({
           kpis: kpis.data || null,
           attention: attention.data || null,
           velocity: velocity.data || null,
           aging: aging.data || null,
-          rfqs: rfqs.data || { open_count: 0, responded_count: 0, items: [] },
-          activity: activity.data || [],
+          rfqs: {
+            open_count: (rawRfqs && !Array.isArray(rawRfqs) && typeof rawRfqs.open_count === 'number')
+              ? rawRfqs.open_count : rfqItems.length,
+            responded_count: (rawRfqs && !Array.isArray(rawRfqs) && typeof rawRfqs.responded_count === 'number')
+              ? rawRfqs.responded_count : respondedCount,
+            items: rfqItems,
+          },
+          activity: Array.isArray(activity.data) ? activity.data : [],
         });
       } catch (e) {
         console.error('supplier dashboard fetch failed', e);
