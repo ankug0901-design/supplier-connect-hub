@@ -331,8 +331,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
-    console.error("zoho-sync fatal", e);
-    return new Response(JSON.stringify({ success: false, error: String(e?.message || e), ...summary }), {
+    console.error("zoho-sync fatal", {
+      message: e?.message, code: e?.code, details: e?.details, hint: e?.hint, stack: e?.stack,
+    });
+    return new Response(JSON.stringify({ success: false, error: String(e?.message || e), code: e?.code, details: e?.details, hint: e?.hint, ...summary }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
