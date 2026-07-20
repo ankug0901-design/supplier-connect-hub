@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart, ChevronDown, ChevronRight, Package, Paperclip } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart, ChevronDown, ChevronRight, Package, Paperclip, UserPlus, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import jsPDF from 'jspdf';
@@ -147,6 +148,10 @@ export default function AdminRfq() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
   const [tcaBusyId, setTcaBusyId] = useState<string | null>(null);
+  const [registeredSuppliers, setRegisteredSuppliers] = useState<{ email: string; company: string }[]>([]);
+  const [addSupTarget, setAddSupTarget] = useState<string | null>(null);
+  const [addSupRows, setAddSupRows] = useState<{ company: string; email: string }[]>([{ company: '', email: '' }]);
+  const [addSupBusy, setAddSupBusy] = useState(false);
 
   const generateTcaReport = async (rfq_id: string) => {
     setTcaBusyId(rfq_id);
@@ -245,6 +250,12 @@ export default function AdminRfq() {
       const emailKey = String(s.email || '').trim().toLowerCase();
       if (emailKey && s.company) companyByEmail[emailKey] = s.company;
     });
+    setRegisteredSuppliers(
+      (sups || [])
+        .filter((s: any) => s.email && s.company)
+        .map((s: any) => ({ email: String(s.email), company: String(s.company) }))
+        .sort((a, b) => a.company.localeCompare(b.company))
+    );
 
     const itemsMap: Record<string, any[]> = {};
     (allItems || []).forEach((it: any) => {
@@ -560,6 +571,52 @@ export default function AdminRfq() {
     }
   };
 
+  const openAddSupplier = (rfqId: string) => {
+    setAddSupTarget(rfqId);
+    setAddSupRows([{ company: '', email: '' }]);
+  };
+
+  const submitAddSuppliers = async () => {
+    if (!addSupTarget) return;
+    const clean = addSupRows
+      .map((r) => ({ company: r.company.trim(), email: r.email.trim().toLowerCase() }))
+      .filter((r) => r.company && r.email);
+    if (clean.length === 0) { toast.error('Add at least one supplier (company + email)'); return; }
+    const invalid = clean.find((r) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email));
+    if (invalid) { toast.error(`Invalid email: ${invalid.email}`); return; }
+
+    // Prevent re-adding suppliers already invited to this RFQ
+    const existingEmails = new Set(
+      rows.filter((r: any) => r.rfq_id === addSupTarget)
+        .map((r: any) => String(r.supplier_email || '').trim().toLowerCase())
+    );
+    const dup = clean.find((r) => existingEmails.has(r.email));
+    if (dup) { toast.error(`${dup.email} is already invited to this RFQ`); return; }
+
+    setAddSupBusy(true);
+    try {
+      const res = await n8nPost('rfq-operations', {
+        action: 'add_supplier',
+        rfq_id: addSupTarget,
+        suppliers: clean.map((s) => ({ name: s.company, email: s.email })),
+        actioned_by: supplier?.name || user?.email || 'Admin',
+      });
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      const data: any = res.data || {};
+      const added = data?.suppliers_added ?? clean.length;
+      toast.success(`${added} supplier${added === 1 ? '' : 's'} added — invitations sent ✅`);
+      setAddSupTarget(null);
+      setAddSupRows([{ company: '', email: '' }]);
+      setTimeout(() => load(), 1500);
+    } catch (e: any) {
+      toast.error(`Add supplier failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setAddSupBusy(false);
+    }
+  };
+
+
+
 
   return (
     <DashboardLayout title="RFQ Management" subtitle="All quote requests across suppliers">
@@ -690,6 +747,11 @@ export default function AdminRfq() {
                       {!decided && !rfqIsClosed && (
                         <Button size="sm" variant="outline" className="border-purple-300 bg-purple-50 text-purple-800 hover:bg-purple-100" disabled={!!busyId} onClick={() => { setAttachmentTarget(rfq_id); setAttachmentUrl(''); setAttachmentName(''); setAttachmentMessage(''); }}>
                           <Paperclip className="mr-1 h-3.5 w-3.5" /> Send Attachment
+                        </Button>
+                      )}
+                      {!decided && (
+                        <Button size="sm" variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" disabled={!!busyId} onClick={() => openAddSupplier(rfq_id)}>
+                          <UserPlus className="mr-1 h-3.5 w-3.5" /> Add Supplier
                         </Button>
                       )}
                       {!decided && !rfqIsClosed && (
@@ -1262,6 +1324,90 @@ export default function AdminRfq() {
             <Button disabled={!summaryMarkdown || pdfBusy} onClick={downloadSummary} className="bg-purple-600 hover:bg-purple-700 text-white">
               {pdfBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
               {pdfBusy ? 'Preparing…' : 'Download PDF'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!addSupTarget} onOpenChange={(o) => !o && !addSupBusy && setAddSupTarget(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Supplier to RFQ</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Invite additional supplier(s) to <span className="font-mono">{addSupTarget}</span>. They'll receive the same RFQ email as other suppliers.
+            </p>
+            {addSupRows.map((row, i) => {
+              const alreadyPicked = new Set(addSupRows.map((r, j) => j === i ? '' : r.email.trim().toLowerCase()));
+              const invitedEmails = new Set(
+                rows.filter((r: any) => r.rfq_id === addSupTarget)
+                  .map((r: any) => String(r.supplier_email || '').trim().toLowerCase())
+              );
+              const options = registeredSuppliers.filter(
+                (s) => !invitedEmails.has(s.email.toLowerCase()) && !alreadyPicked.has(s.email.toLowerCase())
+              );
+              const isManual = !!row.email && !registeredSuppliers.some((s) => s.email.toLowerCase() === row.email.toLowerCase());
+              return (
+                <div key={i} className="flex flex-col gap-2 rounded-md border p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground">Supplier {i + 1}</span>
+                    {addSupRows.length > 1 && (
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-red-600" onClick={() => setAddSupRows((rs) => rs.filter((_, idx) => idx !== i))}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <Select
+                    value={isManual ? '__manual__' : (row.email || '')}
+                    onValueChange={(v) => {
+                      if (v === '__manual__') {
+                        setAddSupRows((rs) => rs.map((r, idx) => idx === i ? { company: '', email: '' } : r));
+                      } else {
+                        const sup = registeredSuppliers.find((s) => s.email === v);
+                        if (sup) setAddSupRows((rs) => rs.map((r, idx) => idx === i ? { company: sup.company, email: sup.email } : r));
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select registered supplier or enter manually" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="__manual__">✏️ Enter manually</SelectItem>
+                      {options.map((s) => (
+                        <SelectItem key={s.email} value={s.email}>
+                          {s.company} — {s.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Company name"
+                      value={row.company}
+                      onChange={(e) => setAddSupRows((rs) => rs.map((r, idx) => idx === i ? { ...r, company: e.target.value } : r))}
+                    />
+                    <Input
+                      type="email"
+                      placeholder="supplier@email.com"
+                      value={row.email}
+                      onChange={(e) => setAddSupRows((rs) => rs.map((r, idx) => idx === i ? { ...r, email: e.target.value } : r))}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            {addSupRows.length < 10 && (
+              <Button variant="outline" size="sm" onClick={() => setAddSupRows((rs) => [...rs, { company: '', email: '' }])}>
+                <Plus className="mr-1 h-4 w-4" /> Add another supplier
+              </Button>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddSupTarget(null)} disabled={addSupBusy}>Cancel</Button>
+            <Button onClick={submitAddSuppliers} disabled={addSupBusy} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {addSupBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Send Invitations
             </Button>
           </DialogFooter>
         </DialogContent>
