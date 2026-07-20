@@ -179,11 +179,17 @@ Deno.serve(async (req) => {
       }
 
       // PO lookup for invoice linkage
-      const { data: poList } = await supabase
-        .from("purchase_orders")
-        .select("id, po_number")
-        .eq("supplier_id", sup.id);
-      const poByNumber = new Map((poList || []).map(p => [p.po_number, p.id]));
+      let poByNumber = new Map<string, string>();
+      try {
+        const { data: poList, error: poListErr } = await supabase
+          .from("purchase_orders")
+          .select("id, po_number")
+          .eq("supplier_id", sup.id);
+        if (poListErr) throw poListErr;
+        poByNumber = new Map((poList || []).map(p => [p.po_number, p.id]));
+      } catch (e: any) {
+        summary.errors.push(`PO lookup ${sup.id}: ${e.message}`);
+      }
 
       // ---- Invoices (Bills) ----
       try {
@@ -331,8 +337,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
-    console.error("zoho-sync fatal", e);
-    return new Response(JSON.stringify({ success: false, error: String(e?.message || e), ...summary }), {
+    console.error("zoho-sync fatal", {
+      message: e?.message, code: e?.code, details: e?.details, hint: e?.hint, stack: e?.stack,
+    });
+    return new Response(JSON.stringify({ success: false, error: String(e?.message || e), code: e?.code, details: e?.details, hint: e?.hint, ...summary }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
