@@ -639,6 +639,14 @@ function RfqDetailSheet({
 
           {/* RIGHT — quote / status */}
           <div className="space-y-4">
+            {closed && rfq.status === 'pending' && (
+              <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
+                <p className="font-semibold">RFQ Closed</p>
+                <p className="mt-1 text-sm">
+                  The quote deadline ({formatDeadline(rfq.response_deadline)}) has passed. Quoting is disabled unless Emboss Marketing reopens this RFQ.
+                </p>
+              </div>
+            )}
             {showForm && (
               <>
                 <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
