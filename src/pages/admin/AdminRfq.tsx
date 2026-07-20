@@ -749,6 +749,11 @@ export default function AdminRfq() {
                           <Paperclip className="mr-1 h-3.5 w-3.5" /> Send Attachment
                         </Button>
                       )}
+                      {!decided && (
+                        <Button size="sm" variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" disabled={!!busyId} onClick={() => openAddSupplier(rfq_id)}>
+                          <UserPlus className="mr-1 h-3.5 w-3.5" /> Add Supplier
+                        </Button>
+                      )}
                       {!decided && !rfqIsClosed && (
                         <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!!busyId} onClick={() => openReopenOrExtend(rfq_id, first.response_deadline, first.closing_time, false)}>
                           Extend
