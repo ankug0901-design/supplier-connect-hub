@@ -523,7 +523,7 @@ function RfqDetailSheet({
     </div>
   );
 
-  const showForm = rfq.status === 'pending' || (reviseMode && isRevision && !closed);
+  const showForm = !closed && (rfq.status === 'pending' || (reviseMode && isRevision));
 
   return (
     <Sheet open={!!rfq} onOpenChange={(o) => !o && onClose()}>
