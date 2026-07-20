@@ -571,6 +571,52 @@ export default function AdminRfq() {
     }
   };
 
+  const openAddSupplier = (rfqId: string) => {
+    setAddSupTarget(rfqId);
+    setAddSupRows([{ company: '', email: '' }]);
+  };
+
+  const submitAddSuppliers = async () => {
+    if (!addSupTarget) return;
+    const clean = addSupRows
+      .map((r) => ({ company: r.company.trim(), email: r.email.trim().toLowerCase() }))
+      .filter((r) => r.company && r.email);
+    if (clean.length === 0) { toast.error('Add at least one supplier (company + email)'); return; }
+    const invalid = clean.find((r) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email));
+    if (invalid) { toast.error(`Invalid email: ${invalid.email}`); return; }
+
+    // Prevent re-adding suppliers already invited to this RFQ
+    const existingEmails = new Set(
+      rows.filter((r: any) => r.rfq_id === addSupTarget)
+        .map((r: any) => String(r.supplier_email || '').trim().toLowerCase())
+    );
+    const dup = clean.find((r) => existingEmails.has(r.email));
+    if (dup) { toast.error(`${dup.email} is already invited to this RFQ`); return; }
+
+    setAddSupBusy(true);
+    try {
+      const res = await n8nPost('rfq-operations', {
+        action: 'add_supplier',
+        rfq_id: addSupTarget,
+        suppliers: clean.map((s) => ({ name: s.company, email: s.email })),
+        actioned_by: supplier?.name || user?.email || 'Admin',
+      });
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      const data: any = res.data || {};
+      const added = data?.suppliers_added ?? clean.length;
+      toast.success(`${added} supplier${added === 1 ? '' : 's'} added — invitations sent ✅`);
+      setAddSupTarget(null);
+      setAddSupRows([{ company: '', email: '' }]);
+      setTimeout(() => load(), 1500);
+    } catch (e: any) {
+      toast.error(`Add supplier failed: ${e.message || 'Unknown error'}`);
+    } finally {
+      setAddSupBusy(false);
+    }
+  };
+
+
+
 
   return (
     <DashboardLayout title="RFQ Management" subtitle="All quote requests across suppliers">
