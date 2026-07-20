@@ -250,6 +250,12 @@ export default function AdminRfq() {
       const emailKey = String(s.email || '').trim().toLowerCase();
       if (emailKey && s.company) companyByEmail[emailKey] = s.company;
     });
+    setRegisteredSuppliers(
+      (sups || [])
+        .filter((s: any) => s.email && s.company)
+        .map((s: any) => ({ email: String(s.email), company: String(s.company) }))
+        .sort((a, b) => a.company.localeCompare(b.company))
+    );
 
     const itemsMap: Record<string, any[]> = {};
     (allItems || []).forEach((it: any) => {
