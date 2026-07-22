@@ -398,7 +398,7 @@ function RfqDetailSheet({
           setup_charges: Number(setupCharges) || 0,
           quote_notes: notes,
           quote_source: 'portal',
-        },
+        } as any,
         { onConflict: 'rfq_id,item_number,supplier_email' }
       );
 
@@ -463,7 +463,7 @@ function RfqDetailSheet({
       });
       const { error: qErr } = await supabase
         .from('rfq_item_quotes')
-        .upsert(rows, { onConflict: 'rfq_id,item_number,supplier_email' });
+        .upsert(rows as any, { onConflict: 'rfq_id,item_number,supplier_email' });
       if (qErr) throw qErr;
 
       // 2. Update rfq_portal_requests with grand-total summary for backward compat

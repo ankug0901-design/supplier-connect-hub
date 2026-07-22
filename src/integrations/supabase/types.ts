@@ -640,7 +640,7 @@ export type Database = {
           rfq_id: string
           setup_charges: number | null
           supplier_email: string
-          supplier_id: string | null
+          supplier_id: string
           total_price: number | null
           unit_basis: string | null
           updated_at: string
@@ -657,7 +657,7 @@ export type Database = {
           rfq_id: string
           setup_charges?: number | null
           supplier_email: string
-          supplier_id?: string | null
+          supplier_id: string
           total_price?: number | null
           unit_basis?: string | null
           updated_at?: string
@@ -674,7 +674,7 @@ export type Database = {
           rfq_id?: string
           setup_charges?: number | null
           supplier_email?: string
-          supplier_id?: string | null
+          supplier_id?: string
           total_price?: number | null
           unit_basis?: string | null
           updated_at?: string
