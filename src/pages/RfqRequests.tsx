@@ -398,7 +398,7 @@ function RfqDetailSheet({
           setup_charges: Number(setupCharges) || 0,
           quote_notes: notes,
           quote_source: 'portal',
-        },
+        } as any,
         { onConflict: 'rfq_id,item_number,supplier_email' }
       );
 
