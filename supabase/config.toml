@@ -13,6 +13,8 @@ project_id = "agrhkarauqxkgyvfthvc"
     verify_jwt = false
   [functions.rfq-portal-request-read]
     verify_jwt = false
+  [functions.rfq-portal-request-update]
+    verify_jwt = false
   [functions.zoho-sync]
     verify_jwt = true
   [functions.zoho-webhook]
