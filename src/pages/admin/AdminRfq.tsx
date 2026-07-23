@@ -119,7 +119,9 @@ export default function AdminRfq() {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [expandedBreakdown, setExpandedBreakdown] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'awaiting' | 'compare' | 'decided'>('all');
+  const [filter, setFilter] = useState<'all' | 'open' | 'closing_soon' | 'awaiting' | 'compare' | 'decided'>('all');
+  const [search, setSearch] = useState('');
+  const [expandedPending, setExpandedPending] = useState<Record<string, boolean>>({});
   const [rejectTarget, setRejectTarget] = useState<Rfq | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
