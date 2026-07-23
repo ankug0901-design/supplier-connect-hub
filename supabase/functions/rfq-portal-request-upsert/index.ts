@@ -107,6 +107,7 @@ Deno.serve(async (req) => {
       submitted_by_email: s(body.submitted_by_email),
       closing_time: s(body.closing_time),
       supplier_company: s(body.supplier_company),
+      cc_emails: s(body.cc_emails) ?? '',
     };
 
     // Required (NOT NULL) fields on rfq_portal_requests
