@@ -753,6 +753,7 @@ export type Database = {
         Row: {
           artwork_drive_url: string | null
           artwork_status: string | null
+          cc_emails: string
           client_budget: string | null
           client_email: string | null
           client_name: string
@@ -808,6 +809,7 @@ export type Database = {
         Insert: {
           artwork_drive_url?: string | null
           artwork_status?: string | null
+          cc_emails?: string
           client_budget?: string | null
           client_email?: string | null
           client_name: string
@@ -863,6 +865,7 @@ export type Database = {
         Update: {
           artwork_drive_url?: string | null
           artwork_status?: string | null
+          cc_emails?: string
           client_budget?: string | null
           client_email?: string | null
           client_name?: string
