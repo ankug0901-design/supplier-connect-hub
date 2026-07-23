@@ -627,6 +627,24 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
             </div>
           </section>
 
+          {/* CC Emails */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">CC Emails</h3>
+            <div className="space-y-1">
+              <Label>Additional recipients (comma-separated)</Label>
+              <Input
+                value={ccEmails}
+                onChange={(e) => setCcEmails(e.target.value)}
+                placeholder="alice@example.com, bob@example.com"
+              />
+              <p className="text-xs text-muted-foreground">
+                These addresses will be CC'd on all communications for this RFQ.
+              </p>
+            </div>
+          </section>
+
+
+
           <div className="sticky bottom-0 -mx-6 flex justify-end gap-2 border-t bg-background px-6 py-4">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
             <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={submit} disabled={submitting}>
