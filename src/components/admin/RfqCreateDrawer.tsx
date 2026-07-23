@@ -286,6 +286,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       submitted_by: submittedByName,
       submitted_by_name: submittedByName,
       submitted_by_email: submittedByEmail,
+      cc_emails: ccEmails.trim(),
     };
 
     setSubmitting(true);
