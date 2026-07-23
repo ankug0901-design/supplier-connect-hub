@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart, ChevronDown, ChevronRight, Package, Paperclip, UserPlus, Trash2 } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart, ChevronDown, ChevronRight, Package, Paperclip, UserPlus, Trash2, Search, MoreHorizontal, Inbox, AlertTriangle, ClipboardList, TrendingUp, Send } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -43,6 +44,10 @@ function fmtDateTime(d?: string | null) {
 function daysSince(d: string) {
   return Math.floor((Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24));
 }
+
+const INR = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+function fmtINR(n: number) { return `₹${INR.format(n || 0)}`; }
+
 
 function deadlineCutoff(d?: string | null, t?: string | null): Date | null {
   if (!d) return null;
@@ -118,7 +123,9 @@ export default function AdminRfq() {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [expandedBreakdown, setExpandedBreakdown] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'awaiting' | 'compare' | 'decided'>('all');
+  const [filter, setFilter] = useState<'all' | 'open' | 'closing_soon' | 'awaiting' | 'compare' | 'decided'>('all');
+  const [search, setSearch] = useState('');
+  const [expandedPending, setExpandedPending] = useState<Record<string, boolean>>({});
   const [rejectTarget, setRejectTarget] = useState<Rfq | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -298,15 +305,50 @@ export default function AdminRfq() {
   }, [rows]);
 
   const filtered = useMemo(() => {
-    return groups.filter(({ items }) => {
+    const q = search.trim().toLowerCase();
+    return groups.filter(({ rfq_id, items }) => {
+      const first = items[0];
       const submitted = items.filter((r) => ['quote_submitted', 'accepted'].includes(r.status));
       const decided = items.some((r) => r.emboss_decision || ['accepted', 'rejected'].includes(r.status));
-      if (filter === 'awaiting') return submitted.length === 0 && !decided;
-      if (filter === 'compare') return submitted.length >= 1 && !decided;
-      if (filter === 'decided') return decided;
+      const cd = closingCountdown(first.response_deadline, first.closing_time);
+      const isClosed = !!first.rfq_closed_at || cd?.tone === 'expired';
+      const closingSoon = !decided && !isClosed && (cd?.tone === 'red' || cd?.tone === 'orange');
+      if (filter === 'open' && (decided || isClosed)) return false;
+      if (filter === 'closing_soon' && !closingSoon) return false;
+      if (filter === 'awaiting' && (submitted.length !== 0 || decided)) return false;
+      if (filter === 'compare' && (submitted.length < 1 || decided)) return false;
+      if (filter === 'decided' && !decided) return false;
+      if (q) {
+        const hay = [rfq_id, first.product_name, first.client_name,
+          ...items.map((r) => r.supplier_email),
+          ...items.map((r) => r.supplier_company)].filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [groups, filter]);
+  }, [groups, filter, search]);
+
+  const kpis = useMemo(() => {
+    let open = 0, closingToday = 0, awaiting = 0, quotesReceived = 0, decisionsPending = 0;
+    const now = Date.now();
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    groups.forEach(({ items }) => {
+      const first = items[0];
+      const submitted = items.filter((r) => ['quote_submitted', 'accepted'].includes(r.status));
+      const decided = items.some((r) => r.emboss_decision || ['accepted', 'rejected'].includes(r.status));
+      const cd = closingCountdown(first.response_deadline, first.closing_time);
+      const target = deadlineCutoff(first.response_deadline, first.closing_time);
+      const isClosed = !!first.rfq_closed_at || cd?.tone === 'expired';
+      if (!decided && !isClosed) open += 1;
+      if (target && target.getTime() > now && target.getTime() <= endOfToday.getTime() && !decided && !isClosed) closingToday += 1;
+      if (!decided && !isClosed && submitted.length === 0) awaiting += 1;
+      quotesReceived += items.filter((r) => r.status === 'quote_submitted').length;
+      if (submitted.length > 0 && !decided) decisionsPending += 1;
+    });
+    return { open, closingToday, awaiting, quotesReceived, decisionsPending };
+  }, [groups]);
+
 
   const patchLocal = (id: string, patch: Partial<Rfq>) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -631,30 +673,121 @@ export default function AdminRfq() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="awaiting">Awaiting Quotes</TabsTrigger>
-                <TabsTrigger value="compare">Ready to Compare</TabsTrigger>
-                <TabsTrigger value="decided">Decision Made</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-1 h-4 w-4" /> Create RFQ
+          {/* KPI Summary Row */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {[
+              { label: 'Total Open RFQs', value: kpis.open, icon: ClipboardList, tone: 'slate' as const },
+              { label: 'Closing Today', value: kpis.closingToday, icon: AlertTriangle, tone: kpis.closingToday > 0 ? 'red' as const : 'slate' as const },
+              { label: 'Awaiting Quotes', value: kpis.awaiting, icon: Inbox, tone: 'amber' as const },
+              { label: 'Quotes Received', value: kpis.quotesReceived, icon: TrendingUp, tone: 'emerald' as const },
+              { label: 'Decisions Pending', value: kpis.decisionsPending, icon: Clock, tone: 'blue' as const },
+            ].map((k) => {
+              const toneMap: Record<string, string> = {
+                slate: 'text-slate-700 bg-slate-100',
+                red: 'text-red-700 bg-red-100',
+                amber: 'text-amber-700 bg-amber-100',
+                emerald: 'text-emerald-700 bg-emerald-100',
+                blue: 'text-blue-700 bg-blue-100',
+              };
+              const valueTone = k.label === 'Closing Today' && k.value > 0 ? 'text-red-700' : 'text-slate-900';
+              return (
+                <div
+                  key={k.label}
+                  className="rounded-lg border border-slate-200/70 bg-white p-4 shadow-sm transition hover:shadow-md"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+                      {k.label}
+                    </span>
+                    <span className={cn('flex h-7 w-7 items-center justify-center rounded-md', toneMap[k.tone])}>
+                      <k.icon className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                  <div className={cn('mt-2 text-2xl font-semibold tabular-nums', valueTone)}>
+                    {k.value}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Filter Bar */}
+          <div className="flex flex-col gap-3 rounded-lg border border-slate-200/70 bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative w-full lg:max-w-xs">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search RFQ, product, supplier, client…"
+                className="h-9 border-slate-200 pl-8 text-sm focus-visible:ring-emerald-600/40"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {([
+                { k: 'all', label: 'All' },
+                { k: 'open', label: 'Open' },
+                { k: 'closing_soon', label: 'Closing Soon' },
+                { k: 'awaiting', label: 'Awaiting Quotes' },
+                { k: 'compare', label: 'Ready to Compare' },
+                { k: 'decided', label: 'Decided / Closed' },
+              ] as const).map((p) => {
+                const active = filter === p.k;
+                return (
+                  <button
+                    key={p.k}
+                    type="button"
+                    onClick={() => setFilter(p.k as any)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition',
+                      active
+                        ? 'border-emerald-700 bg-emerald-700 text-white shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50',
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+            <Button
+              className="h-9 bg-emerald-700 px-4 text-sm font-medium text-white hover:bg-emerald-800"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus className="mr-1.5 h-4 w-4" /> New RFQ
             </Button>
           </div>
 
+          {/* Empty state */}
           {filtered.length === 0 && (
-            <Card><CardContent className="py-10 text-center text-muted-foreground">No RFQs in this view.</CardContent></Card>
+            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-slate-200 bg-white py-16 text-center shadow-sm">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                <Inbox className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-700">No RFQs match this view</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Try clearing the search or picking a different status pill.
+                </p>
+              </div>
+              {(search || filter !== 'all') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-1 border-slate-200 text-slate-600"
+                  onClick={() => { setSearch(''); setFilter('all'); }}
+                >
+                  Reset filters
+                </Button>
+              )}
+            </div>
           )}
 
+          {/* RFQ Cards */}
           {filtered.map(({ rfq_id, items }) => {
             const first = items[0];
             const decided = items.some((r) => r.emboss_decision || ['accepted', 'rejected'].includes(r.status));
             const isClosed = !!first.rfq_closed_at;
             const submittedRaw = items.filter((r) => ['quote_submitted', 'accepted', 'rejected'].includes(r.status));
-            // Compute fallback ranks by total_price ascending for rows missing price_rank
             const totalOf = (r: any) => {
               const up = Number(r.quoted_unit_price) || 0;
               const gst = Number(r.quoted_gst_percent) || 0;
@@ -673,138 +806,201 @@ export default function AdminRfq() {
               if (ar !== br) return ar - br;
               return totalOf(a) - totalOf(b);
             });
-            
+            const pending = items.filter((r) => r.status === 'pending');
             const groupHasAccepted = items.some((r) => r.status === 'accepted');
             const countdown = closingCountdown(first.response_deadline, first.closing_time);
             const rfqIsClosed = isClosed || countdown?.tone === 'expired';
-            const l1Row = submitted[0] || null;
-            const countdownClass =
-              countdown?.tone === 'red' ? 'border-red-300 bg-red-50 text-red-700' :
-              countdown?.tone === 'orange' ? 'border-orange-300 bg-orange-50 text-orange-700' :
-              countdown?.tone === 'expired' ? 'border-red-400 bg-red-100 text-red-800' :
-              'border-muted bg-muted text-muted-foreground';
-            const deadlineToneCls = deadlineToneClass(first.response_deadline, first.closing_time);
+            const l1Row = submitted.find((r) => (effectiveRank(r) ?? 999) === 1 && r.status !== 'rejected') || submitted[0] || null;
+            const canAcceptL1 = !!l1Row && !decided && !rfqIsClosed && l1Row.status !== 'accepted' && l1Row.status !== 'rejected';
             const rfqItems: any[] = itemsByRfq[rfq_id] || [];
             const rfqItemQuotes: any[] = itemQuotesByRfq[rfq_id] || [];
             const isMulti = !!first.is_multi_item && rfqItems.length > 1;
             const itemsExpanded = expandedItems[rfq_id] ?? false;
+            const pendingExpanded = expandedPending[rfq_id] ?? false;
+
+            // Status pill (compact, professional)
+            const statusPill = decided
+              ? { label: groupHasAccepted ? 'Awarded' : 'Decided', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+              : rfqIsClosed
+                ? { label: 'Closed', cls: 'bg-slate-100 text-slate-600 border-slate-200' }
+                : countdown?.tone === 'red'
+                  ? { label: countdown.label, cls: 'bg-red-50 text-red-700 border-red-200' }
+                  : countdown?.tone === 'orange'
+                    ? { label: countdown.label, cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+                    : countdown
+                      ? { label: countdown.label, cls: 'bg-slate-50 text-slate-600 border-slate-200' }
+                      : { label: 'Open', cls: 'bg-slate-50 text-slate-600 border-slate-200' };
+
             return (
-              <Card key={rfq_id}>
-                <CardContent className="space-y-4 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-sm text-muted-foreground">{rfq_id}</span>
-                        <h3 className="text-lg font-bold">{first.product_name}</h3>
-                        {isMulti && (
-                          <Badge variant="secondary" className="border border-indigo-300 bg-indigo-50 text-indigo-800">
-                            <Package className="mr-1 h-3 w-3" /> {rfqItems.length} items
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Closes: <span className={deadlineToneCls}>{fmtDeadline(first.response_deadline, first.closing_time)}</span>
-                      </p>
-                      {first.boq_template_url && (
-                        <a
-                          href={first.boq_template_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 underline underline-offset-2 hover:text-emerald-800"
-                        >
-                          <Paperclip className="h-3 w-3" />
-                          BOQ Template: {first.boq_template_name || 'Download'}
-                        </a>
+              <div
+                key={rfq_id}
+                className="overflow-hidden rounded-lg border border-slate-200/70 bg-white shadow-sm transition hover:shadow-md"
+              >
+                {/* Header */}
+                <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className="font-mono text-[11px] uppercase tracking-wider text-slate-400">{rfq_id}</span>
+                      <h3 className="text-base font-semibold text-slate-900">{first.product_name}</h3>
+                      {isMulti && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
+                          <Package className="h-3 w-3" /> {rfqItems.length} items
+                        </span>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {countdown && (
-                        <Badge variant="outline" className={`border ${countdownClass}`}>
-                          <Clock className="mr-1 h-3 w-3" /> {countdown.label}
-                        </Badge>
-                      )}
-                      <Badge variant="outline">
-                        {submitted.length} of {items.length} suppliers responded
-                      </Badge>
-                      {submitted.length > 0 && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100"
-                          onClick={() => generateSummary(rfq_id)}
-                        >
-                          <Sparkles className="mr-1 h-3.5 w-3.5" /> AI Client Summary
-                        </Button>
-                      )}
-                      {submitted.length > 0 && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                          disabled={tcaBusyId === rfq_id}
-                          onClick={() => generateTcaReport(rfq_id)}
-                        >
-                          {tcaBusyId === rfq_id
-                            ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            : <FileBarChart className="mr-1 h-3.5 w-3.5" />}
-                          Generate TCA Report
-                        </Button>
-                      )}
-                      {!decided && !isClosed && (
-                        <Button size="sm" variant="destructive" disabled={!!busyId} onClick={() => setForceCloseTarget(rfq_id)}>
-                          Force Close
-                        </Button>
-                      )}
-                      {!decided && !rfqIsClosed && submitted.length >= 2 && (
-                        <Button size="sm" variant="outline" className="border-teal-300 bg-teal-50 text-teal-800 hover:bg-teal-100" disabled={!!busyId} onClick={() => { setNegotiateTarget(rfq_id); setNegotiatePct(5); setNegotiateMessage(''); }}>
-                          <Handshake className="mr-1 h-3.5 w-3.5" /> Negotiate
-                        </Button>
-                      )}
-                      {!decided && !rfqIsClosed && (
-                        <Button size="sm" variant="outline" className="border-purple-300 bg-purple-50 text-purple-800 hover:bg-purple-100" disabled={!!busyId} onClick={() => { setAttachmentTarget(rfq_id); setAttachmentUrl(''); setAttachmentName(''); setAttachmentMessage(''); }}>
-                          <Paperclip className="mr-1 h-3.5 w-3.5" /> Send Attachment
-                        </Button>
-                      )}
-                      {!decided && (
-                        <Button size="sm" variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" disabled={!!busyId} onClick={() => openAddSupplier(rfq_id)}>
-                          <UserPlus className="mr-1 h-3.5 w-3.5" /> Add Supplier
-                        </Button>
-                      )}
-                      {!decided && !rfqIsClosed && (
-                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!!busyId} onClick={() => openReopenOrExtend(rfq_id, first.response_deadline, first.closing_time, false)}>
-                          Extend
-                        </Button>
-                      )}
-                      {(isClosed || decided || (countdown && countdown.label === 'Closed')) && (
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={!!busyId} onClick={() => openReopenOrExtend(rfq_id, first.response_deadline, first.closing_time, true)}>
-                          Reopen
-                        </Button>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                      <span>Client: <span className="text-slate-700">{first.client_name}</span></span>
+                      <span className="text-slate-300">·</span>
+                      <span>Required by: <span className="text-slate-700">{fmtDate(first.required_by_date)}</span></span>
+                      <span className="text-slate-300">·</span>
+                      <span>
+                        Closes: <span className="text-slate-700">{fmtDeadline(first.response_deadline, first.closing_time)}</span>
+                      </span>
+                      {first.boq_template_url && (
+                        <>
+                          <span className="text-slate-300">·</span>
+                          <a
+                            href={first.boq_template_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 font-medium text-blue-700 hover:text-blue-800"
+                          >
+                            <Paperclip className="h-3 w-3" /> BOQ Template
+                          </a>
+                        </>
                       )}
                     </div>
                   </div>
 
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium', statusPill.cls)}>
+                      <Clock className="h-3 w-3" /> {statusPill.label}
+                    </span>
+                    <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                      {submitted.length}/{items.length} responded
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/60 px-6 py-2.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {canAcceptL1 && (
+                      <Button
+                        size="sm"
+                        className="h-8 bg-emerald-700 px-3 text-xs font-medium text-white hover:bg-emerald-800"
+                        disabled={!!busyId}
+                        onClick={() => requestAccept(l1Row, 1, l1Row)}
+                      >
+                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Accept L1
+                      </Button>
+                    )}
+                    {!decided && !isClosed && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 border-slate-200 px-3 text-xs font-medium text-slate-700 hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                        disabled={!!busyId}
+                        onClick={() => setForceCloseTarget(rfq_id)}
+                      >
+                        <XCircle className="mr-1 h-3.5 w-3.5" /> Force Close
+                      </Button>
+                    )}
+                    {(isClosed || decided || (countdown && countdown.label === 'Closed')) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 border-slate-200 px-3 text-xs font-medium text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                        disabled={!!busyId}
+                        onClick={() => openReopenOrExtend(rfq_id, first.response_deadline, first.closing_time, true)}
+                      >
+                        <Zap className="mr-1 h-3.5 w-3.5" /> Reopen
+                      </Button>
+                    )}
+                    {!decided && !rfqIsClosed && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 border-slate-200 px-3 text-xs font-medium text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        disabled={!!busyId}
+                        onClick={() => openReopenOrExtend(rfq_id, first.response_deadline, first.closing_time, false)}
+                      >
+                        <CalendarIcon className="mr-1 h-3.5 w-3.5" /> Extend
+                      </Button>
+                    )}
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-slate-400">More actions</DropdownMenuLabel>
+                      {!decided && (
+                        <DropdownMenuItem onClick={() => openAddSupplier(rfq_id)}>
+                          <UserPlus className="mr-2 h-3.5 w-3.5" /> Add Supplier
+                        </DropdownMenuItem>
+                      )}
+                      {!decided && !rfqIsClosed && (
+                        <DropdownMenuItem onClick={() => { setAttachmentTarget(rfq_id); setAttachmentUrl(''); setAttachmentName(''); setAttachmentMessage(''); }}>
+                          <Paperclip className="mr-2 h-3.5 w-3.5" /> Send Attachment
+                        </DropdownMenuItem>
+                      )}
+                      {!decided && !rfqIsClosed && submitted.length >= 2 && (
+                        <DropdownMenuItem onClick={() => { setNegotiateTarget(rfq_id); setNegotiatePct(5); setNegotiateMessage(''); }}>
+                          <Handshake className="mr-2 h-3.5 w-3.5" /> Negotiate
+                        </DropdownMenuItem>
+                      )}
+                      {submitted.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => generateSummary(rfq_id)}>
+                            <Sparkles className="mr-2 h-3.5 w-3.5" /> AI Client Summary
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={tcaBusyId === rfq_id}
+                            onClick={() => generateTcaReport(rfq_id)}
+                          >
+                            {tcaBusyId === rfq_id
+                              ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                              : <FileBarChart className="mr-2 h-3.5 w-3.5" />}
+                            Generate TCA Report
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="space-y-4 px-6 py-4">
                   {isMulti && (
-                    <div className="rounded-md border">
+                    <div className="rounded-md border border-slate-200 bg-slate-50/60">
                       <button
                         type="button"
                         onClick={() => setExpandedItems((e) => ({ ...e, [rfq_id]: !itemsExpanded }))}
-                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50"
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-100/60"
                       >
-                        <span className="flex items-center gap-2 font-medium">
-                          {itemsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                          Items ({rfqItems.length})
+                        <span className="flex items-center gap-2">
+                          {itemsExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                          Line items ({rfqItems.length})
                         </span>
-                        <span className="text-xs text-muted-foreground">Click to {itemsExpanded ? 'hide' : 'show'} item specs</span>
+                        <span className="text-[11px] text-slate-500">Click to {itemsExpanded ? 'hide' : 'show'} specs</span>
                       </button>
                       {itemsExpanded && (
-                        <div className="border-t p-3 space-y-2">
+                        <div className="space-y-2 border-t border-slate-200 p-3">
                           {rfqItems.map((it) => (
-                            <div key={it.id} className="text-sm">
+                            <div key={it.id} className="text-xs text-slate-700">
                               <span className="font-semibold">Item {it.item_number}:</span> {it.product_name}
-                              {it.product_category && <span className="text-muted-foreground"> — {it.product_category}</span>}
-                              <span className="text-muted-foreground"> — {it.quantity}</span>
+                              {it.product_category && <span className="text-slate-500"> — {it.product_category}</span>}
+                              <span className="text-slate-500"> — {it.quantity}</span>
                               {(it.material || it.print_process || it.finish) && (
-                                <div className="pl-4 text-xs text-muted-foreground">
+                                <div className="pl-4 text-[11px] text-slate-500">
                                   {[it.material, it.print_process, it.finish].filter(Boolean).join(' · ')}
                                 </div>
                               )}
@@ -816,27 +1012,25 @@ export default function AdminRfq() {
                   )}
 
                   {items.length >= 1 && (
-                    <div className="overflow-x-auto rounded-md border">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted">
-                          <tr className="text-left">
-                            <th className="p-2">Rank</th>
-                            <th className="p-2">Supplier</th>
-                            <th className="p-2">Unit Price</th>
-                            <th className="p-2">GST</th>
-                            <th className="p-2">Total/unit (incl. GST)</th>
-                            <th className="p-2">Lead Time</th>
-                            <th className="p-2">Payment</th>
-                            <th className="p-2">Validity</th>
-                            <th className="p-2">Setup</th>
-                            <th className="p-2">Submitted</th>
-                            <th className="p-2 text-right">Actions</th>
+                    <div className="overflow-x-auto rounded-md border border-slate-200">
+                      <table className="w-full text-[13px]">
+                        <thead className="bg-slate-50 text-slate-500">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider">Rank</th>
+                            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider">Supplier</th>
+                            <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider">Unit Price</th>
+                            <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider">GST</th>
+                            <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider">Total (incl. GST)</th>
+                            <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider">Lead Time</th>
+                            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider">Payment</th>
+                            <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider">Validity</th>
+                            <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider">Setup</th>
+                            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider">Submitted</th>
+                            <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider">Status</th>
                           </tr>
                         </thead>
-                        <tbody>
-                          {/* Submitted rows first (ranked), then awaiting */}
-                          {[...submitted, ...items.filter((r) => r.status === 'pending')].map((r) => {
-                            const isPending = r.status === 'pending';
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {submitted.map((r) => {
                             const up = Number(r.quoted_unit_price) || 0;
                             const gst = Number(r.quoted_gst_percent) || 0;
                             const perUnit = Number(r.total_price) || (up + (up * gst / 100));
@@ -845,11 +1039,11 @@ export default function AdminRfq() {
                             const isBusy = busyId === r.id;
                             const disabled = isBusy || groupHasAccepted || !!busyId;
                             const sName = r.supplier_company;
-                            const rowRank = isPending ? null : effectiveRank(r);
+                            const rowRank = effectiveRank(r);
                             const isTopRank = rowRank === 1;
                             const revisionCount = Number(r.revision_count) || 0;
                             const supplierEmail = String(r.supplier_email || '').toLowerCase();
-                            const supplierItemQuotes = isMulti && !isPending
+                            const supplierItemQuotes = isMulti
                               ? rfqItemQuotes
                                   .filter((q) => String(q.supplier_email || '').toLowerCase() === supplierEmail)
                                   .sort((a, b) => a.item_number - b.item_number)
@@ -857,175 +1051,219 @@ export default function AdminRfq() {
                             const breakdownKey = `${rfq_id}::${r.id}`;
                             const showBreakdown = expandedBreakdown[breakdownKey] ?? false;
                             const canExpand = supplierItemQuotes.length > 0;
+                            const src = String((r as any).quote_source || '').toLowerCase();
+                            const conf = Number((r as any).quote_parsing_confidence);
+                            const srcLabel = src === 'email_auto_parsed' ? 'Email'
+                              : src === 'admin_manual' ? 'Manual'
+                              : src === 'portal' ? 'Portal' : null;
+                            const srcCls = src === 'email_auto_parsed' ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : src === 'admin_manual' ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : 'bg-slate-50 text-slate-600 border-slate-200';
                             return (
                               <Fragment key={r.id}>
-                              <tr className={`border-t ${isAccepted ? 'bg-green-50' : ''} ${isRejected ? 'bg-muted/30' : ''} ${isPending && !rfqIsClosed ? 'bg-yellow-50/40' : ''} ${isPending && rfqIsClosed ? 'bg-muted/40 text-muted-foreground' : ''}`}>
-                                <td className="p-2">
-                                  {isPending ? <span className="text-muted-foreground">—</span> : <RankCell rank={rowRank} />}
-                                </td>
-                                <td className="p-2">
-                                  <div className="flex items-center gap-1.5">
-                                    {canExpand && (
-                                      <button
-                                        type="button"
-                                        onClick={() => setExpandedBreakdown((e) => ({ ...e, [breakdownKey]: !showBreakdown }))}
-                                        className="rounded p-0.5 hover:bg-muted"
-                                        aria-label="Show item breakdown"
-                                      >
-                                        {showBreakdown ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                      </button>
-                                    )}
-                                    <div>
-                                      <div className="font-medium">{sName || r.supplier_email}</div>
-                                      {sName && <div className="text-xs text-muted-foreground">{r.supplier_email}</div>}
-                                    </div>
-                                  </div>
-                                   {revisionCount > 0 && (
-                                     <Badge variant="secondary" className="mt-1 text-xs">Revised {revisionCount}x</Badge>
-                                   )}
-                                   {isPending && rfqIsClosed && (
-                                     <Badge variant="secondary" className="mt-1 text-xs">Did not respond</Badge>
-                                   )}
-                                   {!isPending && (() => {
-                                     const src = String((r as any).quote_source || '').toLowerCase();
-                                     const conf = Number((r as any).quote_parsing_confidence);
-                                     const label = src === 'email_auto_parsed' ? 'Email'
-                                       : src === 'admin_manual' ? 'Manual'
-                                       : src === 'portal' ? 'Portal'
-                                       : null;
-                                     const cls = src === 'email_auto_parsed' ? 'border-blue-300 bg-blue-50 text-blue-700'
-                                       : src === 'admin_manual' ? 'border-purple-300 bg-purple-50 text-purple-700'
-                                       : 'border-slate-300 bg-slate-50 text-slate-700';
-                                     return (
-                                       <div className="mt-1 flex flex-wrap items-center gap-1">
-                                         {label && <Badge variant="outline" className={`text-xs ${cls}`}>{label}</Badge>}
-                                         {r.status === 'quoted_incomplete' && (
-                                           <Badge variant="outline" className="border-orange-300 bg-orange-50 text-orange-700 text-xs">Incomplete</Badge>
-                                         )}
-                                         {Number.isFinite(conf) && conf < 0.8 && (
-                                           <span title={`Low parsing confidence (${conf.toFixed(2)})`} className="text-yellow-600" aria-label="Low parsing confidence">⚠️</span>
-                                         )}
-                                       </div>
-                                     );
-                                   })()}
-
-                                </td>
-                                {isPending ? (
-                                  <td className="p-2" colSpan={7}>
-                                    {rfqIsClosed ? (
-                                      <Badge variant="outline" className="border-muted-foreground/30 bg-muted text-muted-foreground">
-                                        Closed — No Quote
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="outline" className="border-yellow-300 bg-yellow-50 text-yellow-800">
-                                        Awaiting · {daysSince(r.created_at)}d elapsed
-                                      </Badge>
-                                    )}
+                                <tr
+                                  className={cn(
+                                    'group even:bg-slate-50/40 hover:bg-slate-50 transition-colors',
+                                    isAccepted && 'bg-emerald-50/60 even:bg-emerald-50/60',
+                                    isRejected && 'text-slate-400',
+                                    isTopRank && 'border-l-2 border-l-emerald-600',
+                                  )}
+                                >
+                                  <td className="px-3 py-2.5">
+                                    <RankCell rank={rowRank} />
                                   </td>
-                                ) : isMulti ? (
-                                  <>
-                                    <td className="p-2 italic text-muted-foreground" colSpan={2}>Multi-item</td>
-                                    <td className={`p-2 font-semibold ${isTopRank ? 'bg-green-100 text-green-800' : ''}`}>
-                                      ₹{(Number(r.total_price) || Number(r.quoted_unit_price) || 0).toFixed(2)}
-                                      <div className="text-xs font-normal text-muted-foreground">grand total</div>
-                                    </td>
-                                    <td className="p-2">{r.lead_time_days ?? '—'}d max</td>
-                                    <td className="p-2">{r.payment_terms || '—'}</td>
-                                    <td className="p-2">{r.validity_days ?? '—'}d</td>
-                                    <td className="p-2">—</td>
-                                  </>
-                                ) : (
-                                  <>
-                                    <td className="p-2">₹{up.toFixed(2)}</td>
-                                    <td className="p-2">{gst}%</td>
-                                    <td className={`p-2 font-semibold ${isTopRank ? 'bg-green-100 text-green-800' : ''}`}>
-                                      ₹{perUnit.toFixed(2)}
-                                    </td>
-                                    <td className="p-2">{r.lead_time_days ?? '—'}d</td>
-                                    <td className="p-2">{r.payment_terms || '—'}</td>
-                                    <td className="p-2">{r.validity_days ?? '—'}d</td>
-                                    <td className="p-2">₹{r.setup_charges ?? 0}</td>
-                                  </>
-                                )}
-                                <td className="p-2 text-xs">{isPending ? '—' : fmtDateTime(r.quote_submitted_at)}</td>
-                                <td className="p-2">
-                                  <div className="flex justify-end gap-2">
-                                    {isPending && <span className="text-xs text-muted-foreground">—</span>}
-                                    {isAccepted && (
-                                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">✅ Accepted</Badge>
-                                    )}
-                                    {isRejected && (
-                                      <Badge variant="secondary">❌ Rejected</Badge>
-                                    )}
-                                    {!isPending && !isAccepted && !isRejected && (
-                                      <>
-                                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={disabled} onClick={() => requestAccept(r, rowRank, l1Row)}>
-                                          {isBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1 h-4 w-4" />}
-                                          Accept
-                                        </Button>
-                                        <Button size="sm" variant="outline" disabled={disabled} onClick={() => setRejectTarget(r)}>
-                                          {isBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />}
-                                          Reject
-                                        </Button>
-                                      </>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                              {showBreakdown && canExpand && (
-                                <tr className="border-t bg-muted/30">
-                                  <td colSpan={11} className="p-3">
-                                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Per-item breakdown</div>
-                                    <table className="w-full text-xs">
-                                      <thead className="text-left text-muted-foreground">
-                                        <tr>
-                                          <th className="pb-1">Item</th>
-                                          <th className="pb-1 text-right">Unit ₹</th>
-                                          <th className="pb-1 text-right">GST</th>
-                                          <th className="pb-1 text-right">Total/unit</th>
-                                          <th className="pb-1 text-right">Qty</th>
-                                          <th className="pb-1 text-right">Lead</th>
-                                          <th className="pb-1 text-right">Setup ₹</th>
-                                          <th className="pb-1 text-right">Line total</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {supplierItemQuotes.map((q) => {
-                                          const it = rfqItems.find((i) => i.item_number === q.item_number);
-                                          const qtyN = Number(it?.quantity) || 0;
-                                          const perU = Number(q.total_price) || 0;
-                                          const line = perU * qtyN + (Number(q.setup_charges) || 0);
-                                          return (
-                                            <tr key={q.id} className="border-t border-border/50">
-                                              <td className="py-1">{q.item_number}. {it?.product_name || '—'}</td>
-                                              <td className="py-1 text-right">₹{Number(q.quoted_unit_price || 0).toFixed(2)}</td>
-                                              <td className="py-1 text-right">{q.quoted_gst_percent ?? 0}%</td>
-                                              <td className="py-1 text-right">₹{perU.toFixed(2)}</td>
-                                              <td className="py-1 text-right">{it?.quantity ?? '—'}</td>
-                                              <td className="py-1 text-right">{q.lead_time_days ?? '—'}d</td>
-                                              <td className="py-1 text-right">₹{Number(q.setup_charges || 0).toFixed(2)}</td>
-                                              <td className="py-1 text-right font-semibold">₹{line.toFixed(2)}</td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
+                                  <td className="px-3 py-2.5">
+                                    <div className="flex items-center gap-1.5">
+                                      {canExpand && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setExpandedBreakdown((e) => ({ ...e, [breakdownKey]: !showBreakdown }))}
+                                          className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                          aria-label="Show item breakdown"
+                                        >
+                                          {showBreakdown ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                        </button>
+                                      )}
+                                      <div className="min-w-0">
+                                        <div className="truncate font-medium text-slate-900">{sName || r.supplier_email}</div>
+                                        {sName && <div className="truncate text-[11px] text-slate-500">{r.supplier_email}</div>}
+                                      </div>
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                                      {srcLabel && (
+                                        <span className={cn('inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium', srcCls)}>{srcLabel}</span>
+                                      )}
+                                      {revisionCount > 0 && (
+                                        <span className="inline-flex rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">Revised {revisionCount}x</span>
+                                      )}
+                                      {r.status === 'quoted_incomplete' && (
+                                        <span className="inline-flex rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-700">Incomplete</span>
+                                      )}
+                                      {Number.isFinite(conf) && conf < 0.8 && (
+                                        <span title={`Low parsing confidence (${conf.toFixed(2)})`} className="text-[11px] text-amber-600" aria-label="Low parsing confidence">⚠</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  {isMulti ? (
+                                    <>
+                                      <td className="px-3 py-2.5 text-right italic text-slate-400" colSpan={2}>Multi-item</td>
+                                      <td className={cn('px-3 py-2.5 text-right font-semibold tabular-nums', isTopRank ? 'text-emerald-700' : 'text-slate-900')}>
+                                        {fmtINR(Number(r.total_price) || Number(r.quoted_unit_price) || 0)}
+                                        <div className="text-[10px] font-normal text-slate-400">grand total</div>
+                                      </td>
+                                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{r.lead_time_days ?? '—'}d max</td>
+                                      <td className="px-3 py-2.5 text-slate-700">{r.payment_terms || '—'}</td>
+                                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{r.validity_days ?? '—'}d</td>
+                                      <td className="px-3 py-2.5 text-right text-slate-400">—</td>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{fmtINR(up)}</td>
+                                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{gst}%</td>
+                                      <td className={cn('px-3 py-2.5 text-right font-semibold tabular-nums', isTopRank ? 'text-emerald-700' : 'text-slate-900')}>
+                                        {fmtINR(perUnit)}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{r.lead_time_days ?? '—'}d</td>
+                                      <td className="px-3 py-2.5 text-slate-700">{r.payment_terms || '—'}</td>
+                                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{r.validity_days ?? '—'}d</td>
+                                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{fmtINR(Number(r.setup_charges) || 0)}</td>
+                                    </>
+                                  )}
+                                  <td className="px-3 py-2.5 text-[11px] text-slate-500">{fmtDateTime(r.quote_submitted_at)}</td>
+                                  <td className="px-3 py-2.5">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      {isAccepted && (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                          <CheckCircle2 className="h-3 w-3" /> Accepted
+                                        </span>
+                                      )}
+                                      {isRejected && (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                                          <XCircle className="h-3 w-3" /> Rejected
+                                        </span>
+                                      )}
+                                      {!isAccepted && !isRejected && (
+                                        <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100">
+                                          <Button
+                                            size="sm"
+                                            className="h-7 bg-emerald-700 px-2.5 text-[11px] font-medium text-white hover:bg-emerald-800"
+                                            disabled={disabled}
+                                            onClick={() => requestAccept(r, rowRank, l1Row)}
+                                          >
+                                            {isBusy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
+                                            Accept
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 border-slate-200 px-2.5 text-[11px] font-medium text-slate-700 hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                                            disabled={disabled}
+                                            onClick={() => setRejectTarget(r)}
+                                          >
+                                            Reject
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
-                              )}
+                                {showBreakdown && canExpand && (
+                                  <tr className="bg-slate-50/70">
+                                    <td colSpan={11} className="px-6 py-3">
+                                      <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Per-item breakdown</div>
+                                      <table className="w-full text-[11px]">
+                                        <thead className="text-left text-slate-500">
+                                          <tr>
+                                            <th className="pb-1 pr-2">Item</th>
+                                            <th className="pb-1 pr-2 text-right">Unit ₹</th>
+                                            <th className="pb-1 pr-2 text-right">GST</th>
+                                            <th className="pb-1 pr-2 text-right">Total/unit</th>
+                                            <th className="pb-1 pr-2 text-right">Qty</th>
+                                            <th className="pb-1 pr-2 text-right">Lead</th>
+                                            <th className="pb-1 pr-2 text-right">Setup ₹</th>
+                                            <th className="pb-1 text-right">Line total</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {supplierItemQuotes.map((q) => {
+                                            const it = rfqItems.find((i) => i.item_number === q.item_number);
+                                            const qtyN = Number(it?.quantity) || 0;
+                                            const perU = Number(q.total_price) || 0;
+                                            const line = perU * qtyN + (Number(q.setup_charges) || 0);
+                                            return (
+                                              <tr key={q.id} className="border-t border-slate-200/60">
+                                                <td className="py-1 pr-2">{q.item_number}. {it?.product_name || '—'}</td>
+                                                <td className="py-1 pr-2 text-right tabular-nums">{fmtINR(Number(q.quoted_unit_price || 0))}</td>
+                                                <td className="py-1 pr-2 text-right tabular-nums">{q.quoted_gst_percent ?? 0}%</td>
+                                                <td className="py-1 pr-2 text-right tabular-nums">{fmtINR(perU)}</td>
+                                                <td className="py-1 pr-2 text-right tabular-nums">{it?.quantity ?? '—'}</td>
+                                                <td className="py-1 pr-2 text-right tabular-nums">{q.lead_time_days ?? '—'}d</td>
+                                                <td className="py-1 pr-2 text-right tabular-nums">{fmtINR(Number(q.setup_charges || 0))}</td>
+                                                <td className="py-1 text-right font-semibold tabular-nums">{fmtINR(line)}</td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    </td>
+                                  </tr>
+                                )}
                               </Fragment>
                             );
                           })}
+
+                          {/* Pending suppliers — collapsed by default */}
+                          {pending.length > 0 && (
+                            <>
+                              <tr className="bg-slate-50/60">
+                                <td colSpan={11} className="px-3 py-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedPending((e) => ({ ...e, [rfq_id]: !pendingExpanded }))}
+                                    className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 hover:text-slate-900"
+                                  >
+                                    {pendingExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                    {pending.length} awaiting response
+                                  </button>
+                                </td>
+                              </tr>
+                              {pendingExpanded && pending.map((r) => {
+                                const sName = r.supplier_company;
+                                return (
+                                  <tr key={r.id} className="text-slate-500">
+                                    <td className="px-3 py-2 text-slate-300">—</td>
+                                    <td className="px-3 py-2">
+                                      <div className="font-medium text-slate-700">{sName || r.supplier_email}</div>
+                                      {sName && <div className="text-[11px] text-slate-400">{r.supplier_email}</div>}
+                                    </td>
+                                    <td className="px-3 py-2" colSpan={8}>
+                                      {rfqIsClosed ? (
+                                        <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                                          Closed — did not respond
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                                          Awaiting · {daysSince(r.created_at)}d elapsed
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="px-3 py-2 text-right text-slate-300">—</td>
+                                  </tr>
+                                );
+                              })}
+                            </>
+                          )}
                         </tbody>
                       </table>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </div>
       )}
+
 
       <Dialog open={!!rejectTarget} onOpenChange={(o) => !o && setRejectTarget(null)}>
         <DialogContent>
