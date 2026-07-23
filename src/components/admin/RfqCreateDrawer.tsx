@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { n8nPost } from '@/lib/n8n';
 import { RfqAttachmentUpload, UploadedFileBadge } from '@/components/RfqAttachmentUpload';
+import { BoqUpload, BoqFileBadge } from '@/components/BoqUpload';
 
 const PRODUCT_CATEGORIES = [
   'Offset Printing', 'Flexographic Printing', 'Digital Printing', 'Screen Printing',
@@ -97,6 +98,9 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const [instructions, setInstructions] = useState('');
   // CC emails
   const [ccEmails, setCcEmails] = useState('');
+  // BOQ template (Excel/CSV) — optional
+  const [boqTemplateUrl, setBoqTemplateUrl] = useState('');
+  const [boqTemplateName, setBoqTemplateName] = useState('');
   // Submitted by
   const [submittedByName, setSubmittedByName] = useState('');
   const [submittedByEmail, setSubmittedByEmail] = useState('');
@@ -126,6 +130,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     setSuppliers([{ company: '', email: '' }]);
     setInstructions('');
     setCcEmails('');
+    setBoqTemplateUrl(''); setBoqTemplateName('');
   };
 
   const isUrgent = (() => {
@@ -287,6 +292,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       submitted_by_name: submittedByName,
       submitted_by_email: submittedByEmail,
       cc_emails: ccEmails.trim(),
+      boq_template_url: boqTemplateUrl,
+      boq_template_name: boqTemplateName,
     };
 
     setSubmitting(true);
@@ -642,6 +649,29 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
               </p>
             </div>
           </section>
+
+          {/* BOQ Template */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">BOQ Template (optional)</h3>
+            <p className="text-xs text-muted-foreground">
+              Upload a Bill of Quantities Excel/CSV. Suppliers will download it, fill their rates, and upload it back with their quote.
+            </p>
+            {boqTemplateUrl && boqTemplateName ? (
+              <BoqFileBadge
+                name={boqTemplateName}
+                url={boqTemplateUrl}
+                onClear={() => { setBoqTemplateUrl(''); setBoqTemplateName(''); }}
+              />
+            ) : (
+              <BoqUpload
+                bucket="rfq-boq-templates"
+                folder={draftFolder}
+                onUploaded={({ url, name }) => { setBoqTemplateUrl(url); setBoqTemplateName(name); }}
+              />
+            )}
+          </section>
+
+
 
 
 
