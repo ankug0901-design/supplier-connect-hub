@@ -1407,6 +1407,21 @@ export default function AdminRfq() {
                 <Plus className="mr-1 h-4 w-4" /> Add another supplier
               </Button>
             )}
+            <div className="mt-4 space-y-2">
+              <div className="text-sm font-medium">Attachment (optional)</div>
+              {addSupAttachment ? (
+                <UploadedFileBadge name={addSupAttachment.name} onClear={() => setAddSupAttachment(null)} />
+              ) : (
+                addSupTarget && (
+                  <RfqAttachmentUpload
+                    folder={addSupTarget}
+                    prefix="add_sup"
+                    onUploaded={({ url, name }) => setAddSupAttachment({ url, name })}
+                    disabled={addSupBusy}
+                  />
+                )
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddSupTarget(null)} disabled={addSupBusy}>Cancel</Button>
