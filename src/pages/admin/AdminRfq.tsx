@@ -45,6 +45,10 @@ function daysSince(d: string) {
   return Math.floor((Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24));
 }
 
+const INR = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+function fmtINR(n: number) { return `₹${INR.format(n || 0)}`; }
+
+
 function deadlineCutoff(d?: string | null, t?: string | null): Date | null {
   if (!d) return null;
   const datePart = d.length >= 10 ? d.slice(0, 10) : d;
