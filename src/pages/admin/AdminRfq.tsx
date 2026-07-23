@@ -152,6 +152,7 @@ export default function AdminRfq() {
   const [addSupTarget, setAddSupTarget] = useState<string | null>(null);
   const [addSupRows, setAddSupRows] = useState<{ company: string; email: string }[]>([{ company: '', email: '' }]);
   const [addSupBusy, setAddSupBusy] = useState(false);
+  const [addSupAttachment, setAddSupAttachment] = useState<{ url: string; name: string } | null>(null);
 
   const generateTcaReport = async (rfq_id: string) => {
     setTcaBusyId(rfq_id);
