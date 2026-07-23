@@ -575,6 +575,7 @@ export default function AdminRfq() {
   const openAddSupplier = (rfqId: string) => {
     setAddSupTarget(rfqId);
     setAddSupRows([{ company: '', email: '' }]);
+    setAddSupAttachment(null);
   };
 
   const submitAddSuppliers = async () => {
