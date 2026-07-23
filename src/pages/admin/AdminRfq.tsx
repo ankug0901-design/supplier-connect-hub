@@ -601,6 +601,8 @@ export default function AdminRfq() {
         action: 'add_supplier',
         rfq_id: addSupTarget,
         suppliers: clean.map((s) => ({ name: s.company, email: s.email })),
+        attachment_url: addSupAttachment?.url,
+        attachment_name: addSupAttachment?.name,
         actioned_by: supplier?.name || user?.email || 'Admin',
       });
       if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
@@ -609,6 +611,7 @@ export default function AdminRfq() {
       toast.success(`${added} supplier${added === 1 ? '' : 's'} added — invitations sent ✅`);
       setAddSupTarget(null);
       setAddSupRows([{ company: '', email: '' }]);
+      setAddSupAttachment(null);
       setTimeout(() => load(), 1500);
     } catch (e: any) {
       toast.error(`Add supplier failed: ${e.message || 'Unknown error'}`);
