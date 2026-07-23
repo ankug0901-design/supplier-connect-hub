@@ -275,6 +275,9 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       extra_specs: first.extra_specs,
       attachment_url: first.attachment_url,
       attachment_name: first.attachment_name,
+      // Persist the artwork/attachment URL at the top level so the backend
+      // stores it in rfq_portal_requests.artwork_drive_url for every row.
+      artwork_drive_url: first.attachment_url,
       // Timing
       closing_date: format(closingDate, 'yyyy-MM-dd'),
       closing_time: closingTime,
