@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, FileQuestion, Loader2, ExternalLink, Trophy } from 'lucide-react';
+import { AlertTriangle, FileQuestion, Loader2, ExternalLink, Trophy, FileSpreadsheet } from 'lucide-react';
+import { BoqUpload, BoqFileBadge } from '@/components/BoqUpload';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
