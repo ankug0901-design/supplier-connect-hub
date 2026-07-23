@@ -23,5 +23,3 @@ project_id = "agrhkarauqxkgyvfthvc"
     verify_jwt = true
   [functions.po-delivery-reminder]
     verify_jwt = true
-  [functions.tmp-fix-rfq-artwork]
-    verify_jwt = false
