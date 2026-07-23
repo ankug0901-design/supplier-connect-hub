@@ -301,15 +301,50 @@ export default function AdminRfq() {
   }, [rows]);
 
   const filtered = useMemo(() => {
-    return groups.filter(({ items }) => {
+    const q = search.trim().toLowerCase();
+    return groups.filter(({ rfq_id, items }) => {
+      const first = items[0];
       const submitted = items.filter((r) => ['quote_submitted', 'accepted'].includes(r.status));
       const decided = items.some((r) => r.emboss_decision || ['accepted', 'rejected'].includes(r.status));
-      if (filter === 'awaiting') return submitted.length === 0 && !decided;
-      if (filter === 'compare') return submitted.length >= 1 && !decided;
-      if (filter === 'decided') return decided;
+      const cd = closingCountdown(first.response_deadline, first.closing_time);
+      const isClosed = !!first.rfq_closed_at || cd?.tone === 'expired';
+      const closingSoon = !decided && !isClosed && (cd?.tone === 'red' || cd?.tone === 'orange');
+      if (filter === 'open' && (decided || isClosed)) return false;
+      if (filter === 'closing_soon' && !closingSoon) return false;
+      if (filter === 'awaiting' && (submitted.length !== 0 || decided)) return false;
+      if (filter === 'compare' && (submitted.length < 1 || decided)) return false;
+      if (filter === 'decided' && !decided) return false;
+      if (q) {
+        const hay = [rfq_id, first.product_name, first.client_name,
+          ...items.map((r) => r.supplier_email),
+          ...items.map((r) => r.supplier_company)].filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [groups, filter]);
+  }, [groups, filter, search]);
+
+  const kpis = useMemo(() => {
+    let open = 0, closingToday = 0, awaiting = 0, quotesReceived = 0, decisionsPending = 0;
+    const now = Date.now();
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    groups.forEach(({ items }) => {
+      const first = items[0];
+      const submitted = items.filter((r) => ['quote_submitted', 'accepted'].includes(r.status));
+      const decided = items.some((r) => r.emboss_decision || ['accepted', 'rejected'].includes(r.status));
+      const cd = closingCountdown(first.response_deadline, first.closing_time);
+      const target = deadlineCutoff(first.response_deadline, first.closing_time);
+      const isClosed = !!first.rfq_closed_at || cd?.tone === 'expired';
+      if (!decided && !isClosed) open += 1;
+      if (target && target.getTime() > now && target.getTime() <= endOfToday.getTime() && !decided && !isClosed) closingToday += 1;
+      if (!decided && !isClosed && submitted.length === 0) awaiting += 1;
+      quotesReceived += items.filter((r) => r.status === 'quote_submitted').length;
+      if (submitted.length > 0 && !decided) decisionsPending += 1;
+    });
+    return { open, closingToday, awaiting, quotesReceived, decisionsPending };
+  }, [groups]);
+
 
   const patchLocal = (id: string, patch: Partial<Rfq>) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
