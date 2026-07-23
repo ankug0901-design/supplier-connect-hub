@@ -705,6 +705,17 @@ export default function AdminRfq() {
                       <p className="text-sm text-muted-foreground">
                         Client: {first.client_name} · Required by: {fmtDate(first.required_by_date)} · Closes: <span className={deadlineToneCls}>{fmtDeadline(first.response_deadline, first.closing_time)}</span>
                       </p>
+                      {first.boq_template_url && (
+                        <a
+                          href={first.boq_template_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 underline underline-offset-2 hover:text-emerald-800"
+                        >
+                          <Paperclip className="h-3 w-3" />
+                          BOQ Template: {first.boq_template_name || 'Download'}
+                        </a>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       {countdown && (
