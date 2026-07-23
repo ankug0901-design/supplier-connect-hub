@@ -152,6 +152,7 @@ export default function AdminRfq() {
   const [addSupTarget, setAddSupTarget] = useState<string | null>(null);
   const [addSupRows, setAddSupRows] = useState<{ company: string; email: string }[]>([{ company: '', email: '' }]);
   const [addSupBusy, setAddSupBusy] = useState(false);
+  const [addSupAttachment, setAddSupAttachment] = useState<{ url: string; name: string } | null>(null);
 
   const generateTcaReport = async (rfq_id: string) => {
     setTcaBusyId(rfq_id);
@@ -574,6 +575,7 @@ export default function AdminRfq() {
   const openAddSupplier = (rfqId: string) => {
     setAddSupTarget(rfqId);
     setAddSupRows([{ company: '', email: '' }]);
+    setAddSupAttachment(null);
   };
 
   const submitAddSuppliers = async () => {
@@ -599,6 +601,8 @@ export default function AdminRfq() {
         action: 'add_supplier',
         rfq_id: addSupTarget,
         suppliers: clean.map((s) => ({ name: s.company, email: s.email })),
+        attachment_url: addSupAttachment?.url,
+        attachment_name: addSupAttachment?.name,
         actioned_by: supplier?.name || user?.email || 'Admin',
       });
       if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
@@ -607,6 +611,7 @@ export default function AdminRfq() {
       toast.success(`${added} supplier${added === 1 ? '' : 's'} added — invitations sent ✅`);
       setAddSupTarget(null);
       setAddSupRows([{ company: '', email: '' }]);
+      setAddSupAttachment(null);
       setTimeout(() => load(), 1500);
     } catch (e: any) {
       toast.error(`Add supplier failed: ${e.message || 'Unknown error'}`);
@@ -1402,6 +1407,21 @@ export default function AdminRfq() {
                 <Plus className="mr-1 h-4 w-4" /> Add another supplier
               </Button>
             )}
+            <div className="mt-4 space-y-2">
+              <div className="text-sm font-medium">Attachment (optional)</div>
+              {addSupAttachment ? (
+                <UploadedFileBadge name={addSupAttachment.name} onClear={() => setAddSupAttachment(null)} />
+              ) : (
+                addSupTarget && (
+                  <RfqAttachmentUpload
+                    folder={addSupTarget}
+                    prefix="add_sup"
+                    onUploaded={({ url, name }) => setAddSupAttachment({ url, name })}
+                    disabled={addSupBusy}
+                  />
+                )
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddSupTarget(null)} disabled={addSupBusy}>Cancel</Button>
