@@ -95,6 +95,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   const [directory, setDirectory] = useState<DirectorySupplier[]>([]);
   // Special instructions
   const [instructions, setInstructions] = useState('');
+  // CC emails
+  const [ccEmails, setCcEmails] = useState('');
   // Submitted by
   const [submittedByName, setSubmittedByName] = useState('');
   const [submittedByEmail, setSubmittedByEmail] = useState('');
