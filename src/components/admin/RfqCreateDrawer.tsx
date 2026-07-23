@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { n8nPost } from '@/lib/n8n';
 import { RfqAttachmentUpload, UploadedFileBadge } from '@/components/RfqAttachmentUpload';
+import { BoqUpload, BoqFileBadge } from '@/components/BoqUpload';
 
 const PRODUCT_CATEGORIES = [
   'Offset Printing', 'Flexographic Printing', 'Digital Printing', 'Screen Printing',
