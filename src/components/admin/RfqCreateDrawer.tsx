@@ -125,6 +125,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     setClosingDate(undefined); setClosingTime('17:00');
     setSuppliers([{ company: '', email: '' }]);
     setInstructions('');
+    setCcEmails('');
   };
 
   const isUrgent = (() => {
