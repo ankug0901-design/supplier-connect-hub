@@ -753,6 +753,10 @@ export type Database = {
         Row: {
           artwork_drive_url: string | null
           artwork_status: string | null
+          boq_response_name: string | null
+          boq_response_url: string | null
+          boq_template_name: string | null
+          boq_template_url: string | null
           cc_emails: string
           client_budget: string | null
           client_email: string | null
@@ -809,6 +813,10 @@ export type Database = {
         Insert: {
           artwork_drive_url?: string | null
           artwork_status?: string | null
+          boq_response_name?: string | null
+          boq_response_url?: string | null
+          boq_template_name?: string | null
+          boq_template_url?: string | null
           cc_emails?: string
           client_budget?: string | null
           client_email?: string | null
@@ -865,6 +873,10 @@ export type Database = {
         Update: {
           artwork_drive_url?: string | null
           artwork_status?: string | null
+          boq_response_name?: string | null
+          boq_response_url?: string | null
+          boq_template_name?: string | null
+          boq_template_url?: string | null
           cc_emails?: string
           client_budget?: string | null
           client_email?: string | null
