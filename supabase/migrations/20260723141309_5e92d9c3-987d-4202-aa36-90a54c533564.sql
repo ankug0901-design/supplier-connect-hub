@@ -1,0 +1,1 @@
+ALTER TABLE public.rfq_portal_requests ADD COLUMN IF NOT EXISTS cc_emails text NOT NULL DEFAULT '';
