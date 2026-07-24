@@ -85,6 +85,18 @@ function isDeadlinePassed(d?: string | null) {
   return Date.now() > t.getTime();
 }
 
+function fileNameFromUrl(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const pathname = new URL(url).pathname;
+    const segments = pathname.split('/').filter(Boolean);
+    const last = segments[segments.length - 1];
+    return last ? decodeURIComponent(last) : null;
+  } catch {
+    return null;
+  }
+}
+
 function RankBadge({ rank }: { rank?: number | null }) {
   if (!rank) return null;
   if (rank === 1) {
