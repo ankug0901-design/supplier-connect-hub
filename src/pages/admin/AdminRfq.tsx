@@ -1536,6 +1536,11 @@ export default function AdminRfq() {
         </div>
       )}
 
+      <Dialog open={!!rejectTarget} onOpenChange={(o) => !o && setRejectTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject quote</DialogTitle>
+          </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Optional reason — shared with supplier in their portal.
           </p>
