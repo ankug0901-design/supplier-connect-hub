@@ -247,17 +247,20 @@ export default function AdminRfq() {
   };
 
   const load = async () => {
-    const [{ data }, { data: sups }, { data: allItems }, { data: allItemQuotes }] = await Promise.all([
+    const [{ data }, { data: sups }, { data: allItems }, { data: allItemQuotes }, { data: scores }] = await Promise.all([
       supabase.from('rfq_portal_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('suppliers').select('email,company').limit(5000),
+      supabase.from('suppliers').select('id,email,company').limit(5000),
       supabase.from('rfq_items').select('*').order('item_number', { ascending: true }),
       supabase.from('rfq_item_quotes').select('*'),
+      supabase.from('vendor_scores').select('supplier_id,score,scored_at').order('scored_at', { ascending: false }),
     ]);
 
     const companyByEmail: Record<string, string> = {};
+    const emailBySupplierId: Record<string, string> = {};
     (sups || []).forEach((s: any) => {
       const emailKey = String(s.email || '').trim().toLowerCase();
       if (emailKey && s.company) companyByEmail[emailKey] = s.company;
+      if (s.id && emailKey) emailBySupplierId[s.id] = emailKey;
     });
     setRegisteredSuppliers(
       (sups || [])
@@ -265,6 +268,15 @@ export default function AdminRfq() {
         .map((s: any) => ({ email: String(s.email), company: String(s.company) }))
         .sort((a, b) => a.company.localeCompare(b.company))
     );
+
+    const scoreMap: Record<string, number> = {};
+    (scores || []).forEach((sc: any) => {
+      const em = emailBySupplierId[sc.supplier_id];
+      if (em && !(em in scoreMap) && Number.isFinite(Number(sc.score))) {
+        scoreMap[em] = Number(sc.score);
+      }
+    });
+    setScoreByEmail(scoreMap);
 
     const itemsMap: Record<string, any[]> = {};
     (allItems || []).forEach((it: any) => {
