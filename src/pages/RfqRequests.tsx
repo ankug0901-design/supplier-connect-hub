@@ -641,58 +641,66 @@ function RfqDetailSheet({
               </div>
             </section>
 
-            {!isMulti && rfq.artwork_drive_url && (
-              <a href={rfq.artwork_drive_url} target="_blank" rel="noreferrer">
-                <Button variant="outline" className="w-full">
-                  <ExternalLink className="mr-2 h-4 w-4" /> View Artwork Files
-                </Button>
-              </a>
-            )}
-
-            {rfq.boq_template_url && (
+            {(rfq.artwork_drive_url || rfq.boq_template_url) && (
               <section>
                 <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Bill of Quantities
+                  Documents
                 </h4>
                 <div className="space-y-3 rounded-lg border p-4">
-                  <a href={rfq.boq_template_url} target="_blank" rel="noreferrer">
-                    <Button variant="outline" className="w-full">
-                      <FileSpreadsheet className="mr-2 h-4 w-4" />
-                      Download BOQ Template{rfq.boq_template_name ? ` (${rfq.boq_template_name})` : ''}
-                    </Button>
-                  </a>
+                  {rfq.artwork_drive_url && (
+                    <a href={rfq.artwork_drive_url} target="_blank" rel="noreferrer">
+                      <Button variant="outline" className="w-full">
+                        <FileText className="mr-2 h-4 w-4" />
+                        Artwork / Reference Document
+                        {fileNameFromUrl(rfq.artwork_drive_url)
+                          ? ` (${fileNameFromUrl(rfq.artwork_drive_url)})`
+                          : ''}
+                      </Button>
+                    </a>
+                  )}
 
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Upload Filled BOQ</p>
-                    {rfq.boq_response_url && rfq.boq_response_name ? (
-                      <BoqFileBadge
-                        name={rfq.boq_response_name}
-                        url={rfq.boq_response_url}
-                        onClear={closed ? undefined : async () => {
-                          await supabase
-                            .from('rfq_portal_requests')
-                            .update({ boq_response_url: '', boq_response_name: '' })
-                            .eq('id', rfq.id);
-                          onSubmitted();
-                        }}
-                      />
-                    ) : closed ? (
-                      <p className="text-xs text-muted-foreground">RFQ is closed — filled BOQ can no longer be uploaded.</p>
-                    ) : (
-                      <BoqUpload
-                        bucket="rfq-boq-responses"
-                        folder={`${rfq.rfq_id}/${(supplierEmail || rfq.supplier_email || '').toLowerCase()}`}
-                        onUploaded={async ({ url, name }) => {
-                          const { error } = await supabase
-                            .from('rfq_portal_requests')
-                            .update({ boq_response_url: url, boq_response_name: name })
-                            .eq('id', rfq.id);
-                          if (error) toast.error(`Saved file but failed to link: ${error.message}`);
-                          else onSubmitted();
-                        }}
-                      />
-                    )}
-                  </div>
+                  {rfq.boq_template_url && (
+                    <>
+                      <a href={rfq.boq_template_url} target="_blank" rel="noreferrer">
+                        <Button variant="outline" className="w-full">
+                          <FileSpreadsheet className="mr-2 h-4 w-4" />
+                          Download BOQ Template{rfq.boq_template_name ? ` (${rfq.boq_template_name})` : ''}
+                        </Button>
+                      </a>
+
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">Upload Filled BOQ</p>
+                        {rfq.boq_response_url && rfq.boq_response_name ? (
+                          <BoqFileBadge
+                            name={rfq.boq_response_name}
+                            url={rfq.boq_response_url}
+                            onClear={closed ? undefined : async () => {
+                              await supabase
+                                .from('rfq_portal_requests')
+                                .update({ boq_response_url: '', boq_response_name: '' })
+                                .eq('id', rfq.id);
+                              onSubmitted();
+                            }}
+                          />
+                        ) : closed ? (
+                          <p className="text-xs text-muted-foreground">RFQ is closed — filled BOQ can no longer be uploaded.</p>
+                        ) : (
+                          <BoqUpload
+                            bucket="rfq-boq-responses"
+                            folder={`${rfq.rfq_id}/${(supplierEmail || rfq.supplier_email || '').toLowerCase()}`}
+                            onUploaded={async ({ url, name }) => {
+                              const { error } = await supabase
+                                .from('rfq_portal_requests')
+                                .update({ boq_response_url: url, boq_response_name: name })
+                                .eq('id', rfq.id);
+                              if (error) toast.error(`Saved file but failed to link: ${error.message}`);
+                              else onSubmitted();
+                            }}
+                          />
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </section>
             )}
