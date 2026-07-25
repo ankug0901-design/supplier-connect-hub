@@ -185,17 +185,19 @@ export default function AdminRfq() {
   const handleDownloadBOQ = async (rfqId: string) => {
     try {
       setBoqBusyId(rfqId);
-      const response = await fetch('https://n8n.srv1141999.hstgr.cloud/webhook/rfq-operations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'consolidate_boq', rfq_id: rfqId }),
+      const res = await n8nPost('rfq-operations', {
+        action: 'consolidate_boq',
+        rfq_id: rfqId,
       });
-      const data = await response.json();
-      if (data.success && data.file_base64) {
+      if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
+      const data = res.data;
+      if (data?.success && data?.file_base64) {
         const byteCharacters = atob(data.file_base64);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
-        const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const blob = new Blob([new Uint8Array(byteNumbers)], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -206,7 +208,7 @@ export default function AdminRfq() {
         URL.revokeObjectURL(url);
         toast.success('BOQ comparison downloaded');
       } else {
-        toast.error(data.error || 'Failed to generate BOQ comparison');
+        toast.error(data?.error || 'Failed to generate BOQ comparison');
       }
     } catch (err: any) {
       toast.error('Failed to generate BOQ comparison');
