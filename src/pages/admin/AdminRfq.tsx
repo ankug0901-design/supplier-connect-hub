@@ -182,6 +182,41 @@ export default function AdminRfq() {
     }
   };
 
+  const handleDownloadBOQ = async (rfqId: string) => {
+    try {
+      setBoqBusyId(rfqId);
+      const response = await fetch('https://n8n.srv1141999.hstgr.cloud/webhook/rfq-operations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'consolidate_boq', rfq_id: rfqId }),
+      });
+      const data = await response.json();
+      if (data.success && data.file_base64) {
+        const byteCharacters = atob(data.file_base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+        const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename || `BOQ_Comparison_${rfqId}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('BOQ comparison downloaded');
+      } else {
+        toast.error(data.error || 'Failed to generate BOQ comparison');
+      }
+    } catch (err: any) {
+      toast.error('Failed to generate BOQ comparison');
+    } finally {
+      setBoqBusyId(null);
+    }
+  };
+
+
+
   const generateSummary = async (rfq_id: string) => {
     setSummaryRfqId(rfq_id);
     setSummaryOpen(true);
