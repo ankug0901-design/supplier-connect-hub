@@ -1550,7 +1550,12 @@ export default function AdminRfq() {
                     <span className="text-slate-300">·</span>
                     <span className="inline-flex items-center gap-1">
                       <Paperclip className="h-3 w-3 text-slate-400" />
-                      BOQ: <span className={first.boq_template_url ? 'font-semibold text-emerald-700' : 'font-semibold text-slate-500'}>{first.boq_template_url ? 'Attached' : 'None'}</span>
+                      {(() => {
+                        const boqCount = items.filter((r: any) => r.boq_response_url).length;
+                        if (boqCount >= 2) return <>BOQ: <span className="font-semibold text-emerald-700">Available</span></>;
+                        if (first.boq_template_url) return <>BOQ: <span className="font-semibold text-emerald-700">Attached</span></>;
+                        return <>BOQ: <span className="font-semibold text-slate-500">None</span></>;
+                      })()}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
