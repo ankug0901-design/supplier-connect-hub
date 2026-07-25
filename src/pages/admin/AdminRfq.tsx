@@ -190,7 +190,7 @@ export default function AdminRfq() {
         rfq_id: rfqId,
       });
       if (!res.ok) throw new Error(res.text || `HTTP ${res.status}`);
-      const data = res.data;
+      const data = Array.isArray(res.data) ? res.data[0] : res.data;
       if (data?.success && data?.file_base64) {
         const byteCharacters = atob(data.file_base64);
         const byteNumbers = new Array(byteCharacters.length);
