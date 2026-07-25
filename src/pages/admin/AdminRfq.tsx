@@ -1575,6 +1575,7 @@ export default function AdminRfq() {
                         {boqBusyId === rfq_id ? 'Generating…' : 'Download BOQ'}
                       </Button>
                     )}
+                  </div>
                 </div>
               </div>
             );
