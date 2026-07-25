@@ -1413,11 +1413,24 @@ export default function AdminRfq() {
 
                                   {/* Remarks */}
                                   <td className="px-3 py-2.5 text-[11.5px] text-slate-600">
-                                    {remarks ? (
-                                      <span title={remarks}>{remarksTrunc}</span>
-                                    ) : (
-                                      <span className="text-slate-300">—</span>
-                                    )}
+                                    <div className="flex items-center justify-between gap-2">
+                                      {remarks ? (
+                                        <span className="truncate" title={remarks}>{remarksTrunc}</span>
+                                      ) : (
+                                        <span className="text-slate-300">—</span>
+                                      )}
+                                      {r.boq_response_url && (
+                                        <a
+                                          href={r.boq_response_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          title="Download BOQ"
+                                          className="inline-flex items-center justify-center rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-emerald-600"
+                                        >
+                                          <Download className="h-3.5 w-3.5" />
+                                        </a>
+                                      )}
+                                    </div>
                                   </td>
 
                                   {/* Received */}
