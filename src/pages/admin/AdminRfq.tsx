@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart, ChevronDown, ChevronRight, Package, Paperclip, UserPlus, Trash2, Search, MoreHorizontal, Inbox, AlertTriangle, ClipboardList, TrendingUp, Send } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Crown, Medal, Award, Clock, CalendarIcon, Plus, Zap, Sparkles, Copy, Download, FileBarChart, ChevronDown, ChevronRight, Package, Paperclip, UserPlus, Trash2, Search, MoreHorizontal, Inbox, AlertTriangle, ClipboardList, TrendingUp, Send, FileSpreadsheet } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ReactMarkdown from 'react-markdown';
@@ -155,6 +155,7 @@ export default function AdminRfq() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
   const [tcaBusyId, setTcaBusyId] = useState<string | null>(null);
+  const [boqBusyId, setBoqBusyId] = useState<string | null>(null);
   const [registeredSuppliers, setRegisteredSuppliers] = useState<{ email: string; company: string }[]>([]);
   const [addSupTarget, setAddSupTarget] = useState<string | null>(null);
   const [addSupRows, setAddSupRows] = useState<{ company: string; email: string }[]>([{ company: '', email: '' }]);
@@ -180,6 +181,41 @@ export default function AdminRfq() {
       setTcaBusyId(null);
     }
   };
+
+  const handleDownloadBOQ = async (rfqId: string) => {
+    try {
+      setBoqBusyId(rfqId);
+      const response = await fetch('https://n8n.srv1141999.hstgr.cloud/webhook/rfq-operations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'consolidate_boq', rfq_id: rfqId }),
+      });
+      const data = await response.json();
+      if (data.success && data.file_base64) {
+        const byteCharacters = atob(data.file_base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+        const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename || `BOQ_Comparison_${rfqId}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('BOQ comparison downloaded');
+      } else {
+        toast.error(data.error || 'Failed to generate BOQ comparison');
+      }
+    } catch (err: any) {
+      toast.error('Failed to generate BOQ comparison');
+    } finally {
+      setBoqBusyId(null);
+    }
+  };
+
+
 
   const generateSummary = async (rfq_id: string) => {
     setSummaryRfqId(rfq_id);
@@ -1514,7 +1550,12 @@ export default function AdminRfq() {
                     <span className="text-slate-300">·</span>
                     <span className="inline-flex items-center gap-1">
                       <Paperclip className="h-3 w-3 text-slate-400" />
-                      BOQ: <span className={first.boq_template_url ? 'font-semibold text-emerald-700' : 'font-semibold text-slate-500'}>{first.boq_template_url ? 'Attached' : 'None'}</span>
+                      {(() => {
+                        const boqCount = items.filter((r: any) => r.boq_response_url).length;
+                        if (boqCount >= 2) return <>BOQ: <span className="font-semibold text-emerald-700">Available</span></>;
+                        if (first.boq_template_url) return <>BOQ: <span className="font-semibold text-emerald-700">Attached</span></>;
+                        return <>BOQ: <span className="font-semibold text-slate-500">None</span></>;
+                      })()}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -1527,6 +1568,12 @@ export default function AdminRfq() {
                           <Sparkles className="mr-1 h-3 w-3" /> AI Summary
                         </Button>
                       </>
+                    )}
+                    {items.some((r: any) => r.boq_response_url) && (
+                      <Button size="sm" variant="ghost" className="h-7 rounded-[6px] px-2.5 text-[11px] font-medium text-slate-600 hover:bg-slate-100" disabled={boqBusyId === rfq_id} onClick={() => handleDownloadBOQ(rfq_id)}>
+                        {boqBusyId === rfq_id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <FileSpreadsheet className="mr-1 h-3 w-3 text-emerald-600" />}
+                        {boqBusyId === rfq_id ? 'Generating…' : 'Download BOQ'}
+                      </Button>
                     )}
                   </div>
                 </div>
