@@ -884,17 +884,23 @@ export default function AdminRfq() {
             const qtyN = Number(first.quantity) || 0;
             const totalExclOf = (r: any) => {
               if (isMulti) {
-                // Use total_price (already grand total from all items) minus GST if present
-                const grand = Number(r.total_price) || 0;
-                return grand;
+                const email = String(r.supplier_email || '').toLowerCase();
+                const qs = rfqItemQuotes.filter((q) => String(q.supplier_email || '').toLowerCase() === email);
+                if (qs.length === 0) return 0;
+                let sum = 0;
+                for (const q of qs) {
+                  const it = rfqItems.find((i) => i.item_number === q.item_number);
+                  const qty = Number(it?.quantity) || 0;
+                  const up = Number(q.quoted_unit_price) || 0;
+                  const setup = Number(q.setup_charges) || 0;
+                  sum += up * qty + setup;
+                }
+                return sum;
               }
               return (Number(r.quoted_unit_price) || 0) * qtyN;
             };
-            const totalOfSort = (r: any) => {
-              const up = Number(r.quoted_unit_price) || 0;
-              const gst = Number(r.quoted_gst_percent) || 0;
-              return Number(r.total_price) || (up + (up * gst / 100));
-            };
+            const totalOfSort = (r: any) => totalExclOf(r);
+
             const computedOrder = [...submittedRaw].sort((a, b) => totalOfSort(a) - totalOfSort(b));
             const computedRankMap = new Map<string, number>();
             computedOrder.forEach((r, i) => computedRankMap.set(r.id, i + 1));
