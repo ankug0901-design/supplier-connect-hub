@@ -1421,7 +1421,8 @@ export default function AdminRfq() {
                                       )}
                                       {r.boq_response_url && (
                                         <a
-                                          href={r.boq_response_url}
+                                          href={r.boq_response_url?.replace('/object/sign/', '/object/public/').split('?')[0] || '#'}
+                                          download={r.boq_response_name || 'BOQ.xlsx'}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           title="Download BOQ"
