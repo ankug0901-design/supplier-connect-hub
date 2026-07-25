@@ -155,6 +155,7 @@ export default function AdminRfq() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
   const [tcaBusyId, setTcaBusyId] = useState<string | null>(null);
+  const [boqBusyId, setBoqBusyId] = useState<string | null>(null);
   const [registeredSuppliers, setRegisteredSuppliers] = useState<{ email: string; company: string }[]>([]);
   const [addSupTarget, setAddSupTarget] = useState<string | null>(null);
   const [addSupRows, setAddSupRows] = useState<{ company: string; email: string }[]>([{ company: '', email: '' }]);
