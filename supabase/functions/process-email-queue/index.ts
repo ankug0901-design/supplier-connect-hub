@@ -267,9 +267,10 @@ Deno.serve(async (req) => {
           message_id: payload.message_id,
         }
 
-        if (queue === 'auth_emails' && emailRequest.purpose === 'transactional' && !payload.unsubscribe_token) {
-          emailRequest.purpose = 'auth'
-        }
+        // Note: the Lovable Email API only accepts purpose='transactional'.
+        // Do NOT downgrade auth-queue emails to purpose='auth' — that causes
+        // an invalid_purpose 400 and every auth email fails permanently.
+
 
         if (payload.run_id) {
           emailRequest.run_id = payload.run_id
