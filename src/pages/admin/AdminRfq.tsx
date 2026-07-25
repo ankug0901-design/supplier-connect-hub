@@ -1569,7 +1569,12 @@ export default function AdminRfq() {
                         </Button>
                       </>
                     )}
-                  </div>
+                    {items.some((r: any) => r.boq_response_url) && (
+                      <Button size="sm" variant="ghost" className="h-7 rounded-[6px] px-2.5 text-[11px] font-medium text-slate-600 hover:bg-slate-100" disabled={boqBusyId === rfq_id} onClick={() => handleDownloadBOQ(rfq_id)}>
+                        {boqBusyId === rfq_id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <FileSpreadsheet className="mr-1 h-3 w-3 text-emerald-600" />}
+                        {boqBusyId === rfq_id ? 'Generating…' : 'Download BOQ'}
+                      </Button>
+                    )}
                 </div>
               </div>
             );
