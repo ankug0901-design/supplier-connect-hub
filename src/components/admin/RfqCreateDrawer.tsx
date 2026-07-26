@@ -145,7 +145,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     setSuppliers([{ company: '', email: '' }]);
     setInstructions('');
     setCcEmails('');
-    setBoqTemplateUrl(''); setBoqTemplateName('');
+    setDocs([]); setDocType('artwork');
     setDocs([]); setDocType('artwork');
   };
 
