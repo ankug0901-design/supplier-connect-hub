@@ -106,7 +106,7 @@ export function RfqAttachmentUpload({ folder, prefix, onUploaded, disabled, acce
             </button>
           </p>
           <p className="text-[10px] text-muted-foreground">
-            PDF, PPT, DOC, JPG, PNG, AI, PSD · max 25 MB
+            {hint ?? 'PDF, PPT, DOC, JPG, PNG, AI, PSD'} · max 25 MB
           </p>
         </>
       )}
