@@ -43,6 +43,20 @@ const ARTWORK_STATUSES = ['Final artwork ready', 'Draft artwork attached', 'Artw
 
 const MANUAL_SUPPLIER = '__manual__';
 
+const DOC_TYPES = [
+  { value: 'artwork', label: 'Artwork / Design File' },
+  { value: 'boq_template', label: 'BOQ Template' },
+  { value: 'reference', label: 'Reference Document' },
+  { value: 'technical_drawing', label: 'Technical Drawing' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+type DocType = (typeof DOC_TYPES)[number]['value'];
+type RfqDoc = { id: string; doc_type: DocType; file_url: string; file_name: string; file_size_bytes: number };
+
+const DOC_ACCEPT_EXT = ['pdf', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'ai', 'psd', 'doc', 'docx', 'xlsx', 'xls', 'csv', 'zip'];
+const DOC_ACCEPT_ATTR = '.pdf,.ppt,.pptx,.jpg,.jpeg,.png,.ai,.psd,.doc,.docx,.xlsx,.xls,.csv,.zip';
+
 type Supplier = { company: string; email: string; selectedId?: string };
 type DirectorySupplier = { id: string; company: string; name: string; email: string };
 
