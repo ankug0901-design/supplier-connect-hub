@@ -315,8 +315,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       submitted_by_name: submittedByName,
       submitted_by_email: submittedByEmail,
       cc_emails: ccEmails.trim(),
-      boq_template_url: boqTemplateUrl,
-      boq_template_name: boqTemplateName,
+      boq_template_url: boqTemplateUrl || firstBoqDoc?.file_url || '',
+      boq_template_name: boqTemplateName || firstBoqDoc?.file_name || '',
     };
 
     setSubmitting(true);
