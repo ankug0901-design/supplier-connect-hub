@@ -146,7 +146,6 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     setInstructions('');
     setCcEmails('');
     setDocs([]); setDocType('artwork');
-    setDocs([]); setDocType('artwork');
   };
 
   const isUrgent = (() => {
