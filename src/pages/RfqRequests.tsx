@@ -286,7 +286,7 @@ function RfqDetailSheet({
 
   // Load supplier count + items when rfq changes
   useEffect(() => {
-    if (!rfq?.rfq_id) { setTotalSuppliers(null); setItems([]); setExistingQuotes([]); return; }
+    if (!rfq?.rfq_id) { setTotalSuppliers(null); setItems([]); setExistingQuotes([]); setRfqDocs([]); return; }
     supabase
       .from('rfq_portal_requests')
       .select('id', { count: 'exact', head: true })
@@ -295,16 +295,23 @@ function RfqDetailSheet({
 
     setItemsLoading(true);
     (async () => {
-      const [{ data: itemsData }, { data: quotesData }] = await Promise.all([
+      const [{ data: itemsData }, { data: quotesData }, { data: docsData }] = await Promise.all([
         supabase.from('rfq_items').select('*').eq('rfq_id', rfq.rfq_id).order('item_number'),
         supabase
           .from('rfq_item_quotes')
           .select('*')
           .eq('rfq_id', rfq.rfq_id)
           .eq('supplier_email', supplierEmail || ''),
+        supabase
+          .from('rfq_documents')
+          .select('*')
+          .eq('rfq_id', rfq.rfq_id)
+          .order('doc_type')
+          .order('uploaded_at'),
       ]);
       setItems(itemsData || []);
       setExistingQuotes(quotesData || []);
+      setRfqDocs(docsData || []);
       setItemsLoading(false);
     })();
   }, [rfq?.rfq_id, supplierEmail]);
