@@ -1036,6 +1036,30 @@ export default function AdminRfq() {
                           </a>
                         </div>
                       )}
+                      {(docsByRfq[rfq_id]?.length ?? 0) > 0 && (
+                        <div>
+                          <div className="text-[9.5px] font-semibold uppercase tracking-wider text-slate-400">Documents</div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-100">
+                                <Paperclip className="h-3 w-3" /> {docsByRfq[rfq_id].length} file{docsByRfq[rfq_id].length > 1 ? 's' : ''}
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-72">
+                              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-slate-400">RFQ documents</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              {docsByRfq[rfq_id].map((d: any) => (
+                                <DropdownMenuItem key={d.id} asChild>
+                                  <a href={d.file_url} target="_blank" rel="noreferrer" className="flex flex-col items-start gap-0.5">
+                                    <span className="text-[10px] uppercase tracking-wider text-slate-400">{String(d.doc_type).replace(/_/g, ' ')}</span>
+                                    <span className="w-full truncate text-xs">{d.file_name}</span>
+                                  </a>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )}
                     </div>
                   </div>
 
