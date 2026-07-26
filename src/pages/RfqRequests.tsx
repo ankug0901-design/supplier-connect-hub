@@ -687,7 +687,8 @@ function RfqDetailSheet({
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4 rounded-lg border p-4">
+                <div className="grid grid-cols-2 gap-4 rounded-lg border border-l-4 border-l-emerald-200 p-4">
+
                   <Spec label="Category" value={rfq.product_category} />
                   <Spec label="Product Name" value={rfq.product_name} />
                   <Spec label="Quantity" value={rfq.quantity} />
