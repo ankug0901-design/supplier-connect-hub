@@ -22,6 +22,22 @@ import { n8nPost } from '@/lib/n8n';
 
 type RfqRow = any;
 type RfqItem = any;
+type RfqDocRow = {
+  id: string;
+  doc_type: string;
+  file_url: string;
+  file_name: string;
+  item_number: number | null;
+};
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  artwork: 'Artwork / Design File',
+  boq_template: 'BOQ Template',
+  reference: 'Reference Document',
+  technical_drawing: 'Technical Drawing',
+  specification: 'Specification',
+  other: 'Document',
+};
 type ItemQuote = any;
 
 type ItemPriceInput = {
