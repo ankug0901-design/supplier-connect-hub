@@ -277,6 +277,7 @@ function RfqDetailSheet({
   const [existingQuotes, setExistingQuotes] = useState<ItemQuote[]>([]);
   const [itemPrices, setItemPrices] = useState<Record<number, ItemPriceInput>>({});
   const [itemsLoading, setItemsLoading] = useState(false);
+  const [rfqDocs, setRfqDocs] = useState<RfqDocRow[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [reviseMode, setReviseMode] = useState(false);
