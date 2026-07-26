@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { n8nPost } from '@/lib/n8n';
 import { RfqAttachmentUpload, UploadedFileBadge } from '@/components/RfqAttachmentUpload';
-import { BoqUpload, BoqFileBadge } from '@/components/BoqUpload';
+
 
 const PRODUCT_CATEGORIES = [
   'Offset Printing', 'Flexographic Printing', 'Digital Printing', 'Screen Printing',
@@ -113,8 +113,6 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   // CC emails
   const [ccEmails, setCcEmails] = useState('');
   // BOQ template (Excel/CSV) — optional
-  const [boqTemplateUrl, setBoqTemplateUrl] = useState('');
-  const [boqTemplateName, setBoqTemplateName] = useState('');
   // Multi-file RFQ documents (rfq_documents table)
   const [docType, setDocType] = useState<DocType>('artwork');
   const [docs, setDocs] = useState<RfqDoc[]>([]);
@@ -315,8 +313,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       submitted_by_name: submittedByName,
       submitted_by_email: submittedByEmail,
       cc_emails: ccEmails.trim(),
-      boq_template_url: boqTemplateUrl || firstBoqDoc?.file_url || '',
-      boq_template_name: boqTemplateName || firstBoqDoc?.file_name || '',
+      boq_template_url: firstBoqDoc?.file_url || '',
+      boq_template_name: firstBoqDoc?.file_name || '',
     };
 
     setSubmitting(true);
