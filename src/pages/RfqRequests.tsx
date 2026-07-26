@@ -177,19 +177,19 @@ export default function RfqRequests() {
             const deadlinePassed = isDeadlinePassed(r.response_deadline);
             const locked = ['accepted', 'rejected', 'expired'].includes(r.status) || deadlinePassed;
             return (
-              <Card key={r.id} className="flex flex-col">
+              <Card key={r.id} className="flex flex-col overflow-hidden transition-shadow hover:shadow-lg">
+                <div className="flex items-center justify-between bg-gradient-to-r from-emerald-800 to-emerald-600 px-4 py-2">
+                  <span className="font-mono text-xs font-semibold tracking-wide text-white">{r.rfq_id}</span>
+                  <Badge className={`${statusStyles[r.status] || ''} rounded-full border px-2.5 py-0.5 text-[11px] font-semibold`} variant="outline">
+                    {statusLabels[r.status] || r.status}
+                  </Badge>
+                </div>
                 <CardContent className="flex flex-1 flex-col gap-3 p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <Badge className={`${statusStyles[r.status] || ''} border`} variant="outline">
-                      {statusLabels[r.status] || r.status}
-                    </Badge>
-                    <span className="font-mono text-xs text-muted-foreground">{r.rfq_id}</span>
-                  </div>
                   {r.price_rank && (
                     <div><RankBadge rank={r.price_rank} /></div>
                   )}
                   <div>
-                    <h3 className="text-base font-bold leading-tight">{r.product_name}</h3>
+                    <h3 className="text-lg font-bold leading-tight">{r.product_name}</h3>
                     {r.product_category && (
                       <p className="text-sm text-muted-foreground">{r.product_category}</p>
                     )}
@@ -197,20 +197,24 @@ export default function RfqRequests() {
                       <Badge variant="secondary" className="mt-1">{r.item_count} items</Badge>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {[r.quantity, r.material, r.print_process, r.finish].filter(Boolean).join(' · ') || '—'}
-                  </div>
-                  <div className={`flex items-center gap-1.5 text-sm ${urgent || deadlinePassed ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                    {(urgent || deadlinePassed) && <AlertTriangle className="h-4 w-4" />}
-                    <span>
-                      Closes: {formatDeadline(r.response_deadline)}
-                      {days !== null && days >= 0 && !deadlinePassed && ` (${days}d left)`}
-                      {deadlinePassed && ` (closed)`}
-                    </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[r.quantity, r.material, r.print_process, r.finish].filter(Boolean).length === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      [r.quantity, r.material, r.print_process, r.finish].filter(Boolean).map((s: any, i: number) => (
+                        <span key={i} className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                          {s}
+                        </span>
+                      ))
+                    )}
                   </div>
                   <div className="mt-auto pt-2">
                     <Button
-                      className="w-full"
+                      className={`w-full ${
+                        locked
+                          ? ''
+                          : 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800'
+                      }`}
                       variant={deadlinePassed && r.status !== 'accepted' ? 'outline' : 'default'}
                       disabled={locked}
                       onClick={() => setSelected(r)}
@@ -221,7 +225,24 @@ export default function RfqRequests() {
                     </Button>
                   </div>
                 </CardContent>
+                <div
+                  className={`flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold ${
+                    deadlinePassed || (days !== null && days < 1)
+                      ? 'anim-pulse-glow bg-red-50 text-red-700'
+                      : days !== null && days <= 3
+                        ? 'bg-amber-50 text-amber-800'
+                        : 'bg-emerald-50 text-emerald-800'
+                  }`}
+                >
+                  {(urgent || deadlinePassed) && <AlertTriangle className="h-3.5 w-3.5" />}
+                  <span>
+                    Closes: {formatDeadline(r.response_deadline)}
+                    {days !== null && days >= 0 && !deadlinePassed && ` · ${days}d left`}
+                    {deadlinePassed && ' · closed'}
+                  </span>
+                </div>
               </Card>
+
             );
           })}
         </div>
