@@ -33,7 +33,7 @@ export function RfqAttachmentUpload({ folder, prefix, onUploaded, disabled, acce
   const handleFile = async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
     if (!allowedExt.includes(ext)) {
-      toast.error(`Unsupported file type .${ext}. Allowed: ${ACCEPTED_EXT.join(', ')}`);
+      toast.error(`Unsupported file type .${ext}. Allowed: ${allowedExt.join(', ')}`);
       return;
     }
     if (file.size > MAX_BYTES) {
