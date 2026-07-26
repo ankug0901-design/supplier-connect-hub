@@ -519,38 +519,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
                           <Label>Additional Specifications</Label>
                           <Textarea value={it.extra_specs} onChange={(e) => updateItem(i, { extra_specs: e.target.value })} rows={2} />
                         </div>
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label>Attachment (optional)</Label>
-                          <RfqAttachmentUpload
-                            folder={draftFolder}
-                            prefix={String(i + 1)}
-                            onUploaded={({ url, name }) => updateItem(i, { attachment_url: url, attachment_name: name })}
-                          />
-                          {it.attachment_url && it.attachment_name && (
-                            <UploadedFileBadge
-                              name={it.attachment_name}
-                              onClear={() => updateItem(i, { attachment_url: '', attachment_name: '' })}
-                            />
-                          )}
-                          <div className="relative py-1 text-center text-[10px] uppercase tracking-wide text-muted-foreground">
-                            <span className="bg-background px-2 relative z-10">or paste a link</span>
-                            <div className="absolute inset-x-0 top-1/2 h-px bg-border" />
-                          </div>
-                          <Input
-                            value={it.attachment_url}
-                            onChange={(e) => updateItem(i, { attachment_url: e.target.value })}
-                            placeholder="https://drive.google.com/file/d/..."
-                          />
-                        </div>
-                        <div className="space-y-1 sm:col-span-2">
-                          <Label>Attachment Filename</Label>
-                          <Input
-                            value={it.attachment_name}
-                            onChange={(e) => updateItem(i, { attachment_name: e.target.value })}
-                            placeholder="e.g. Quantity_Sheet.xlsx"
-                          />
-                        </div>
-                      </div>
+                       </div>
                     )}
                   </div>
                 );
@@ -562,6 +531,77 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
               </Button>
             )}
           </section>
+
+          {/* Attach Documents (multi-file) */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Attach Documents</h3>
+            <p className="text-xs text-muted-foreground">
+              Upload artwork, BOQ templates, drawings, or reference files. You can add multiple files.
+            </p>
+            <div className="space-y-3 rounded-[10px] border-2 border-emerald-200 bg-emerald-50/60 p-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[220px_1fr] sm:items-start">
+                <div className="space-y-1">
+                  <Label className="text-xs">Document type</Label>
+                  <Select value={docType} onValueChange={(v) => setDocType(v as DocType)}>
+                    <SelectTrigger className="rounded-[8px] bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {DOC_TYPES.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="[&_.border-dashed]:min-h-[132px] [&_.border-dashed]:bg-background/70 [&_.border-dashed]:border-emerald-300">
+                  <RfqAttachmentUpload
+                    folder={draftFolder}
+                    prefix={docType}
+                    acceptedExt={DOC_ACCEPT_EXT}
+                    acceptAttr={DOC_ACCEPT_ATTR}
+                    hint="PDF, Office, Excel/CSV, images, AI/PSD, ZIP"
+                    onUploaded={({ url, name }) =>
+                      setDocs((s) => [
+                        ...s,
+                        {
+                          id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                          doc_type: docType,
+                          file_url: url,
+                          file_name: name,
+                          file_size_bytes: 0,
+                        },
+                      ])
+                    }
+                  />
+                </div>
+              </div>
+              {docs.length > 0 && (
+                <div className="space-y-2">
+                  {docs.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between gap-2 rounded-[8px] border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-800"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Badge variant="outline" className="shrink-0 rounded-full border-emerald-300 bg-white text-[10px] text-emerald-700">
+                          {DOC_TYPES.find((t) => t.value === d.doc_type)?.label || d.doc_type}
+                        </Badge>
+                        <a href={d.file_url} target="_blank" rel="noreferrer" className="truncate underline underline-offset-2">
+                          {d.file_name}
+                        </a>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 shrink-0 px-2 text-emerald-800 hover:bg-emerald-100"
+                        onClick={() => setDocs((s) => s.filter((x) => x.id !== d.id))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
 
           {/* Timing */}
           <section className="space-y-3">
