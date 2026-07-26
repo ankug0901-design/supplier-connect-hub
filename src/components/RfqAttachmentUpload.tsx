@@ -15,21 +15,25 @@ interface Props {
   prefix?: string; // e.g. item number
   onUploaded: (args: { url: string; name: string; path: string }) => void;
   disabled?: boolean;
+  acceptedExt?: string[];
+  acceptAttr?: string;
+  hint?: string;
 }
 
 function sanitize(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 120);
 }
 
-export function RfqAttachmentUpload({ folder, prefix, onUploaded, disabled }: Props) {
+export function RfqAttachmentUpload({ folder, prefix, onUploaded, disabled, acceptedExt, acceptAttr, hint }: Props) {
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const allowedExt = acceptedExt ?? ACCEPTED_EXT;
 
   const handleFile = async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    if (!ACCEPTED_EXT.includes(ext)) {
-      toast.error(`Unsupported file type .${ext}. Allowed: ${ACCEPTED_EXT.join(', ')}`);
+    if (!allowedExt.includes(ext)) {
+      toast.error(`Unsupported file type .${ext}. Allowed: ${allowedExt.join(', ')}`);
       return;
     }
     if (file.size > MAX_BYTES) {
@@ -77,7 +81,7 @@ export function RfqAttachmentUpload({ folder, prefix, onUploaded, disabled }: Pr
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPT_ATTR}
+        accept={acceptAttr ?? ACCEPT_ATTR}
         className="hidden"
         disabled={disabled || busy}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
@@ -102,7 +106,7 @@ export function RfqAttachmentUpload({ folder, prefix, onUploaded, disabled }: Pr
             </button>
           </p>
           <p className="text-[10px] text-muted-foreground">
-            PDF, PPT, DOC, JPG, PNG, AI, PSD · max 25 MB
+            {hint ?? 'PDF, PPT, DOC, JPG, PNG, AI, PSD'} · max 25 MB
           </p>
         </>
       )}

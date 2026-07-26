@@ -43,6 +43,20 @@ const ARTWORK_STATUSES = ['Final artwork ready', 'Draft artwork attached', 'Artw
 
 const MANUAL_SUPPLIER = '__manual__';
 
+const DOC_TYPES = [
+  { value: 'artwork', label: 'Artwork / Design File' },
+  { value: 'boq_template', label: 'BOQ Template' },
+  { value: 'reference', label: 'Reference Document' },
+  { value: 'technical_drawing', label: 'Technical Drawing' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+type DocType = (typeof DOC_TYPES)[number]['value'];
+type RfqDoc = { id: string; doc_type: DocType; file_url: string; file_name: string; file_size_bytes: number };
+
+const DOC_ACCEPT_EXT = ['pdf', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'ai', 'psd', 'doc', 'docx', 'xlsx', 'xls', 'csv', 'zip'];
+const DOC_ACCEPT_ATTR = '.pdf,.ppt,.pptx,.jpg,.jpeg,.png,.ai,.psd,.doc,.docx,.xlsx,.xls,.csv,.zip';
+
 type Supplier = { company: string; email: string; selectedId?: string };
 type DirectorySupplier = { id: string; company: string; name: string; email: string };
 
@@ -101,6 +115,9 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   // BOQ template (Excel/CSV) — optional
   const [boqTemplateUrl, setBoqTemplateUrl] = useState('');
   const [boqTemplateName, setBoqTemplateName] = useState('');
+  // Multi-file RFQ documents (rfq_documents table)
+  const [docType, setDocType] = useState<DocType>('artwork');
+  const [docs, setDocs] = useState<RfqDoc[]>([]);
   // Submitted by
   const [submittedByName, setSubmittedByName] = useState('');
   const [submittedByEmail, setSubmittedByEmail] = useState('');
@@ -131,6 +148,7 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
     setInstructions('');
     setCcEmails('');
     setBoqTemplateUrl(''); setBoqTemplateName('');
+    setDocs([]); setDocType('artwork');
   };
 
   const isUrgent = (() => {
@@ -256,6 +274,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       : first.product_category;
     const summaryQty = isMulti ? 'Multiple items' : first.quantity;
 
+    const firstArtworkDoc = docs.find((d) => d.doc_type === 'artwork');
+    const firstBoqDoc = docs.find((d) => d.doc_type === 'boq_template');
     const payload: any = {
       client_name: clientContact,
       client_company: clientCompany,
@@ -273,11 +293,11 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       colours: first.colours,
       artwork_status: first.artwork_status,
       extra_specs: first.extra_specs,
-      attachment_url: first.attachment_url,
-      attachment_name: first.attachment_name,
+      attachment_url: first.attachment_url || firstArtworkDoc?.file_url || '',
+      attachment_name: first.attachment_name || firstArtworkDoc?.file_name || '',
       // Persist the artwork/attachment URL at the top level so the backend
       // stores it in rfq_portal_requests.artwork_drive_url for every row.
-      artwork_drive_url: first.attachment_url,
+      artwork_drive_url: first.attachment_url || firstArtworkDoc?.file_url || '',
       // Timing
       closing_date: format(closingDate, 'yyyy-MM-dd'),
       closing_time: closingTime,
@@ -295,8 +315,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       submitted_by_name: submittedByName,
       submitted_by_email: submittedByEmail,
       cc_emails: ccEmails.trim(),
-      boq_template_url: boqTemplateUrl,
-      boq_template_name: boqTemplateName,
+      boq_template_url: boqTemplateUrl || firstBoqDoc?.file_url || '',
+      boq_template_name: boqTemplateName || firstBoqDoc?.file_name || '',
     };
 
     setSubmitting(true);
@@ -316,6 +336,28 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
         console.error('RFQ submit failed', res.status, bodyText);
         throw new Error(typeof errMsg === 'string' ? errMsg.slice(0, 300) : `HTTP ${res.status}`);
       }
+      // Persist uploaded documents into rfq_documents (multi-file support).
+      if (docs.length > 0) {
+        const body = Array.isArray(parsed) ? parsed[0] : parsed;
+        const createdRfqId: string | undefined =
+          body?.rfq_id || body?.rfqId || body?.data?.rfq_id || body?.result?.rfq_id;
+        if (createdRfqId) {
+          const { error: docErr } = await supabase.from('rfq_documents').insert(
+            docs.map((d) => ({
+              rfq_id: createdRfqId,
+              doc_type: d.doc_type,
+              file_url: d.file_url,
+              file_name: d.file_name,
+              file_size_bytes: d.file_size_bytes,
+              uploaded_by: user?.email || '',
+            })),
+          );
+          if (docErr) toast.error(`RFQ created, but documents could not be linked: ${docErr.message}`);
+        } else {
+          toast.error('RFQ created, but no RFQ ID was returned — documents were not linked.');
+        }
+      }
+
       toast.success(
         isMulti
           ? `RFQ submitted with ${items.length} items — suppliers will be notified ✅`
@@ -650,6 +692,72 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
               <p className="text-xs text-muted-foreground">
                 These addresses will be CC'd on all communications for this RFQ.
               </p>
+            </div>
+          </section>
+
+          {/* RFQ Documents (multi-file) */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">RFQ Documents (optional)</h3>
+            <p className="text-xs text-muted-foreground">
+              Attach any number of files — artwork, BOQ templates, drawings, references. Pick a type, then upload.
+            </p>
+            <div className="space-y-3 rounded-[8px] border border-slate-200 bg-slate-50/60 p-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Document type</Label>
+                <Select value={docType} onValueChange={(v) => setDocType(v as DocType)}>
+                  <SelectTrigger className="rounded-[8px] bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DOC_TYPES.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <RfqAttachmentUpload
+                folder={draftFolder}
+                prefix={docType}
+                acceptedExt={DOC_ACCEPT_EXT}
+                acceptAttr={DOC_ACCEPT_ATTR}
+                hint="PDF, Office, Excel/CSV, images, AI/PSD, ZIP"
+                onUploaded={({ url, name }) =>
+                  setDocs((s) => [
+                    ...s,
+                    {
+                      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                      doc_type: docType,
+                      file_url: url,
+                      file_name: name,
+                      file_size_bytes: 0,
+                    },
+                  ])
+                }
+              />
+              {docs.length > 0 && (
+                <div className="space-y-2">
+                  {docs.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between gap-2 rounded-[8px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Badge variant="outline" className="shrink-0 rounded-full border-emerald-300 bg-white text-[10px] text-emerald-700">
+                          {DOC_TYPES.find((t) => t.value === d.doc_type)?.label || d.doc_type}
+                        </Badge>
+                        <a href={d.file_url} target="_blank" rel="noreferrer" className="truncate underline underline-offset-2">
+                          {d.file_name}
+                        </a>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 shrink-0 px-2 text-emerald-800 hover:bg-emerald-100"
+                        onClick={() => setDocs((s) => s.filter((x) => x.id !== d.id))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 

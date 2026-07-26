@@ -119,6 +119,7 @@ function RankCell({ rank }: { rank?: number | null }) {
 export default function AdminRfq() {
   const [rows, setRows] = useState<Rfq[]>([]);
   const [itemsByRfq, setItemsByRfq] = useState<Record<string, any[]>>({});
+  const [docsByRfq, setDocsByRfq] = useState<Record<string, any[]>>({});
   const [itemQuotesByRfq, setItemQuotesByRfq] = useState<Record<string, any[]>>({});
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [expandedBreakdown, setExpandedBreakdown] = useState<Record<string, boolean>>({});
@@ -285,13 +286,23 @@ export default function AdminRfq() {
   };
 
   const load = async () => {
-    const [{ data }, { data: sups }, { data: allItems }, { data: allItemQuotes }, { data: scores }] = await Promise.all([
+    const [{ data }, { data: sups }, { data: allItems }, { data: allItemQuotes }, { data: scores }, { data: allDocs }] = await Promise.all([
       supabase.from('rfq_portal_requests').select('*').order('created_at', { ascending: false }),
       supabase.from('suppliers').select('id,email,company').limit(5000),
       supabase.from('rfq_items').select('*').order('item_number', { ascending: true }),
       supabase.from('rfq_item_quotes').select('*'),
       supabase.from('vendor_scores').select('supplier_id,score,scored_at').order('scored_at', { ascending: false }),
+      supabase.from('rfq_documents').select('*').order('uploaded_at', { ascending: true }),
     ]);
+
+    const docsMap: Record<string, any[]> = {};
+    (allDocs || []).forEach((d: any) => {
+      if (!docsMap[d.rfq_id]) docsMap[d.rfq_id] = [];
+      docsMap[d.rfq_id].push(d);
+    });
+    setDocsByRfq(docsMap);
+
+
 
     const companyByEmail: Record<string, string> = {};
     const emailBySupplierId: Record<string, string> = {};
@@ -1023,6 +1034,30 @@ export default function AdminRfq() {
                           <a href={first.boq_template_url} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:text-blue-800">
                             <FileBarChart className="h-3 w-3" /> Template
                           </a>
+                        </div>
+                      )}
+                      {(docsByRfq[rfq_id]?.length ?? 0) > 0 && (
+                        <div>
+                          <div className="text-[9.5px] font-semibold uppercase tracking-wider text-slate-400">Documents</div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-100">
+                                <Paperclip className="h-3 w-3" /> {docsByRfq[rfq_id].length} file{docsByRfq[rfq_id].length > 1 ? 's' : ''}
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-72">
+                              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-slate-400">RFQ documents</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              {docsByRfq[rfq_id].map((d: any) => (
+                                <DropdownMenuItem key={d.id} asChild>
+                                  <a href={d.file_url} target="_blank" rel="noreferrer" className="flex flex-col items-start gap-0.5">
+                                    <span className="text-[10px] uppercase tracking-wider text-slate-400">{String(d.doc_type).replace(/_/g, ' ')}</span>
+                                    <span className="w-full truncate text-xs">{d.file_name}</span>
+                                  </a>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       )}
                     </div>
