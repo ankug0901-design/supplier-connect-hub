@@ -81,7 +81,7 @@ export function RfqAttachmentUpload({ folder, prefix, onUploaded, disabled, acce
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPT_ATTR}
+        accept={acceptAttr ?? ACCEPT_ATTR}
         className="hidden"
         disabled={disabled || busy}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
