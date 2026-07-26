@@ -927,7 +927,7 @@ function RfqDetailSheet({
                           Cancel
                         </Button>
                       )}
-                      <Button className="flex-1" onClick={submit} disabled={submitting}>
+                      <Button className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800" onClick={submit} disabled={submitting}>
                         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {isRevision ? 'Submit Revised Quote' : 'Submit Quote to Emboss Marketing'}
                       </Button>
