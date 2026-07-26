@@ -750,9 +750,10 @@ function RfqDetailSheet({
             )}
             {showForm && (
               <>
-                <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                <h4 className="border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">
                   {isRevision ? 'Revise Your Quote' : 'Submit Your Quote'}
                 </h4>
+
                 {isRevision && (
                   <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
                     Closes: {formatDeadline(rfq.response_deadline)} — quote can be revised until then
