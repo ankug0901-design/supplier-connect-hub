@@ -274,6 +274,8 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
       : first.product_category;
     const summaryQty = isMulti ? 'Multiple items' : first.quantity;
 
+    const firstArtworkDoc = docs.find((d) => d.doc_type === 'artwork');
+    const firstBoqDoc = docs.find((d) => d.doc_type === 'boq_template');
     const payload: any = {
       client_name: clientContact,
       client_company: clientCompany,
