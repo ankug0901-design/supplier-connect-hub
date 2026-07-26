@@ -707,8 +707,9 @@ function RfqDetailSheet({
             </section>
 
             <section>
-              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Timeline</h4>
-              <div className="grid grid-cols-2 gap-4 rounded-lg border p-4">
+              <h4 className="mb-3 border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">Timeline</h4>
+              <div className="grid grid-cols-2 gap-4 rounded-lg border border-l-4 border-l-emerald-200 p-4">
+
                 <Spec label="Client Required By" value={formatDate(rfq.required_by_date)} />
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Quote Deadline</p>
