@@ -604,33 +604,54 @@ function RfqDetailSheet({
           <div className="space-y-6">
             <section>
               <h4 className="mb-3 border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">
-                Documents
+                Documents{rfqDocs.length > 0 ? ` (${rfqDocs.length})` : ''}
               </h4>
               <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                {rfq.artwork_drive_url ? (
-                  <a href={rfq.artwork_drive_url} target="_blank" rel="noreferrer" className="block">
-                    <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800">
-                      <FileText className="mr-2 h-4 w-4" />
-                      Artwork / Reference Document
-                      {fileNameFromUrl(rfq.artwork_drive_url)
-                        ? ` (${fileNameFromUrl(rfq.artwork_drive_url)})`
-                        : ''}
-                    </Button>
-                  </a>
+                {rfqDocs.length > 0 ? (
+                  rfqDocs.map((d) => (
+                    <a key={d.id} href={d.file_url} target="_blank" rel="noreferrer" className="block">
+                      <Button className="w-full justify-start bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800">
+                        {d.doc_type === 'boq_template' ? (
+                          <FileSpreadsheet className="mr-2 h-4 w-4 shrink-0" />
+                        ) : (
+                          <FileText className="mr-2 h-4 w-4 shrink-0" />
+                        )}
+                        <span className="truncate">
+                          {DOC_TYPE_LABELS[d.doc_type] || d.doc_type}
+                          {d.item_number ? ` · Item ${d.item_number}` : ''} — {d.file_name}
+                        </span>
+                      </Button>
+                    </a>
+                  ))
                 ) : (
-                  <p className="text-xs text-muted-foreground">No artwork attached</p>
+                  <>
+                    {rfq.artwork_drive_url ? (
+                      <a href={rfq.artwork_drive_url} target="_blank" rel="noreferrer" className="block">
+                        <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800">
+                          <FileText className="mr-2 h-4 w-4" />
+                          Artwork / Reference Document
+                          {fileNameFromUrl(rfq.artwork_drive_url)
+                            ? ` (${fileNameFromUrl(rfq.artwork_drive_url)})`
+                            : ''}
+                        </Button>
+                      </a>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No artwork attached</p>
+                    )}
+
+                    {rfq.boq_template_url ? (
+                      <a href={rfq.boq_template_url} target="_blank" rel="noreferrer" className="block">
+                        <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800">
+                          <FileSpreadsheet className="mr-2 h-4 w-4" />
+                          Download BOQ Template{rfq.boq_template_name ? ` (${rfq.boq_template_name})` : ''}
+                        </Button>
+                      </a>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No BOQ template attached</p>
+                    )}
+                  </>
                 )}
 
-                {rfq.boq_template_url ? (
-                  <a href={rfq.boq_template_url} target="_blank" rel="noreferrer" className="block">
-                    <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800">
-                      <FileSpreadsheet className="mr-2 h-4 w-4" />
-                      Download BOQ Template{rfq.boq_template_name ? ` (${rfq.boq_template_name})` : ''}
-                    </Button>
-                  </a>
-                ) : (
-                  <p className="text-xs text-muted-foreground">No BOQ template attached</p>
-                )}
 
                 <div className="space-y-2 border-t border-emerald-200 pt-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
