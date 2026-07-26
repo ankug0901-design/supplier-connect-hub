@@ -562,15 +562,18 @@ function RfqDetailSheet({
   return (
     <Sheet open={!!rfq} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-5xl">
-        <SheetHeader>
-          <SheetTitle className="flex flex-wrap items-center gap-3">
-            <span>{rfq.product_name}</span>
-            <span className="font-mono text-sm text-muted-foreground">{rfq.rfq_id}</span>
-            <RankBadge rank={rfq.price_rank} />
-            {isMulti && <Badge variant="secondary">{items.length} items</Badge>}
-          </SheetTitle>
-          <SheetDescription>{rfq.client_name}</SheetDescription>
+        <SheetHeader className="space-y-0">
+          <div className="-mx-6 -mt-6 mb-2 bg-gradient-to-r from-emerald-800 to-emerald-600 px-6 py-4">
+            <SheetTitle className="flex flex-wrap items-center gap-3 text-white">
+              <span className="text-lg font-bold text-white">{rfq.product_name}</span>
+              <span className="font-mono text-sm text-white/80">{rfq.rfq_id}</span>
+              <RankBadge rank={rfq.price_rank} />
+              {isMulti && <Badge variant="secondary">{items.length} items</Badge>}
+            </SheetTitle>
+            <SheetDescription className="text-white/80">{rfq.client_name}</SheetDescription>
+          </div>
         </SheetHeader>
+
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* LEFT — specs */}
