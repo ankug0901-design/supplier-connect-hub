@@ -627,6 +627,45 @@ export type Database = {
           },
         ]
       }
+      rfq_documents: {
+        Row: {
+          doc_type: string
+          file_name: string
+          file_size_bytes: number | null
+          file_url: string
+          id: string
+          item_number: number | null
+          notes: string | null
+          rfq_id: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          doc_type: string
+          file_name: string
+          file_size_bytes?: number | null
+          file_url: string
+          id?: string
+          item_number?: number | null
+          notes?: string | null
+          rfq_id: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          doc_type?: string
+          file_name?: string
+          file_size_bytes?: number | null
+          file_url?: string
+          id?: string
+          item_number?: number | null
+          notes?: string | null
+          rfq_id?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       rfq_item_quotes: {
         Row: {
           created_at: string
