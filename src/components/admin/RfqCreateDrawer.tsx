@@ -695,6 +695,72 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
             </div>
           </section>
 
+          {/* RFQ Documents (multi-file) */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">RFQ Documents (optional)</h3>
+            <p className="text-xs text-muted-foreground">
+              Attach any number of files — artwork, BOQ templates, drawings, references. Pick a type, then upload.
+            </p>
+            <div className="space-y-3 rounded-[8px] border border-slate-200 bg-slate-50/60 p-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Document type</Label>
+                <Select value={docType} onValueChange={(v) => setDocType(v as DocType)}>
+                  <SelectTrigger className="rounded-[8px] bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DOC_TYPES.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <RfqAttachmentUpload
+                folder={draftFolder}
+                prefix={docType}
+                acceptedExt={DOC_ACCEPT_EXT}
+                acceptAttr={DOC_ACCEPT_ATTR}
+                hint="PDF, Office, Excel/CSV, images, AI/PSD, ZIP"
+                onUploaded={({ url, name }) =>
+                  setDocs((s) => [
+                    ...s,
+                    {
+                      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                      doc_type: docType,
+                      file_url: url,
+                      file_name: name,
+                      file_size_bytes: 0,
+                    },
+                  ])
+                }
+              />
+              {docs.length > 0 && (
+                <div className="space-y-2">
+                  {docs.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between gap-2 rounded-[8px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Badge variant="outline" className="shrink-0 rounded-full border-emerald-300 bg-white text-[10px] text-emerald-700">
+                          {DOC_TYPES.find((t) => t.value === d.doc_type)?.label || d.doc_type}
+                        </Badge>
+                        <a href={d.file_url} target="_blank" rel="noreferrer" className="truncate underline underline-offset-2">
+                          {d.file_name}
+                        </a>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 shrink-0 px-2 text-emerald-800 hover:bg-emerald-100"
+                        onClick={() => setDocs((s) => s.filter((x) => x.id !== d.id))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
           {/* BOQ Template */}
           <section className="space-y-3">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">BOQ Template (optional)</h3>
