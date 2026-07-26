@@ -336,6 +336,28 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
         console.error('RFQ submit failed', res.status, bodyText);
         throw new Error(typeof errMsg === 'string' ? errMsg.slice(0, 300) : `HTTP ${res.status}`);
       }
+      // Persist uploaded documents into rfq_documents (multi-file support).
+      if (docs.length > 0) {
+        const body = Array.isArray(parsed) ? parsed[0] : parsed;
+        const createdRfqId: string | undefined =
+          body?.rfq_id || body?.rfqId || body?.data?.rfq_id || body?.result?.rfq_id;
+        if (createdRfqId) {
+          const { error: docErr } = await supabase.from('rfq_documents').insert(
+            docs.map((d) => ({
+              rfq_id: createdRfqId,
+              doc_type: d.doc_type,
+              file_url: d.file_url,
+              file_name: d.file_name,
+              file_size_bytes: d.file_size_bytes,
+              uploaded_by: user?.email || '',
+            })),
+          );
+          if (docErr) toast.error(`RFQ created, but documents could not be linked: ${docErr.message}`);
+        } else {
+          toast.error('RFQ created, but no RFQ ID was returned — documents were not linked.');
+        }
+      }
+
       toast.success(
         isMulti
           ? `RFQ submitted with ${items.length} items — suppliers will be notified ✅`
