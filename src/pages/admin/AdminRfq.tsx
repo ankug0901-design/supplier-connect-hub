@@ -286,13 +286,23 @@ export default function AdminRfq() {
   };
 
   const load = async () => {
-    const [{ data }, { data: sups }, { data: allItems }, { data: allItemQuotes }, { data: scores }] = await Promise.all([
+    const [{ data }, { data: sups }, { data: allItems }, { data: allItemQuotes }, { data: scores }, { data: allDocs }] = await Promise.all([
       supabase.from('rfq_portal_requests').select('*').order('created_at', { ascending: false }),
       supabase.from('suppliers').select('id,email,company').limit(5000),
       supabase.from('rfq_items').select('*').order('item_number', { ascending: true }),
       supabase.from('rfq_item_quotes').select('*'),
       supabase.from('vendor_scores').select('supplier_id,score,scored_at').order('scored_at', { ascending: false }),
+      supabase.from('rfq_documents').select('*').order('uploaded_at', { ascending: true }),
     ]);
+
+    const docsMap: Record<string, any[]> = {};
+    (allDocs || []).forEach((d: any) => {
+      if (!docsMap[d.rfq_id]) docsMap[d.rfq_id] = [];
+      docsMap[d.rfq_id].push(d);
+    });
+    setDocsByRfq(docsMap);
+
+
 
     const companyByEmail: Record<string, string> = {};
     const emailBySupplierId: Record<string, string> = {};
