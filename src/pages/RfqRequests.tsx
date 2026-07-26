@@ -761,7 +761,7 @@ function RfqDetailSheet({
                 )}
 
                 {isMulti ? (
-                  <div className="space-y-4 rounded-lg border p-4">
+                  <div className="space-y-4 rounded-lg border border-t-4 border-t-emerald-500 p-4">
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
@@ -873,7 +873,7 @@ function RfqDetailSheet({
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4 rounded-lg border p-4">
+                  <div className="space-y-4 rounded-lg border border-t-4 border-t-emerald-500 p-4">
                     <div>
                       <Label>Unit Price (₹, ex-GST) *</Label>
                       <Input type="number" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
