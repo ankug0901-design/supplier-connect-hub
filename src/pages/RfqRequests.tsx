@@ -579,9 +579,76 @@ function RfqDetailSheet({
           {/* LEFT — specs */}
           <div className="space-y-6">
             <section>
-              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="mb-3 border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">
+                Documents
+              </h4>
+              <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                {rfq.artwork_drive_url ? (
+                  <a href={rfq.artwork_drive_url} target="_blank" rel="noreferrer" className="block">
+                    <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800">
+                      <FileText className="mr-2 h-4 w-4" />
+                      Artwork / Reference Document
+                      {fileNameFromUrl(rfq.artwork_drive_url)
+                        ? ` (${fileNameFromUrl(rfq.artwork_drive_url)})`
+                        : ''}
+                    </Button>
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No artwork attached</p>
+                )}
+
+                {rfq.boq_template_url ? (
+                  <a href={rfq.boq_template_url} target="_blank" rel="noreferrer" className="block">
+                    <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800">
+                      <FileSpreadsheet className="mr-2 h-4 w-4" />
+                      Download BOQ Template{rfq.boq_template_name ? ` (${rfq.boq_template_name})` : ''}
+                    </Button>
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No BOQ template attached</p>
+                )}
+
+                <div className="space-y-2 border-t border-emerald-200 pt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                    Upload Filled BOQ / Supporting Documents
+                  </p>
+                  {rfq.boq_response_url && rfq.boq_response_name ? (
+                    <BoqFileBadge
+                      name={rfq.boq_response_name}
+                      url={rfq.boq_response_url}
+                      onClear={closed ? undefined : async () => {
+                        await supabase
+                          .from('rfq_portal_requests')
+                          .update({ boq_response_url: '', boq_response_name: '' })
+                          .eq('id', rfq.id);
+                        onSubmitted();
+                      }}
+                    />
+                  ) : closed ? (
+                    <p className="text-xs text-muted-foreground">RFQ is closed — filled BOQ can no longer be uploaded.</p>
+                  ) : (
+                    <BoqUpload
+                      bucket="rfq-boq-responses"
+                      folder={`${rfq.rfq_id}/${(supplierEmail || rfq.supplier_email || '').toLowerCase()}`}
+                      onUploaded={async ({ url, name }) => {
+                        const { error } = await supabase
+                          .from('rfq_portal_requests')
+                          .update({ boq_response_url: url, boq_response_name: name })
+                          .eq('id', rfq.id);
+                        if (error) toast.error(`Saved file but failed to link: ${error.message}`);
+                        else onSubmitted();
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h4 className="mb-3 border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">
                 {isMulti ? `Items (${items.length})` : 'Product Specification'}
               </h4>
+
               {isMulti ? (
                 <div className="space-y-3">
                   {itemsLoading && <div className="text-sm text-muted-foreground">Loading items…</div>}
