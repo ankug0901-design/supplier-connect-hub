@@ -177,19 +177,19 @@ export default function RfqRequests() {
             const deadlinePassed = isDeadlinePassed(r.response_deadline);
             const locked = ['accepted', 'rejected', 'expired'].includes(r.status) || deadlinePassed;
             return (
-              <Card key={r.id} className="flex flex-col">
+              <Card key={r.id} className="flex flex-col overflow-hidden transition-shadow hover:shadow-lg">
+                <div className="flex items-center justify-between bg-gradient-to-r from-emerald-800 to-emerald-600 px-4 py-2">
+                  <span className="font-mono text-xs font-semibold tracking-wide text-white">{r.rfq_id}</span>
+                  <Badge className={`${statusStyles[r.status] || ''} rounded-full border px-2.5 py-0.5 text-[11px] font-semibold`} variant="outline">
+                    {statusLabels[r.status] || r.status}
+                  </Badge>
+                </div>
                 <CardContent className="flex flex-1 flex-col gap-3 p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <Badge className={`${statusStyles[r.status] || ''} border`} variant="outline">
-                      {statusLabels[r.status] || r.status}
-                    </Badge>
-                    <span className="font-mono text-xs text-muted-foreground">{r.rfq_id}</span>
-                  </div>
                   {r.price_rank && (
                     <div><RankBadge rank={r.price_rank} /></div>
                   )}
                   <div>
-                    <h3 className="text-base font-bold leading-tight">{r.product_name}</h3>
+                    <h3 className="text-lg font-bold leading-tight">{r.product_name}</h3>
                     {r.product_category && (
                       <p className="text-sm text-muted-foreground">{r.product_category}</p>
                     )}
@@ -197,20 +197,24 @@ export default function RfqRequests() {
                       <Badge variant="secondary" className="mt-1">{r.item_count} items</Badge>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {[r.quantity, r.material, r.print_process, r.finish].filter(Boolean).join(' · ') || '—'}
-                  </div>
-                  <div className={`flex items-center gap-1.5 text-sm ${urgent || deadlinePassed ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                    {(urgent || deadlinePassed) && <AlertTriangle className="h-4 w-4" />}
-                    <span>
-                      Closes: {formatDeadline(r.response_deadline)}
-                      {days !== null && days >= 0 && !deadlinePassed && ` (${days}d left)`}
-                      {deadlinePassed && ` (closed)`}
-                    </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[r.quantity, r.material, r.print_process, r.finish].filter(Boolean).length === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      [r.quantity, r.material, r.print_process, r.finish].filter(Boolean).map((s: any, i: number) => (
+                        <span key={i} className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                          {s}
+                        </span>
+                      ))
+                    )}
                   </div>
                   <div className="mt-auto pt-2">
                     <Button
-                      className="w-full"
+                      className={`w-full ${
+                        locked
+                          ? ''
+                          : 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800'
+                      }`}
                       variant={deadlinePassed && r.status !== 'accepted' ? 'outline' : 'default'}
                       disabled={locked}
                       onClick={() => setSelected(r)}
@@ -221,7 +225,24 @@ export default function RfqRequests() {
                     </Button>
                   </div>
                 </CardContent>
+                <div
+                  className={`flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold ${
+                    deadlinePassed || (days !== null && days < 1)
+                      ? 'anim-pulse-glow bg-red-50 text-red-700'
+                      : days !== null && days <= 3
+                        ? 'bg-amber-50 text-amber-800'
+                        : 'bg-emerald-50 text-emerald-800'
+                  }`}
+                >
+                  {(urgent || deadlinePassed) && <AlertTriangle className="h-3.5 w-3.5" />}
+                  <span>
+                    Closes: {formatDeadline(r.response_deadline)}
+                    {days !== null && days >= 0 && !deadlinePassed && ` · ${days}d left`}
+                    {deadlinePassed && ' · closed'}
+                  </span>
+                </div>
               </Card>
+
             );
           })}
         </div>
@@ -541,23 +562,93 @@ function RfqDetailSheet({
   return (
     <Sheet open={!!rfq} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-5xl">
-        <SheetHeader>
-          <SheetTitle className="flex flex-wrap items-center gap-3">
-            <span>{rfq.product_name}</span>
-            <span className="font-mono text-sm text-muted-foreground">{rfq.rfq_id}</span>
-            <RankBadge rank={rfq.price_rank} />
-            {isMulti && <Badge variant="secondary">{items.length} items</Badge>}
-          </SheetTitle>
-          <SheetDescription>{rfq.client_name}</SheetDescription>
+        <SheetHeader className="space-y-0">
+          <div className="-mx-6 -mt-6 mb-2 bg-gradient-to-r from-emerald-800 to-emerald-600 px-6 py-4">
+            <SheetTitle className="flex flex-wrap items-center gap-3 text-white">
+              <span className="text-lg font-bold text-white">{rfq.product_name}</span>
+              <span className="font-mono text-sm text-white/80">{rfq.rfq_id}</span>
+              <RankBadge rank={rfq.price_rank} />
+              {isMulti && <Badge variant="secondary">{items.length} items</Badge>}
+            </SheetTitle>
+            <SheetDescription className="text-white/80">{rfq.client_name}</SheetDescription>
+          </div>
         </SheetHeader>
+
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* LEFT — specs */}
           <div className="space-y-6">
             <section>
-              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="mb-3 border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">
+                Documents
+              </h4>
+              <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                {rfq.artwork_drive_url ? (
+                  <a href={rfq.artwork_drive_url} target="_blank" rel="noreferrer" className="block">
+                    <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800">
+                      <FileText className="mr-2 h-4 w-4" />
+                      Artwork / Reference Document
+                      {fileNameFromUrl(rfq.artwork_drive_url)
+                        ? ` (${fileNameFromUrl(rfq.artwork_drive_url)})`
+                        : ''}
+                    </Button>
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No artwork attached</p>
+                )}
+
+                {rfq.boq_template_url ? (
+                  <a href={rfq.boq_template_url} target="_blank" rel="noreferrer" className="block">
+                    <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800">
+                      <FileSpreadsheet className="mr-2 h-4 w-4" />
+                      Download BOQ Template{rfq.boq_template_name ? ` (${rfq.boq_template_name})` : ''}
+                    </Button>
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No BOQ template attached</p>
+                )}
+
+                <div className="space-y-2 border-t border-emerald-200 pt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                    Upload Filled BOQ / Supporting Documents
+                  </p>
+                  {rfq.boq_response_url && rfq.boq_response_name ? (
+                    <BoqFileBadge
+                      name={rfq.boq_response_name}
+                      url={rfq.boq_response_url}
+                      onClear={closed ? undefined : async () => {
+                        await supabase
+                          .from('rfq_portal_requests')
+                          .update({ boq_response_url: '', boq_response_name: '' })
+                          .eq('id', rfq.id);
+                        onSubmitted();
+                      }}
+                    />
+                  ) : closed ? (
+                    <p className="text-xs text-muted-foreground">RFQ is closed — filled BOQ can no longer be uploaded.</p>
+                  ) : (
+                    <BoqUpload
+                      bucket="rfq-boq-responses"
+                      folder={`${rfq.rfq_id}/${(supplierEmail || rfq.supplier_email || '').toLowerCase()}`}
+                      onUploaded={async ({ url, name }) => {
+                        const { error } = await supabase
+                          .from('rfq_portal_requests')
+                          .update({ boq_response_url: url, boq_response_name: name })
+                          .eq('id', rfq.id);
+                        if (error) toast.error(`Saved file but failed to link: ${error.message}`);
+                        else onSubmitted();
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h4 className="mb-3 border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">
                 {isMulti ? `Items (${items.length})` : 'Product Specification'}
               </h4>
+
               {isMulti ? (
                 <div className="space-y-3">
                   {itemsLoading && <div className="text-sm text-muted-foreground">Loading items…</div>}
@@ -596,7 +687,8 @@ function RfqDetailSheet({
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4 rounded-lg border p-4">
+                <div className="grid grid-cols-2 gap-4 rounded-lg border border-l-4 border-l-emerald-200 p-4">
+
                   <Spec label="Category" value={rfq.product_category} />
                   <Spec label="Product Name" value={rfq.product_name} />
                   <Spec label="Quantity" value={rfq.quantity} />
@@ -615,8 +707,9 @@ function RfqDetailSheet({
             </section>
 
             <section>
-              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Timeline</h4>
-              <div className="grid grid-cols-2 gap-4 rounded-lg border p-4">
+              <h4 className="mb-3 border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">Timeline</h4>
+              <div className="grid grid-cols-2 gap-4 rounded-lg border border-l-4 border-l-emerald-200 p-4">
+
                 <Spec label="Client Required By" value={formatDate(rfq.required_by_date)} />
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Quote Deadline</p>
@@ -629,10 +722,11 @@ function RfqDetailSheet({
             </section>
 
             <section>
-              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Budget & Instructions
+              <h4 className="mb-3 border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">
+                Budget &amp; Instructions
               </h4>
-              <div className="space-y-3 rounded-lg border p-4">
+              <div className="space-y-3 rounded-lg border border-l-4 border-l-emerald-200 p-4">
+
                 <Spec label="Client Budget" value={rfq.client_budget || 'Not disclosed'} />
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Special Instructions</p>
@@ -640,71 +734,8 @@ function RfqDetailSheet({
                 </div>
               </div>
             </section>
-
-            {(rfq.artwork_drive_url || rfq.boq_template_url) && (
-              <section>
-                <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Documents
-                </h4>
-                <div className="space-y-3 rounded-lg border p-4">
-                  {rfq.artwork_drive_url && (
-                    <a href={rfq.artwork_drive_url} target="_blank" rel="noreferrer">
-                      <Button variant="outline" className="w-full">
-                        <FileText className="mr-2 h-4 w-4" />
-                        Artwork / Reference Document
-                        {fileNameFromUrl(rfq.artwork_drive_url)
-                          ? ` (${fileNameFromUrl(rfq.artwork_drive_url)})`
-                          : ''}
-                      </Button>
-                    </a>
-                  )}
-
-                  {rfq.boq_template_url && (
-                    <>
-                      <a href={rfq.boq_template_url} target="_blank" rel="noreferrer">
-                        <Button variant="outline" className="w-full">
-                          <FileSpreadsheet className="mr-2 h-4 w-4" />
-                          Download BOQ Template{rfq.boq_template_name ? ` (${rfq.boq_template_name})` : ''}
-                        </Button>
-                      </a>
-
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">Upload Filled BOQ</p>
-                        {rfq.boq_response_url && rfq.boq_response_name ? (
-                          <BoqFileBadge
-                            name={rfq.boq_response_name}
-                            url={rfq.boq_response_url}
-                            onClear={closed ? undefined : async () => {
-                              await supabase
-                                .from('rfq_portal_requests')
-                                .update({ boq_response_url: '', boq_response_name: '' })
-                                .eq('id', rfq.id);
-                              onSubmitted();
-                            }}
-                          />
-                        ) : closed ? (
-                          <p className="text-xs text-muted-foreground">RFQ is closed — filled BOQ can no longer be uploaded.</p>
-                        ) : (
-                          <BoqUpload
-                            bucket="rfq-boq-responses"
-                            folder={`${rfq.rfq_id}/${(supplierEmail || rfq.supplier_email || '').toLowerCase()}`}
-                            onUploaded={async ({ url, name }) => {
-                              const { error } = await supabase
-                                .from('rfq_portal_requests')
-                                .update({ boq_response_url: url, boq_response_name: name })
-                                .eq('id', rfq.id);
-                              if (error) toast.error(`Saved file but failed to link: ${error.message}`);
-                              else onSubmitted();
-                            }}
-                          />
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </section>
-            )}
           </div>
+
 
 
           {/* RIGHT — quote / status */}
@@ -719,9 +750,10 @@ function RfqDetailSheet({
             )}
             {showForm && (
               <>
-                <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                <h4 className="border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">
                   {isRevision ? 'Revise Your Quote' : 'Submit Your Quote'}
                 </h4>
+
                 {isRevision && (
                   <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
                     Closes: {formatDeadline(rfq.response_deadline)} — quote can be revised until then
@@ -729,7 +761,7 @@ function RfqDetailSheet({
                 )}
 
                 {isMulti ? (
-                  <div className="space-y-4 rounded-lg border p-4">
+                  <div className="space-y-4 rounded-lg border border-t-4 border-t-emerald-500 p-4">
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
@@ -833,14 +865,15 @@ function RfqDetailSheet({
                           Cancel
                         </Button>
                       )}
-                      <Button className="flex-1" onClick={submit} disabled={submitting}>
+                      <Button className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800" onClick={submit} disabled={submitting}>
+
                         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {isRevision ? 'Submit Revised Quote' : 'Submit Quote to Emboss Marketing'}
                       </Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4 rounded-lg border p-4">
+                  <div className="space-y-4 rounded-lg border border-t-4 border-t-emerald-500 p-4">
                     <div>
                       <Label>Unit Price (₹, ex-GST) *</Label>
                       <Input type="number" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
@@ -877,15 +910,16 @@ function RfqDetailSheet({
                       <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
                     </div>
 
-                    <div className="space-y-1 rounded-md bg-muted p-3 text-sm">
+                    <div className="space-y-1 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm">
                       <div className="flex justify-between"><span>Unit Price:</span><span>₹{up.toFixed(2)}</span></div>
                       <div className="flex justify-between"><span>GST ({gstPct}%):</span><span>₹{gstAmt.toFixed(2)}</span></div>
-                      <div className="my-1 border-t" />
+                      <div className="my-1 border-t border-emerald-200" />
                       <div className="flex justify-between font-bold"><span>Total per unit:</span><span>₹{perUnit.toFixed(2)}</span></div>
-                      <div className="flex justify-between font-bold text-green-700">
+                      <div className="flex justify-between font-bold text-emerald-700">
                         <span>Total for {qty}:</span><span>₹{totalForQty.toFixed(2)}</span>
                       </div>
                     </div>
+
 
                     <div className="flex gap-2">
                       {isRevision && (
@@ -893,7 +927,7 @@ function RfqDetailSheet({
                           Cancel
                         </Button>
                       )}
-                      <Button className="flex-1" onClick={submit} disabled={submitting}>
+                      <Button className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800" onClick={submit} disabled={submitting}>
                         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {isRevision ? 'Submit Revised Quote' : 'Submit Quote to Emboss Marketing'}
                       </Button>
