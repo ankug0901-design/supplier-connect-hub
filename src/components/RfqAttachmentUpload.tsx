@@ -15,20 +15,24 @@ interface Props {
   prefix?: string; // e.g. item number
   onUploaded: (args: { url: string; name: string; path: string }) => void;
   disabled?: boolean;
+  acceptedExt?: string[];
+  acceptAttr?: string;
+  hint?: string;
 }
 
 function sanitize(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 120);
 }
 
-export function RfqAttachmentUpload({ folder, prefix, onUploaded, disabled }: Props) {
+export function RfqAttachmentUpload({ folder, prefix, onUploaded, disabled, acceptedExt, acceptAttr, hint }: Props) {
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const allowedExt = acceptedExt ?? ACCEPTED_EXT;
 
   const handleFile = async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    if (!ACCEPTED_EXT.includes(ext)) {
+    if (!allowedExt.includes(ext)) {
       toast.error(`Unsupported file type .${ext}. Allowed: ${ACCEPTED_EXT.join(', ')}`);
       return;
     }
