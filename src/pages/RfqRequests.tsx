@@ -910,15 +910,16 @@ function RfqDetailSheet({
                       <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
                     </div>
 
-                    <div className="space-y-1 rounded-md bg-muted p-3 text-sm">
+                    <div className="space-y-1 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm">
                       <div className="flex justify-between"><span>Unit Price:</span><span>₹{up.toFixed(2)}</span></div>
                       <div className="flex justify-between"><span>GST ({gstPct}%):</span><span>₹{gstAmt.toFixed(2)}</span></div>
-                      <div className="my-1 border-t" />
+                      <div className="my-1 border-t border-emerald-200" />
                       <div className="flex justify-between font-bold"><span>Total per unit:</span><span>₹{perUnit.toFixed(2)}</span></div>
-                      <div className="flex justify-between font-bold text-green-700">
+                      <div className="flex justify-between font-bold text-emerald-700">
                         <span>Total for {qty}:</span><span>₹{totalForQty.toFixed(2)}</span>
                       </div>
                     </div>
+
 
                     <div className="flex gap-2">
                       {isRevision && (
