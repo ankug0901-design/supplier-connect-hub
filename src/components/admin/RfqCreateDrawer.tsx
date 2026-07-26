@@ -101,6 +101,9 @@ export function RfqCreateDrawer({ open, onOpenChange, onSuccess }: Props) {
   // BOQ template (Excel/CSV) — optional
   const [boqTemplateUrl, setBoqTemplateUrl] = useState('');
   const [boqTemplateName, setBoqTemplateName] = useState('');
+  // Multi-file RFQ documents (rfq_documents table)
+  const [docType, setDocType] = useState<DocType>('artwork');
+  const [docs, setDocs] = useState<RfqDoc[]>([]);
   // Submitted by
   const [submittedByName, setSubmittedByName] = useState('');
   const [submittedByEmail, setSubmittedByEmail] = useState('');
