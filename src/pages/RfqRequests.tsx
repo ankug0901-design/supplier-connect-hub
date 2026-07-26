@@ -722,10 +722,11 @@ function RfqDetailSheet({
             </section>
 
             <section>
-              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Budget & Instructions
+              <h4 className="mb-3 border-l-4 border-emerald-200 pl-2 text-base font-semibold text-emerald-800">
+                Budget &amp; Instructions
               </h4>
-              <div className="space-y-3 rounded-lg border p-4">
+              <div className="space-y-3 rounded-lg border border-l-4 border-l-emerald-200 p-4">
+
                 <Spec label="Client Budget" value={rfq.client_budget || 'Not disclosed'} />
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Special Instructions</p>
