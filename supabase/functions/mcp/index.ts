@@ -6,7 +6,7 @@
 import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
 
 // src/lib/mcp/tools/list-purchase-orders.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.89.0";
+import { createClient } from "npm:@supabase/supabase-js@^2.111.0";
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z } from "npm:zod@^4.4.3";
 function supabaseForUser(ctx) {
@@ -41,7 +41,7 @@ var list_purchase_orders_default = defineTool({
 });
 
 // src/lib/mcp/tools/list-invoices.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.89.0";
+import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.111.0";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z2 } from "npm:zod@^4.4.3";
 function supabaseForUser2(ctx) {
@@ -76,7 +76,7 @@ var list_invoices_default = defineTool2({
 });
 
 // src/lib/mcp/tools/list-payments.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.89.0";
+import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.111.0";
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z3 } from "npm:zod@^4.4.3";
 function supabaseForUser3(ctx) {
@@ -108,7 +108,7 @@ var list_payments_default = defineTool3({
 });
 
 // src/lib/mcp/tools/get-supplier-profile.ts
-import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.89.0";
+import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.111.0";
 import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.0";
 function supabaseForUser4(ctx) {
   return createClient4(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
