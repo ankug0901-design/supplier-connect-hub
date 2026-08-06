@@ -19,6 +19,9 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import { poTrackerRpc } from '@/lib/poTracker';
+import { STAGE_TEMPLATES, prettyStage } from '@/lib/stageTemplates';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 type Any = any;
 
