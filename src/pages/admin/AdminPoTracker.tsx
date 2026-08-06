@@ -334,7 +334,7 @@ function OrderDetail({ detail, order }: { detail: Any; order: Any }) {
                           <span className="font-medium">{it.item_name || it.name || '—'}</span>
                           <span className="text-muted-foreground">Qty {it.quantity ?? '—'}</span>
                           {it.current_stage && (
-                            <Badge variant="outline" className="capitalize">{String(it.current_stage).replace(/_/g, ' ')}</Badge>
+                            <Badge variant="outline">{prettyStage(String(it.current_stage))}</Badge>
                           )}
                         </div>
                         {asArray(it.production_stages).length > 0 && (
@@ -344,13 +344,14 @@ function OrderDetail({ detail, order }: { detail: Any; order: Any }) {
                               const done = typeof s === 'object' && (s.completed || s.status === 'completed' || !!s.completed_at);
                               return (
                                 <span key={k} className={cn(
-                                  'rounded-full border px-2 py-0.5 text-[11px] capitalize',
+                                  'rounded-full border px-2 py-0.5 text-[11px]',
                                   done ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600' : 'border-border text-muted-foreground'
                                 )}>
-                                  {String(name).replace(/_/g, ' ')}
+                                  {prettyStage(String(name))}
                                 </span>
                               );
                             })}
+
                           </div>
                         )}
                       </div>
