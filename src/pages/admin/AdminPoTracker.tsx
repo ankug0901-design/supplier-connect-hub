@@ -447,7 +447,9 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
   const reset = () => {
     setClientName(''); setClientEmail(''); setClientPhone(''); setClientPoRef('');
     setExpected(undefined); setNotes(''); setSelected([]); setPoSearch('');
+    setCategory('paper_print');
     setNotifyClient(true); setNotifySuppliers(true);
+
   };
 
   const filteredPos = useMemo(() => {
