@@ -176,7 +176,8 @@ function AppRoutes() {
       <Route path="/invoices/upload" element={<ProtectedRoute><SupplierSectionGuard sectionKey="invoices"><InvoiceUpload /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><SupplierSectionGuard sectionKey="payments"><Payments /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/delivery-challan" element={<ProtectedRoute><SupplierSectionGuard sectionKey="delivery-challan"><DeliveryChallan /></SupplierSectionGuard></ProtectedRoute>} />
-      <Route path="/production" element={<ProtectedRoute><SupplierSectionGuard sectionKey="production"><ProductionOrders /></SupplierSectionGuard></ProtectedRoute>} />
+      <Route path="/production" element={<Navigate to="/supplier/production" replace />} />
+      <Route path="/supplier/production" element={<ProtectedRoute><SupplierSectionGuard sectionKey="production"><ProductionOrders /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/shipments" element={<ProtectedRoute><SupplierSectionGuard sectionKey="shipments"><Shipments /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/awb" element={<Navigate to="/shipments" replace />} />
       <Route path="/admin" element={<AdminRoute><AdminLanding /></AdminRoute>} />
