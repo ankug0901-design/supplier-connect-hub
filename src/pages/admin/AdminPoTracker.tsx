@@ -22,13 +22,6 @@ import { poTrackerRpc } from '@/lib/poTracker';
 
 type Any = any;
 
-const unwrap = (res: Any) => {
-  let d = res?.data;
-  if (Array.isArray(d) && d.length > 0 && !d[0]?.po_number && !d[0]?.order_number) {
-    d = d[0];
-  }
-  return d;
-};
 
 function asArray(v: Any): Any[] {
   if (Array.isArray(v)) return v;
