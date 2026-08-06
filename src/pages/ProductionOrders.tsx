@@ -15,7 +15,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { n8nPost } from '@/lib/n8n';
+import { poTrackerRpc } from '@/lib/poTracker';
 import { cn } from '@/lib/utils';
 
 const MEDIA_BUCKET = 'po-tracker-media';
@@ -215,8 +215,8 @@ export default function ProductionOrders() {
     try {
       const orderId = po.client_order?.id || po.client_order?.client_order_id;
       if (orderId) {
-        const res = await n8nPost('po-tracker', { action: 'get_detail', order_id: orderId });
-        const d = Array.isArray(res.data) ? res.data[0] : res.data;
+        const data = await poTrackerRpc({ action: 'get_detail', order_id: orderId });
+        const d = Array.isArray(data) ? data[0] : (data?.data ?? data);
         const poList: any[] = d?.purchase_orders || d?.pos || [];
         const match = poList.find((p: any) => p.po_number === po.po_number);
         if (match) {
