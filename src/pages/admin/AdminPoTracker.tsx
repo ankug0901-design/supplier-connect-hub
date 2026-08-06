@@ -371,7 +371,7 @@ function OrderDetail({ detail, order }: { detail: Any; order: Any }) {
               <div key={u.id || i} className="relative">
                 <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium capitalize">{String(u.stage || u.title || 'Update').replace(/_/g, ' ')}</span>
+                  <span className="font-medium">{prettyStage(String(u.stage || u.title || 'Update'))}</span>
                   <span className="text-xs text-muted-foreground">{fmtDateTime(u.created_at || u.updated_at)}</span>
                 </div>
                 {u.notes && <p className="text-sm text-muted-foreground">{u.notes}</p>}
