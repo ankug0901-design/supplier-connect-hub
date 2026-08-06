@@ -89,6 +89,7 @@ import AdminExceptionRequests from "./pages/admin/AdminExceptionRequests";
 import AdminLiveDashboard from "./pages/admin/AdminLiveDashboard";
 import AdminPoTracker from "./pages/admin/AdminPoTracker";
 import RfqRequests from "./pages/RfqRequests";
+import ProductionOrders from "./pages/ProductionOrders";
 import ResetPassword from "./pages/ResetPassword";
 import { SupplierSectionGuard } from "./components/SupplierSectionGuard";
 import NotFound from "./pages/NotFound";
@@ -174,6 +175,7 @@ function AppRoutes() {
       <Route path="/invoices/upload" element={<ProtectedRoute><SupplierSectionGuard sectionKey="invoices"><InvoiceUpload /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><SupplierSectionGuard sectionKey="payments"><Payments /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/delivery-challan" element={<ProtectedRoute><SupplierSectionGuard sectionKey="delivery-challan"><DeliveryChallan /></SupplierSectionGuard></ProtectedRoute>} />
+      <Route path="/production" element={<ProtectedRoute><SupplierSectionGuard sectionKey="production"><ProductionOrders /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/shipments" element={<ProtectedRoute><SupplierSectionGuard sectionKey="shipments"><Shipments /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/awb" element={<Navigate to="/shipments" replace />} />
       <Route path="/admin" element={<AdminRoute><AdminLanding /></AdminRoute>} />
