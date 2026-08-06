@@ -171,22 +171,22 @@ export default function AdminPoTracker() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">PO Production Tracker</h1>
-            <p className="text-sm text-muted-foreground">Track client orders through production, dispatch and delivery.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-              <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} /> Refresh
-            </Button>
-            <Button onClick={() => setDrawerOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Create Client Order
-            </Button>
-          </div>
+    <DashboardLayout
+      title="PO Production Tracker"
+      subtitle="Track client orders through production, dispatch and delivery."
+      actions={
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} /> Refresh
+          </Button>
+          <Button onClick={() => setDrawerOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Create Client Order
+          </Button>
         </div>
+      }
+    >
+      <div className="space-y-6">
+
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard label="Active Orders" value={kpis.active} icon={Package} gradient="bg-gradient-to-br from-primary to-primary/70" />
