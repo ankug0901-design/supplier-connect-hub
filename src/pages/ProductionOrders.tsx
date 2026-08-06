@@ -196,7 +196,7 @@ export default function ProductionOrders() {
     setLoading(true);
     try {
       const res = await n8nPost('po-tracker', { action: 'supplier_items', supplier_id: supplier.id });
-      const raw = Array.isArray(res.data) ? res.data : res.data?.orders ?? res.data?.data ?? [];
+      const raw = Array.isArray(res.data) ? res.data : res.data?.rows ?? res.data?.orders ?? res.data?.data ?? [];
       const list: ProdPO[] = Array.isArray(raw) ? raw.filter((r: any) => r && r.po_number) : [];
       setPos(list);
     } catch (e: any) {
