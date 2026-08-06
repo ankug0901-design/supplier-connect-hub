@@ -122,12 +122,12 @@ export default function AdminPoTracker() {
 
   const load = async () => {
     setLoading(true);
-    const res = await n8nPost('po-tracker', { action: 'list_orders' });
-    if (!res.ok) {
+    try {
+      const data = await poTrackerRpc({ action: 'list_orders' });
+      setOrders(asArray(data));
+    } catch (e: any) {
       toast.error('Failed to load client orders');
       setOrders([]);
-    } else {
-      setOrders(asArray(unwrap(res)));
     }
     setLoading(false);
   };

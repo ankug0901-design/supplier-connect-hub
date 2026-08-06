@@ -358,8 +358,8 @@ function PODetailView({
     try {
       for (const original of incoming) {
         const file = await compressImage(original);
-        const res = await n8nPost('po-tracker', { action: 'upload_url', filename: file.name });
-        const d = Array.isArray(res.data) ? res.data[0] : res.data;
+        const resp = await poTrackerRpc({ action: 'upload_url', filename: file.name });
+        const d = Array.isArray(resp) ? resp[0] : (resp?.data ?? resp);
         const path: string = d?.path || d?.bucket_path || `${Date.now()}-${file.name}`;
         const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, file, {
           upsert: true, contentType: file.type,
@@ -499,7 +499,7 @@ function ItemCard({
     if (!stage) { toast({ title: 'Select a stage', variant: 'destructive' }); return; }
     setSaving(true);
     try {
-      const res = await n8nPost('po-tracker', {
+      const data = await poTrackerRpc({
         action: 'update_production',
         client_order_id: clientOrderId,
         po_id: poId,
@@ -510,7 +510,7 @@ function ItemCard({
         media_urls: media,
         updated_by: supplierName,
       });
-      if (!res.ok) throw new Error(res.text || 'Update failed');
+      if (data?.ok === false) throw new Error(data?.error || 'Update failed');
       toast({ title: 'Production update submitted' });
       setShowForm(false);
       setNote('');
@@ -674,7 +674,7 @@ function DispatchForm({
     }
     setSaving(true);
     try {
-      const res = await n8nPost('po-tracker', {
+      const data = await poTrackerRpc({
         action: 'dispatch',
         client_order_id: clientOrderId,
         po_id: poId,
@@ -686,7 +686,7 @@ function DispatchForm({
         updated_by: supplierName,
         notify_client: true,
       });
-      if (!res.ok) throw new Error(res.text || 'Dispatch failed');
+      if (data?.ok === false) throw new Error(data?.error || 'Dispatch failed');
       toast({ title: 'Dispatch details submitted' });
       setOpen(false);
       await onDone();
