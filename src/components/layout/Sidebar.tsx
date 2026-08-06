@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Activity,
   PackageCheck,
+  Factory,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +42,7 @@ const supplierNavigation: NavItem[] = [
   { name: 'Purchase Orders', href: '/purchase-orders', icon: FileText, sectionKey: 'purchase-orders' },
   { name: 'Invoices', href: '/invoices', icon: Receipt, sectionKey: 'invoices' },
   { name: 'Payments', href: '/payments', icon: CreditCard, sectionKey: 'payments' },
+  { name: 'Production', href: '/production', icon: Factory, sectionKey: 'production' },
   { name: 'Delivery Challan', href: '/delivery-challan', icon: Truck, sectionKey: 'delivery-challan' },
   { name: 'Shipments', href: '/shipments', icon: Truck, sectionKey: 'shipments' },
 ];
