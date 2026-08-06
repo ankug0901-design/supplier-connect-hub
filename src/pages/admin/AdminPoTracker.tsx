@@ -19,6 +19,9 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import { poTrackerRpc } from '@/lib/poTracker';
+import { STAGE_TEMPLATES, prettyStage } from '@/lib/stageTemplates';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 type Any = any;
 
@@ -331,7 +334,7 @@ function OrderDetail({ detail, order }: { detail: Any; order: Any }) {
                           <span className="font-medium">{it.item_name || it.name || '—'}</span>
                           <span className="text-muted-foreground">Qty {it.quantity ?? '—'}</span>
                           {it.current_stage && (
-                            <Badge variant="outline" className="capitalize">{String(it.current_stage).replace(/_/g, ' ')}</Badge>
+                            <Badge variant="outline">{prettyStage(String(it.current_stage))}</Badge>
                           )}
                         </div>
                         {asArray(it.production_stages).length > 0 && (
@@ -341,13 +344,14 @@ function OrderDetail({ detail, order }: { detail: Any; order: Any }) {
                               const done = typeof s === 'object' && (s.completed || s.status === 'completed' || !!s.completed_at);
                               return (
                                 <span key={k} className={cn(
-                                  'rounded-full border px-2 py-0.5 text-[11px] capitalize',
+                                  'rounded-full border px-2 py-0.5 text-[11px]',
                                   done ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600' : 'border-border text-muted-foreground'
                                 )}>
-                                  {String(name).replace(/_/g, ' ')}
+                                  {prettyStage(String(name))}
                                 </span>
                               );
                             })}
+
                           </div>
                         )}
                       </div>
@@ -367,7 +371,7 @@ function OrderDetail({ detail, order }: { detail: Any; order: Any }) {
               <div key={u.id || i} className="relative">
                 <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium capitalize">{String(u.stage || u.title || 'Update').replace(/_/g, ' ')}</span>
+                  <span className="font-medium">{prettyStage(String(u.stage || u.title || 'Update'))}</span>
                   <span className="text-xs text-muted-foreground">{fmtDateTime(u.created_at || u.updated_at)}</span>
                 </div>
                 {u.notes && <p className="text-sm text-muted-foreground">{u.notes}</p>}
@@ -427,7 +431,9 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
   const [posLoading, setPosLoading] = useState(false);
   const [poSearch, setPoSearch] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
+  const [category, setCategory] = useState<string>('paper_print');
   const [saving, setSaving] = useState(false);
+
 
   useEffect(() => {
     if (!open) return;
@@ -441,7 +447,9 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
   const reset = () => {
     setClientName(''); setClientEmail(''); setClientPhone(''); setClientPoRef('');
     setExpected(undefined); setNotes(''); setSelected([]); setPoSearch('');
+    setCategory('paper_print');
     setNotifyClient(true); setNotifySuppliers(true);
+
   };
 
   const filteredPos = useMemo(() => {
@@ -467,9 +475,13 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
         expected_delivery: expected ? format(expected, 'yyyy-MM-dd') : null,
         notes: notes.trim() || null,
         purchase_order_ids: selected,
+        product_category: category,
+        production_stages: STAGE_TEMPLATES[category]?.stages ?? [],
         notify_client: notifyClient,
         notify_suppliers: notifySuppliers,
       });
+
+
     } catch {
       setSaving(false);
       toast.error('Failed to create client order');
@@ -544,6 +556,27 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
             <div className="flex items-center justify-between">
               <Label>Link Purchase Orders {selected.length > 0 && <span className="text-muted-foreground">({selected.length} selected)</span>}</Label>
             </div>
+
+            <div className="space-y-1.5 rounded-lg border p-3">
+              <Label>Product category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                <SelectContent className="max-w-[--radix-select-trigger-width]">
+                  {Object.entries(STAGE_TEMPLATES).map(([key, t]) => (
+                    <SelectItem key={key} value={key}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex flex-wrap gap-1 pt-1">
+                {(STAGE_TEMPLATES[category]?.stages ?? []).map((s) => (
+                  <span key={s} className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                    {prettyStage(s)}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">These production stages are applied to items from the linked POs.</p>
+            </div>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input value={poSearch} onChange={(e) => setPoSearch(e.target.value)} placeholder="Search PO # or supplier…" className="pl-9" />

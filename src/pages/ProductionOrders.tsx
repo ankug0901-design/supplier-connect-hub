@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { prettyStage } from '@/lib/stageTemplates';
+
 import {
   Factory, Loader2, RefreshCw, ChevronLeft, Camera, Images, X, CheckCircle2,
   Truck, Clock, AlertTriangle, Package, Send,
@@ -50,8 +52,8 @@ interface ProdPO {
   production_updates?: any[];
 }
 
-const prettyStage = (s?: string | null) =>
-  (s || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || '—';
+
+
 
 function daysUntil(date?: string | null) {
   if (!date) return null;
