@@ -195,20 +195,9 @@ export default function ProductionOrders() {
     if (!supplier?.id) return;
     setLoading(true);
     try {
-      const res = await n8nPost('po-tracker', { action: 'supplier_items', supplier_id: supplier.id });
-      console.log('[ProductionOrders] raw res.data:', JSON.stringify(res.data).substring(0, 500));
-      console.log('[ProductionOrders] res.ok:', res.ok, 'res.status:', res.status);
-      let parsed = res.data;
-      if (Array.isArray(parsed) && parsed.length > 0 && !parsed[0]?.po_number) {
-        parsed = parsed[0];
-        console.log('[ProductionOrders] unwrapped to:', JSON.stringify(parsed).substring(0, 500));
-      }
-      const raw: ProdPO[] = Array.isArray(parsed)
-        ? parsed
-        : (parsed?.rows ?? parsed?.orders ?? parsed?.data ?? []);
-      console.log('[ProductionOrders] final raw:', JSON.stringify(raw).substring(0, 500));
+      const data = await poTrackerRpc({ action: 'supplier_items', supplier_id: supplier.id });
+      const raw: any[] = Array.isArray(data) ? data : (data?.rows ?? data?.orders ?? data?.data ?? []);
       const list: ProdPO[] = Array.isArray(raw) ? raw.filter((r: any) => r && r.po_number) : [];
-      console.log('[ProductionOrders] filtered list length:', list.length);
       setPos(list);
     } catch (e: any) {
       toast({ title: 'Could not load production orders', description: e?.message, variant: 'destructive' });
