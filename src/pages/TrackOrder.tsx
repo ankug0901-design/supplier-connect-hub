@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { prettyStage } from "@/lib/stageTemplates";
 import { Check, Loader2, Package, Truck, CheckCircle2, Play, X, Copy } from "lucide-react";
 
 const TEAL = "#0d7377";
@@ -61,7 +62,7 @@ const STAGE_COLORS: Record<string, string> = {
 
 function titleize(v?: string) {
   if (!v) return "—";
-  return v.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return prettyStage(v.replace(/-/g, "_"));
 }
 
 function fmtDate(v?: string) {
