@@ -15,7 +15,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { n8nPost } from '@/lib/n8n';
+import { poTrackerRpc } from '@/lib/poTracker';
 import { cn } from '@/lib/utils';
 
 const MEDIA_BUCKET = 'po-tracker-media';
@@ -195,20 +195,9 @@ export default function ProductionOrders() {
     if (!supplier?.id) return;
     setLoading(true);
     try {
-      const res = await n8nPost('po-tracker', { action: 'supplier_items', supplier_id: supplier.id });
-      console.log('[ProductionOrders] raw res.data:', JSON.stringify(res.data).substring(0, 500));
-      console.log('[ProductionOrders] res.ok:', res.ok, 'res.status:', res.status);
-      let parsed = res.data;
-      if (Array.isArray(parsed) && parsed.length > 0 && !parsed[0]?.po_number) {
-        parsed = parsed[0];
-        console.log('[ProductionOrders] unwrapped to:', JSON.stringify(parsed).substring(0, 500));
-      }
-      const raw: ProdPO[] = Array.isArray(parsed)
-        ? parsed
-        : (parsed?.rows ?? parsed?.orders ?? parsed?.data ?? []);
-      console.log('[ProductionOrders] final raw:', JSON.stringify(raw).substring(0, 500));
+      const data = await poTrackerRpc({ action: 'supplier_items', supplier_id: supplier.id });
+      const raw: any[] = Array.isArray(data) ? data : (data?.rows ?? data?.orders ?? data?.data ?? []);
       const list: ProdPO[] = Array.isArray(raw) ? raw.filter((r: any) => r && r.po_number) : [];
-      console.log('[ProductionOrders] filtered list length:', list.length);
       setPos(list);
     } catch (e: any) {
       toast({ title: 'Could not load production orders', description: e?.message, variant: 'destructive' });
@@ -226,8 +215,8 @@ export default function ProductionOrders() {
     try {
       const orderId = po.client_order?.id || po.client_order?.client_order_id;
       if (orderId) {
-        const res = await n8nPost('po-tracker', { action: 'get_detail', order_id: orderId });
-        const d = Array.isArray(res.data) ? res.data[0] : res.data;
+        const data = await poTrackerRpc({ action: 'get_detail', order_id: orderId });
+        const d = Array.isArray(data) ? data[0] : (data?.data ?? data);
         const poList: any[] = d?.purchase_orders || d?.pos || [];
         const match = poList.find((p: any) => p.po_number === po.po_number);
         if (match) {
@@ -369,8 +358,8 @@ function PODetailView({
     try {
       for (const original of incoming) {
         const file = await compressImage(original);
-        const res = await n8nPost('po-tracker', { action: 'upload_url', filename: file.name });
-        const d = Array.isArray(res.data) ? res.data[0] : res.data;
+        const resp = await poTrackerRpc({ action: 'upload_url', filename: file.name });
+        const d = Array.isArray(resp) ? resp[0] : (resp?.data ?? resp);
         const path: string = d?.path || d?.bucket_path || `${Date.now()}-${file.name}`;
         const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, file, {
           upsert: true, contentType: file.type,
@@ -510,7 +499,7 @@ function ItemCard({
     if (!stage) { toast({ title: 'Select a stage', variant: 'destructive' }); return; }
     setSaving(true);
     try {
-      const res = await n8nPost('po-tracker', {
+      const data = await poTrackerRpc({
         action: 'update_production',
         client_order_id: clientOrderId,
         po_id: poId,
@@ -521,7 +510,7 @@ function ItemCard({
         media_urls: media,
         updated_by: supplierName,
       });
-      if (!res.ok) throw new Error(res.text || 'Update failed');
+      if (data?.ok === false) throw new Error(data?.error || 'Update failed');
       toast({ title: 'Production update submitted' });
       setShowForm(false);
       setNote('');
@@ -685,7 +674,7 @@ function DispatchForm({
     }
     setSaving(true);
     try {
-      const res = await n8nPost('po-tracker', {
+      const data = await poTrackerRpc({
         action: 'dispatch',
         client_order_id: clientOrderId,
         po_id: poId,
@@ -697,7 +686,7 @@ function DispatchForm({
         updated_by: supplierName,
         notify_client: true,
       });
-      if (!res.ok) throw new Error(res.text || 'Dispatch failed');
+      if (data?.ok === false) throw new Error(data?.error || 'Dispatch failed');
       toast({ title: 'Dispatch details submitted' });
       setOpen(false);
       await onDone();

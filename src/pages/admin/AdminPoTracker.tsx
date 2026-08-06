@@ -18,17 +18,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { toast } from 'sonner';
-import { n8nPost } from '@/lib/n8n';
+import { poTrackerRpc } from '@/lib/poTracker';
 
 type Any = any;
 
-const unwrap = (res: Any) => {
-  let d = res?.data;
-  if (Array.isArray(d) && d.length > 0 && !d[0]?.po_number && !d[0]?.order_number) {
-    d = d[0];
-  }
-  return d;
-};
 
 function asArray(v: Any): Any[] {
   if (Array.isArray(v)) return v;
@@ -122,12 +115,12 @@ export default function AdminPoTracker() {
 
   const load = async () => {
     setLoading(true);
-    const res = await n8nPost('po-tracker', { action: 'list_orders' });
-    if (!res.ok) {
+    try {
+      const data = await poTrackerRpc({ action: 'list_orders' });
+      setOrders(asArray(data));
+    } catch (e: any) {
       toast.error('Failed to load client orders');
       setOrders([]);
-    } else {
-      setOrders(asArray(unwrap(res)));
     }
     setLoading(false);
   };
@@ -163,10 +156,11 @@ export default function AdminPoTracker() {
     setExpanded(id);
     if (!details[id]) {
       setDetailLoading(id);
-      const res = await n8nPost('po-tracker', { action: 'get_detail', order_id: row.id });
-      if (res.ok) {
-        setDetails((p) => ({ ...p, [id]: unwrap(res) ?? res.data }));
-      } else {
+      try {
+        const data = await poTrackerRpc({ action: 'get_detail', order_id: row.id });
+        const d = Array.isArray(data) ? data[0] : (data?.data ?? data);
+        setDetails((p) => ({ ...p, [id]: d }));
+      } catch {
         toast.error('Failed to load order detail');
       }
       setDetailLoading(null);
@@ -438,11 +432,10 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
   useEffect(() => {
     if (!open) return;
     setPosLoading(true);
-    n8nPost('po-tracker', { action: 'list_pos', unlinked_only: true }).then((res) => {
-      setPos(res.ok ? asArray(unwrap(res) ?? res.data) : []);
-      if (!res.ok) toast.error('Failed to load purchase orders');
-      setPosLoading(false);
-    });
+    poTrackerRpc({ action: 'list_pos', unlinked_only: true })
+      .then((data) => setPos(asArray(data)))
+      .catch(() => { setPos([]); toast.error('Failed to load purchase orders'); })
+      .finally(() => setPosLoading(false));
   }, [open]);
 
   const reset = () => {
@@ -463,21 +456,28 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
   const submit = async () => {
     if (!clientName.trim()) { toast.error('Client name is required'); return; }
     setSaving(true);
-    const res = await n8nPost('po-tracker', {
-      action: 'create_client_order',
-      client_name: clientName.trim(),
-      client_email: clientEmail.trim() || null,
-      client_phone: clientPhone.trim() || null,
-      client_po_reference: clientPoRef.trim() || null,
-      expected_delivery: expected ? format(expected, 'yyyy-MM-dd') : null,
-      notes: notes.trim() || null,
-      purchase_order_ids: selected,
-      notify_client: notifyClient,
-      notify_suppliers: notifySuppliers,
-    });
+    let data: Any;
+    try {
+      data = await poTrackerRpc({
+        action: 'create_client_order',
+        client_name: clientName.trim(),
+        client_email: clientEmail.trim() || null,
+        client_phone: clientPhone.trim() || null,
+        client_po_reference: clientPoRef.trim() || null,
+        expected_delivery: expected ? format(expected, 'yyyy-MM-dd') : null,
+        notes: notes.trim() || null,
+        purchase_order_ids: selected,
+        notify_client: notifyClient,
+        notify_suppliers: notifySuppliers,
+      });
+    } catch {
+      setSaving(false);
+      toast.error('Failed to create client order');
+      return;
+    }
     setSaving(false);
-    if (!res.ok) { toast.error('Failed to create client order'); return; }
-    const out = unwrap(res) || {};
+    if (data?.ok === false) { toast.error(data?.error || 'Failed to create client order'); return; }
+    const out = (Array.isArray(data) ? data[0] : (data?.data ?? data)) || {};
     const url = out.tracking_url;
     if (url) {
       toast.success('Client order created', {
