@@ -463,21 +463,28 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
   const submit = async () => {
     if (!clientName.trim()) { toast.error('Client name is required'); return; }
     setSaving(true);
-    const res = await n8nPost('po-tracker', {
-      action: 'create_client_order',
-      client_name: clientName.trim(),
-      client_email: clientEmail.trim() || null,
-      client_phone: clientPhone.trim() || null,
-      client_po_reference: clientPoRef.trim() || null,
-      expected_delivery: expected ? format(expected, 'yyyy-MM-dd') : null,
-      notes: notes.trim() || null,
-      purchase_order_ids: selected,
-      notify_client: notifyClient,
-      notify_suppliers: notifySuppliers,
-    });
+    let data: Any;
+    try {
+      data = await poTrackerRpc({
+        action: 'create_client_order',
+        client_name: clientName.trim(),
+        client_email: clientEmail.trim() || null,
+        client_phone: clientPhone.trim() || null,
+        client_po_reference: clientPoRef.trim() || null,
+        expected_delivery: expected ? format(expected, 'yyyy-MM-dd') : null,
+        notes: notes.trim() || null,
+        purchase_order_ids: selected,
+        notify_client: notifyClient,
+        notify_suppliers: notifySuppliers,
+      });
+    } catch {
+      setSaving(false);
+      toast.error('Failed to create client order');
+      return;
+    }
     setSaving(false);
-    if (!res.ok) { toast.error('Failed to create client order'); return; }
-    const out = unwrap(res) || {};
+    if (data?.ok === false) { toast.error(data?.error || 'Failed to create client order'); return; }
+    const out = (Array.isArray(data) ? data[0] : (data?.data ?? data)) || {};
     const url = out.tracking_url;
     if (url) {
       toast.success('Client order created', {
