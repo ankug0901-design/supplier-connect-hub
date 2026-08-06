@@ -140,6 +140,8 @@ export type Database = {
           overall_status: string | null
           tracking_token: string | null
           updated_at: string | null
+          zoho_so_id: string | null
+          zoho_so_number: string | null
         }
         Insert: {
           client_email?: string | null
@@ -156,6 +158,8 @@ export type Database = {
           overall_status?: string | null
           tracking_token?: string | null
           updated_at?: string | null
+          zoho_so_id?: string | null
+          zoho_so_number?: string | null
         }
         Update: {
           client_email?: string | null
@@ -172,6 +176,8 @@ export type Database = {
           overall_status?: string | null
           tracking_token?: string | null
           updated_at?: string | null
+          zoho_so_id?: string | null
+          zoho_so_number?: string | null
         }
         Relationships: []
       }
@@ -798,6 +804,7 @@ export type Database = {
           supplier_id: string
           updated_at: string
           zoho_id: string | null
+          zoho_so_number: string | null
         }
         Insert: {
           amount?: number
@@ -819,6 +826,7 @@ export type Database = {
           supplier_id: string
           updated_at?: string
           zoho_id?: string | null
+          zoho_so_number?: string | null
         }
         Update: {
           amount?: number
@@ -840,6 +848,7 @@ export type Database = {
           supplier_id?: string
           updated_at?: string
           zoho_id?: string | null
+          zoho_so_number?: string | null
         }
         Relationships: [
           {
@@ -1635,6 +1644,7 @@ export type Database = {
       }
       pct_change: { Args: { curr: number; prev: number }; Returns: number }
       po_tracker_manage: { Args: { payload: Json }; Returns: Json }
+      po_tracker_zoho_so: { Args: { payload: Json }; Returns: Json }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
