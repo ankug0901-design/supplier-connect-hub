@@ -23,14 +23,17 @@ import { n8nPost } from '@/lib/n8n';
 type Any = any;
 
 const unwrap = (res: Any) => {
-  const d = res?.data;
-  return Array.isArray(d) ? d[0] : d;
+  let d = res?.data;
+  if (Array.isArray(d) && d.length > 0 && !d[0]?.po_number && !d[0]?.order_number) {
+    d = d[0];
+  }
+  return d;
 };
 
 function asArray(v: Any): Any[] {
   if (Array.isArray(v)) return v;
   if (v && typeof v === 'object') {
-    for (const k of ['orders', 'data', 'items', 'purchase_orders', 'pos', 'results']) {
+    for (const k of ['rows', 'orders', 'data', 'items', 'purchase_orders', 'pos', 'results']) {
       if (Array.isArray(v[k])) return v[k];
     }
   }
@@ -124,7 +127,7 @@ export default function AdminPoTracker() {
       toast.error('Failed to load client orders');
       setOrders([]);
     } else {
-      setOrders(asArray(unwrap(res) ?? res.data));
+      setOrders(asArray(unwrap(res)));
     }
     setLoading(false);
   };
