@@ -24,6 +24,7 @@ const ALLOWED_PATHS = new Set([
   'delhivery-b2b-master',
   'rfq-dashboard',
   'rfq-price-trends',
+  'po-tracker',
 ]);
 
 // Subset of paths that only top-tier admins are allowed to invoke.

@@ -13,7 +13,8 @@ export type N8nPath =
   | 'bulk-register-suppliers'
   | 'rfq-tca-report'
   | 'rfq-dashboard'
-  | 'rfq-price-trends';
+  | 'rfq-price-trends'
+  | 'po-tracker';
 
 export interface N8nResult {
   ok: boolean;

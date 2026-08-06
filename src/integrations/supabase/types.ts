@@ -124,6 +124,57 @@ export type Database = {
           },
         ]
       }
+      client_orders: {
+        Row: {
+          client_email: string | null
+          client_name: string
+          client_phone: string | null
+          client_po_ref: string | null
+          created_at: string | null
+          created_by: string | null
+          expected_delivery: string | null
+          id: string
+          notes: string | null
+          order_date: string | null
+          order_number: string
+          overall_status: string | null
+          tracking_token: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_email?: string | null
+          client_name: string
+          client_phone?: string | null
+          client_po_ref?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          expected_delivery?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string | null
+          order_number: string
+          overall_status?: string | null
+          tracking_token?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_email?: string | null
+          client_name?: string
+          client_phone?: string | null
+          client_po_ref?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          expected_delivery?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string | null
+          order_number?: string
+          overall_status?: string | null
+          tracking_token?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       delivery_challans: {
         Row: {
           challan_number: string
@@ -437,6 +488,106 @@ export type Database = {
           },
         ]
       }
+      po_dispatch: {
+        Row: {
+          actual_delivery_date: string | null
+          client_order_id: string | null
+          created_at: string | null
+          delivery_proof_urls: Json | null
+          delivery_status: string | null
+          dispatch_date: string | null
+          driver_name: string | null
+          driver_phone: string | null
+          eway_bill_number: string | null
+          eway_bill_url: string | null
+          expected_arrival: string | null
+          id: string
+          item_id: string | null
+          loading_photo_urls: Json | null
+          lr_number: string | null
+          notes: string | null
+          po_id: string | null
+          receiver_name: string | null
+          receiver_phone: string | null
+          transporter_name: string | null
+          updated_at: string | null
+          vehicle_number: string | null
+          vehicle_photo_url: string | null
+        }
+        Insert: {
+          actual_delivery_date?: string | null
+          client_order_id?: string | null
+          created_at?: string | null
+          delivery_proof_urls?: Json | null
+          delivery_status?: string | null
+          dispatch_date?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
+          eway_bill_number?: string | null
+          eway_bill_url?: string | null
+          expected_arrival?: string | null
+          id?: string
+          item_id?: string | null
+          loading_photo_urls?: Json | null
+          lr_number?: string | null
+          notes?: string | null
+          po_id?: string | null
+          receiver_name?: string | null
+          receiver_phone?: string | null
+          transporter_name?: string | null
+          updated_at?: string | null
+          vehicle_number?: string | null
+          vehicle_photo_url?: string | null
+        }
+        Update: {
+          actual_delivery_date?: string | null
+          client_order_id?: string | null
+          created_at?: string | null
+          delivery_proof_urls?: Json | null
+          delivery_status?: string | null
+          dispatch_date?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
+          eway_bill_number?: string | null
+          eway_bill_url?: string | null
+          expected_arrival?: string | null
+          id?: string
+          item_id?: string | null
+          loading_photo_urls?: Json | null
+          lr_number?: string | null
+          notes?: string | null
+          po_id?: string | null
+          receiver_name?: string | null
+          receiver_phone?: string | null
+          transporter_name?: string | null
+          updated_at?: string | null
+          vehicle_number?: string | null
+          vehicle_photo_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_dispatch_client_order_id_fkey"
+            columns: ["client_order_id"]
+            isOneToOne: false
+            referencedRelation: "client_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_dispatch_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "po_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_dispatch_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       po_exception_requests: {
         Row: {
           admin_notes: string | null
@@ -496,15 +647,18 @@ export type Database = {
       }
       po_items: {
         Row: {
+          completed_stages: Json | null
           confirmed_at: string | null
           confirmed_by: string | null
           confirmed_delivery_date: string | null
           created_at: string
+          current_stage: string | null
           description: string
           hsn: string | null
           id: string
           item_name: string | null
           po_id: string
+          production_stages: Json | null
           quantity: number
           tax_name: string | null
           tax_percentage: number | null
@@ -513,15 +667,18 @@ export type Database = {
           zoho_line_item_id: string | null
         }
         Insert: {
+          completed_stages?: Json | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           confirmed_delivery_date?: string | null
           created_at?: string
+          current_stage?: string | null
           description: string
           hsn?: string | null
           id?: string
           item_name?: string | null
           po_id: string
+          production_stages?: Json | null
           quantity?: number
           tax_name?: string | null
           tax_percentage?: number | null
@@ -530,15 +687,18 @@ export type Database = {
           zoho_line_item_id?: string | null
         }
         Update: {
+          completed_stages?: Json | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           confirmed_delivery_date?: string | null
           created_at?: string
+          current_stage?: string | null
           description?: string
           hsn?: string | null
           id?: string
           item_name?: string | null
           po_id?: string
+          production_stages?: Json | null
           quantity?: number
           tax_name?: string | null
           tax_percentage?: number | null
@@ -556,9 +716,71 @@ export type Database = {
           },
         ]
       }
+      po_production_updates: {
+        Row: {
+          client_order_id: string | null
+          created_at: string | null
+          id: string
+          item_id: string | null
+          media_urls: Json | null
+          note: string | null
+          po_id: string | null
+          stage: string
+          status: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          client_order_id?: string | null
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          media_urls?: Json | null
+          note?: string | null
+          po_id?: string | null
+          stage: string
+          status?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          client_order_id?: string | null
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          media_urls?: Json | null
+          note?: string | null
+          po_id?: string | null
+          stage?: string
+          status?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_production_updates_client_order_id_fkey"
+            columns: ["client_order_id"]
+            isOneToOne: false
+            referencedRelation: "client_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_production_updates_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "po_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_production_updates_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_orders: {
         Row: {
           amount: number
+          client_order_id: string | null
           created_at: string
           date: string
           delivery_address: string | null
@@ -579,6 +801,7 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          client_order_id?: string | null
           created_at?: string
           date?: string
           delivery_address?: string | null
@@ -599,6 +822,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          client_order_id?: string | null
           created_at?: string
           date?: string
           delivery_address?: string | null
@@ -618,6 +842,13 @@ export type Database = {
           zoho_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "purchase_orders_client_order_id_fkey"
+            columns: ["client_order_id"]
+            isOneToOne: false
+            referencedRelation: "client_orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "purchase_orders_supplier_id_fkey"
             columns: ["supplier_id"]
@@ -1353,6 +1584,10 @@ export type Database = {
       }
     }
     Functions: {
+      _po_recalc_status: {
+        Args: { p_client_order_id: string }
+        Returns: undefined
+      }
       _supplier_dash_auth: { Args: { _supplier_id: string }; Returns: boolean }
       confirm_po_delivery_dates: {
         Args: { _items: Json; _po_id: string }
@@ -1399,6 +1634,7 @@ export type Database = {
         Returns: number
       }
       pct_change: { Args: { curr: number; prev: number }; Returns: number }
+      po_tracker_manage: { Args: { payload: Json }; Returns: Json }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -1443,6 +1679,7 @@ export type Database = {
       }
       supplier_velocity: { Args: { p_supplier_id: string }; Returns: Json }
       to_lakhs: { Args: { amount: number }; Returns: number }
+      track_client_order: { Args: { p_token: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
