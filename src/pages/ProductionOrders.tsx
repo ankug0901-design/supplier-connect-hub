@@ -50,8 +50,8 @@ interface ProdPO {
   production_updates?: any[];
 }
 
-const prettyStage = (s?: string | null) =>
-  (s || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || '—';
+import { prettyStage } from '@/lib/stageTemplates';
+
 
 function daysUntil(date?: string | null) {
   if (!date) return null;
