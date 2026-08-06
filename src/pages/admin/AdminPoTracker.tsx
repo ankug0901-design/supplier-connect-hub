@@ -163,10 +163,11 @@ export default function AdminPoTracker() {
     setExpanded(id);
     if (!details[id]) {
       setDetailLoading(id);
-      const res = await n8nPost('po-tracker', { action: 'get_detail', order_id: row.id });
-      if (res.ok) {
-        setDetails((p) => ({ ...p, [id]: unwrap(res) ?? res.data }));
-      } else {
+      try {
+        const data = await poTrackerRpc({ action: 'get_detail', order_id: row.id });
+        const d = Array.isArray(data) ? data[0] : (data?.data ?? data);
+        setDetails((p) => ({ ...p, [id]: d }));
+      } catch {
         toast.error('Failed to load order detail');
       }
       setDetailLoading(null);
