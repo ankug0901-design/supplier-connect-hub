@@ -122,7 +122,12 @@ export default function AdminPoTracker() {
       const data = await poTrackerRpc({ action: 'list_client_orders' });
       const rows = asArray(data);
       setOrders(
-        rows.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+        rows.sort((a: any, b: any) => {
+          // Extract numeric part from order numbers like "EM/SO/26-27/148"
+          const numA = parseInt((a.order_number || '').replace(/\D+/g, '').slice(-3) || '0');
+          const numB = parseInt((b.order_number || '').replace(/\D+/g, '').slice(-3) || '0');
+          return numB - numA;
+        })
       );
     } catch (e: any) {
       toast.error('Failed to load client orders');
