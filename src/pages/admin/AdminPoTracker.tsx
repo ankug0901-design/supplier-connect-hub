@@ -431,7 +431,9 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
   const [posLoading, setPosLoading] = useState(false);
   const [poSearch, setPoSearch] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
+  const [category, setCategory] = useState<string>('paper_print');
   const [saving, setSaving] = useState(false);
+
 
   useEffect(() => {
     if (!open) return;
