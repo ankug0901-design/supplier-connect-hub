@@ -120,7 +120,10 @@ export default function AdminPoTracker() {
     setLoading(true);
     try {
       const data = await poTrackerRpc({ action: 'list_client_orders' });
-      setOrders(asArray(data));
+      const rows = asArray(data);
+      setOrders(
+        rows.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      );
     } catch (e: any) {
       toast.error('Failed to load client orders');
       setOrders([]);
