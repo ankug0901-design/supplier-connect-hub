@@ -91,6 +91,7 @@ import AdminPoTracker from "./pages/admin/AdminPoTracker";
 import RfqRequests from "./pages/RfqRequests";
 import ProductionOrders from "./pages/ProductionOrders";
 import ResetPassword from "./pages/ResetPassword";
+import TrackOrder from "./pages/TrackOrder";
 import { SupplierSectionGuard } from "./components/SupplierSectionGuard";
 import NotFound from "./pages/NotFound";
 import OAuthConsent from "./pages/OAuthConsent";
@@ -192,6 +193,7 @@ function AppRoutes() {
       <Route path="/admin/live-dashboard" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-live-dashboard"><AdminLiveDashboard /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/admin/po-tracker" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-po-tracker"><AdminPoTracker /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/track" element={<TrackOrder />} />
       <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
