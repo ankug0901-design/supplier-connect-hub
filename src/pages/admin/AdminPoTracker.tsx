@@ -475,9 +475,11 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
         expected_delivery: expected ? format(expected, 'yyyy-MM-dd') : null,
         notes: notes.trim() || null,
         purchase_order_ids: selected,
+        product_category: category,
+        production_stages: STAGE_TEMPLATES[category]?.stages ?? [],
         notify_client: notifyClient,
         notify_suppliers: notifySuppliers,
-      });
+
     } catch {
       setSaving(false);
       toast.error('Failed to create client order');
