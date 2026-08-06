@@ -439,11 +439,10 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
   useEffect(() => {
     if (!open) return;
     setPosLoading(true);
-    n8nPost('po-tracker', { action: 'list_pos', unlinked_only: true }).then((res) => {
-      setPos(res.ok ? asArray(unwrap(res) ?? res.data) : []);
-      if (!res.ok) toast.error('Failed to load purchase orders');
-      setPosLoading(false);
-    });
+    poTrackerRpc({ action: 'list_pos', unlinked_only: true })
+      .then((data) => setPos(asArray(data)))
+      .catch(() => { setPos([]); toast.error('Failed to load purchase orders'); })
+      .finally(() => setPosLoading(false));
   }, [open]);
 
   const reset = () => {
