@@ -479,6 +479,8 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
         production_stages: STAGE_TEMPLATES[category]?.stages ?? [],
         notify_client: notifyClient,
         notify_suppliers: notifySuppliers,
+      });
+
 
     } catch {
       setSaving(false);
