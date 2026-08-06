@@ -556,6 +556,27 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
             <div className="flex items-center justify-between">
               <Label>Link Purchase Orders {selected.length > 0 && <span className="text-muted-foreground">({selected.length} selected)</span>}</Label>
             </div>
+
+            <div className="space-y-1.5 rounded-lg border p-3">
+              <Label>Product category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                <SelectContent className="max-w-[--radix-select-trigger-width]">
+                  {Object.entries(STAGE_TEMPLATES).map(([key, t]) => (
+                    <SelectItem key={key} value={key}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex flex-wrap gap-1 pt-1">
+                {(STAGE_TEMPLATES[category]?.stages ?? []).map((s) => (
+                  <span key={s} className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                    {prettyStage(s)}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">These production stages are applied to items from the linked POs.</p>
+            </div>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input value={poSearch} onChange={(e) => setPoSearch(e.target.value)} placeholder="Search PO # or supplier…" className="pl-9" />
