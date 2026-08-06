@@ -377,13 +377,13 @@ function OrderDetail({ detail, order }: { detail: Any; order: Any }) {
                 {(u.note || u.notes) && <p className="text-sm text-muted-foreground">{u.note || u.notes}</p>}
                 {asArray(u.media_urls).length > 0 && (
                   <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
-                    {asArray(u.media_urls).map((m: Any, k: number) => {
+                    {asArray(u.media_urls).map((m: any, k: number) => {
                       const url = typeof m === 'string' ? m : m?.url;
                       const type = typeof m === 'string' ? '' : (m?.type || '');
                       if (!url) return null;
-                      if (type.includes('video')) {
+                      if (type.includes('video') || url.includes('.mp4') || url.includes('.mov')) {
                         return (
-                          <video key={k} src={url} controls className="h-20 w-full rounded-md object-cover" />
+                          <video key={k} src={url} controls className="h-24 w-full rounded-md object-cover" />
                         );
                       }
                       return (
