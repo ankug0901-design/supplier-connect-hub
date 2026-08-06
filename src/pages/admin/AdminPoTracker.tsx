@@ -374,14 +374,24 @@ function OrderDetail({ detail, order }: { detail: Any; order: Any }) {
                   <span className="font-medium">{prettyStage(String(u.stage || u.title || 'Update'))}</span>
                   <span className="text-xs text-muted-foreground">{fmtDateTime(u.created_at || u.updated_at)}</span>
                 </div>
-                {u.notes && <p className="text-sm text-muted-foreground">{u.notes}</p>}
+                {(u.note || u.notes) && <p className="text-sm text-muted-foreground">{u.note || u.notes}</p>}
                 {asArray(u.media_urls).length > 0 && (
                   <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
-                    {asArray(u.media_urls).map((m: string, k: number) => (
-                      <a key={k} href={m} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-md border">
-                        <img src={m} alt={`Production update photo ${k + 1}`} loading="lazy" className="h-20 w-full object-cover" />
-                      </a>
-                    ))}
+                    {asArray(u.media_urls).map((m: Any, k: number) => {
+                      const url = typeof m === 'string' ? m : m?.url;
+                      const type = typeof m === 'string' ? '' : (m?.type || '');
+                      if (!url) return null;
+                      if (type.includes('video')) {
+                        return (
+                          <video key={k} src={url} controls className="h-20 w-full rounded-md object-cover" />
+                        );
+                      }
+                      return (
+                        <a key={k} href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-md border">
+                          <img src={url} alt={`Update ${k + 1}`} loading="lazy" className="h-20 w-full object-cover" />
+                        </a>
+                      );
+                    })}
                   </div>
                 )}
               </div>
