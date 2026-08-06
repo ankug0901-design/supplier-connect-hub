@@ -119,7 +119,7 @@ export default function AdminPoTracker() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await poTrackerRpc({ action: 'list_orders' });
+      const data = await poTrackerRpc({ action: 'list_client_orders' });
       setOrders(asArray(data));
     } catch (e: any) {
       toast.error('Failed to load client orders');
@@ -160,7 +160,7 @@ export default function AdminPoTracker() {
     if (!details[id]) {
       setDetailLoading(id);
       try {
-        const data = await poTrackerRpc({ action: 'get_detail', order_id: row.id });
+        const data = await poTrackerRpc({ action: 'get_client_order', order_id: row.id });
         const d = Array.isArray(data) ? data[0] : (data?.data ?? data);
         setDetails((p) => ({ ...p, [id]: d }));
       } catch {
@@ -438,7 +438,7 @@ function CreateOrderDrawer({ open, onOpenChange, onCreated }: { open: boolean; o
   useEffect(() => {
     if (!open) return;
     setPosLoading(true);
-    poTrackerRpc({ action: 'list_pos', unlinked_only: true })
+    poTrackerRpc({ action: 'list_purchase_orders', unlinked_only: true })
       .then((data) => setPos(asArray(data)))
       .catch(() => { setPos([]); toast.error('Failed to load purchase orders'); })
       .finally(() => setPosLoading(false));
