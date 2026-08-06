@@ -199,7 +199,11 @@ export default function ProductionOrders() {
     try {
       const data = await poTrackerRpc({ action: 'supplier_items', supplier_id: supplier.id });
       const raw: any[] = Array.isArray(data) ? data : (data?.rows ?? data?.orders ?? data?.data ?? []);
-      const list: ProdPO[] = Array.isArray(raw) ? raw.filter((r: any) => r && r.po_number) : [];
+      const list: ProdPO[] = Array.isArray(raw)
+        ? raw
+            .filter((r: any) => r && r.po_number)
+            .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+        : [];
       setPos(list);
     } catch (e: any) {
       toast({ title: 'Could not load production orders', description: e?.message, variant: 'destructive' });
