@@ -20,6 +20,7 @@ const ADMIN_SECTIONS: Section[] = [
   { key: 'admin-ai-insights', label: 'AI Insights' },
   { key: 'admin-vendor-scores', label: 'Supplier Performance' },
   { key: 'admin-exception-requests', label: 'Exception Requests' },
+  { key: 'admin-po-tracker', label: 'PO Tracker' },
 ];
 
 const SUPPLIER_SECTIONS: Section[] = [
@@ -29,6 +30,7 @@ const SUPPLIER_SECTIONS: Section[] = [
   { key: 'invoices', label: 'Invoices' },
   { key: 'payments', label: 'Payments' },
   { key: 'delivery-challan', label: 'Delivery Challan' },
+  { key: 'production', label: 'Production' },
   { key: 'shipments', label: 'Shipments' },
 ];
 
