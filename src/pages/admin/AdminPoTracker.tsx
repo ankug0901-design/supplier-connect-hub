@@ -420,9 +420,10 @@ function OrderDetail({ detail, order }: { detail: Any; order: Any }) {
       {dispatch && (
         <Section title="Dispatch">
           <div className="grid gap-3 rounded-lg border bg-background p-3 text-sm sm:grid-cols-3">
-            <div><p className="text-xs text-muted-foreground">Vehicle</p>{dispatch.vehicle_number || '—'}</div>
-            <div><p className="text-xs text-muted-foreground">Transporter</p>{dispatch.transporter || '—'}</div>
-            <div><p className="text-xs text-muted-foreground">LR Number</p>{dispatch.lr_number || '—'}</div>
+            {dispatch.vehicle_number && <div><p className="text-xs text-muted-foreground">Vehicle</p>{dispatch.vehicle_number}</div>}
+            {dispatch.transporter && <div><p className="text-xs text-muted-foreground">Transporter</p>{dispatch.transporter}</div>}
+            {dispatch.lr_number && <div><p className="text-xs text-muted-foreground">LR Number</p>{dispatch.lr_number}</div>}
+            {dispatch.dispatched_at && <div><p className="text-xs text-muted-foreground">Dispatched</p>{fmtDateTime(dispatch.dispatched_at)}</div>}
           </div>
         </Section>
       )}
