@@ -1633,6 +1633,10 @@ export type Database = {
       has_section_access: { Args: { _section_key: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      link_po_to_so: {
+        Args: { p_po_number: string; p_so_number: string }
+        Returns: Json
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
