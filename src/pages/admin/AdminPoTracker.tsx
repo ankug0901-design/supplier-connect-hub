@@ -309,7 +309,11 @@ function OrderDetail({ detail, order }: { detail: Any; order: Any }) {
   const trackingUrl = d.tracking_url || order?.tracking_url;
   const pos = asArray(d.purchase_orders?.length ? d.purchase_orders : order?.purchase_orders);
   const updates = asArray(d.production_updates);
-  const dispatch = d.dispatch || d.dispatch_info;
+  // dispatch may arrive as an array (data.dispatch) or a single object (dispatch_info)
+  const dispatchList = asArray(d.dispatch ?? d.data?.dispatch ?? d.dispatch_info ?? order?.dispatch);
+  const dispatch = dispatchList
+    .filter((x: Any) => x && (x.vehicle_number || x.transporter || x.lr_number || x.dispatched_at))
+    .slice(-1)[0];
   const proofs = asArray(d.delivery_proof_urls || d.delivery_proofs);
 
   return (
