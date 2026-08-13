@@ -229,8 +229,10 @@ const mapDbPurchaseOrder = (p: any, supplier?: SupplierRow, poItems: any[] = [],
   const exceptionPending = !!exceptionRequestedAt && !exceptionApprovedAt && !exceptionRejectedAt;
   const needsExceptionRequest =
     needsDeliveryConfirmation && daysSinceRelease >= 3 && !exceptionApprovedAt && !exceptionPending;
-  // Download / invoice upload are unlocked when dates confirmed OR exception approved
-  const unlockedForActions = !!p.delivery_dates_confirmed_at || !!exceptionApprovedAt;
+  // Download / invoice upload are unlocked whenever no delivery confirmation is
+  // outstanding (dates confirmed, already invoiced, closed PO, or a PO that has
+  // no line items to confirm) or when an exception has been approved.
+  const unlockedForActions = !needsDeliveryConfirmation || !!exceptionApprovedAt;
   return {
     id: p.zoho_id || p.id,
     dbId: p.id,
