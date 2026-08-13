@@ -553,19 +553,50 @@ function sanitizeBase64(input: string): string {
   return s;
 }
 
+const isRateLimited = (v: unknown) => /\b429\b|too many requests|rate limit/i.test(String(v ?? ''));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export async function downloadPurchaseOrder(zohoVendorId: string, poId: string, poNumber?: string) {
-  const data = await n8nProxy('zoho-supplier-data', {
-    operation: 'download_po',
-    vendor_id: zohoVendorId,
-    po_id: poId,
-    po_number: poNumber,
-  });
+  let data: any = null;
+  let lastErr: unknown = null;
+
+  // Zoho rate-limits PDF fetches (HTTP 429). Retry a few times with backoff.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      data = await n8nProxy('zoho-supplier-data', {
+        operation: 'download_po',
+        vendor_id: zohoVendorId,
+        po_id: poId,
+        po_number: poNumber,
+      });
+      lastErr = null;
+    } catch (e: any) {
+      data = null;
+      lastErr = e;
+    }
+    const failure = lastErr ? (lastErr as any)?.message : data?.error;
+    if (!failure && data) break;
+    if (!isRateLimited(failure) || attempt === 2) break;
+    await sleep(1500 * (attempt + 1));
+  }
+
+  if (lastErr) {
+    if (isRateLimited((lastErr as any)?.message)) {
+      throw new Error('Zoho is rate-limiting PDF downloads right now. Please wait a minute and try again.');
+    }
+    throw lastErr;
+  }
+
   const rawBase64 = data?.pdf_base64 || data?.pdfBase64 || data?.file_base64 || data?.fileBase64 || data?.base64;
   if (!rawBase64) {
+    if (isRateLimited(data?.error)) {
+      throw new Error('Zoho is rate-limiting PDF downloads right now. Please wait a minute and try again.');
+    }
     throw new Error(data?.error || 'Could not fetch PDF for this purchase order.');
   }
 
   let bytes: Uint8Array;
+
   try {
     const clean = sanitizeBase64(rawBase64);
     const bin = atob(clean);
