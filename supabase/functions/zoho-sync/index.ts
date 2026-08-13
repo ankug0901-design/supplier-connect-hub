@@ -8,15 +8,26 @@ const corsHeaders = {
 const N8N_BASE = "https://n8n.srv1141999.hstgr.cloud/webhook";
 const ACCESS_CODE = Deno.env.get("N8N_ACCESS_CODE") ?? "";
 
-async function zoho(operation: string, vendorId: string) {
-  const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ access_code: ACCESS_CODE, operation, vendor_id: vendorId }),
-  });
-  if (!res.ok) throw new Error(`Zoho proxy ${operation} failed ${res.status}`);
-  return res.json();
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Zoho (via n8n) rate-limits aggressively (429 -> proxy 502). Retry with
+// backoff so a transient throttle doesn't produce an empty/partial payload.
+async function zoho(operation: string, vendorId: string, attempts = 3) {
+  let lastErr = "";
+  for (let i = 0; i < attempts; i++) {
+    const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_code: ACCESS_CODE, operation, vendor_id: vendorId }),
+    });
+    if (res.ok) return res.json();
+    lastErr = `Zoho proxy ${operation} failed ${res.status}`;
+    if (![429, 500, 502, 503, 504].includes(res.status)) break;
+    if (i < attempts - 1) await sleep(2000 * Math.pow(2, i));
+  }
+  throw new Error(lastErr);
 }
+
 
 // Pass through Zoho's status verbatim (lowercased)
 const passthrough = (s?: string) => (s || "pending").toLowerCase();
