@@ -162,17 +162,21 @@ Deno.serve(async (req) => {
             });
           });
 
-          if (syncedPoList?.length) {
+          // Only replace items for POs that actually returned line items from Zoho.
+          // The Zoho list endpoint (or a rate-limited detail fetch) can come back
+          // without line items — wiping our stored items in that case makes
+          // previously visible items disappear from the portal.
+          const poIdsWithItems = [...new Set(itemRows.map((r: any) => r.po_id))];
+          if (poIdsWithItems.length) {
             const { error: deleteItemsError } = await supabase
               .from("po_items")
               .delete()
-              .in("po_id", syncedPoList.map((p: any) => p.id));
+              .in("po_id", poIdsWithItems);
             if (deleteItemsError) throw deleteItemsError;
-          }
-          if (itemRows.length) {
             const { error: itemError } = await supabase.from("po_items").insert(itemRows);
             if (itemError) throw itemError;
           }
+
         }
       } catch (e: any) {
         summary.errors.push(`PO ${sup.id}: ${e.message}`);
