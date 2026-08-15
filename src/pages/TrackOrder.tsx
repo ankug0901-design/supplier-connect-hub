@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { prettyStage } from "@/lib/stageTemplates";
-import { Check, Loader2, Package, Truck, CheckCircle2, Play, X, Copy } from "lucide-react";
+import { Check, Loader2, Package, Truck, CheckCircle2, Play, X, Copy, RefreshCw } from "lucide-react";
 
 const TEAL = "#0d7377";
 const ENDPOINT = "https://n8n.srv1141999.hstgr.cloud/webhook/po-track";
@@ -41,8 +41,36 @@ type TrackData = {
     lr_number?: string;
     expected_arrival?: string;
     vehicle_photo_url?: string;
+    courier_name?: string;
+    awb_number?: string;
   }>;
 };
+
+type Milestone = {
+  status?: string;
+  location?: string;
+  timestamp?: string;
+  icon?: string;
+  completed?: boolean;
+};
+
+const ICON_MAP: Record<string, string> = {
+  package: "📦",
+  pickup: "🏭",
+  transit: "🚛",
+  delivery: "🏠",
+  delivered: "✅",
+  pending: "⏳",
+  rto: "↩️",
+};
+
+function fmtMilestoneTime(v?: string) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return v;
+  return d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+}
+
 
 const STEPS = [
   { key: "order_received", label: "Order Received" },
@@ -173,6 +201,8 @@ export default function TrackOrder() {
     (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
   );
   const proofs = normalizeMedia(order?.delivery_proof_urls);
+  const shipmentDispatch = dispatchList.find((d) => d.lr_number || d.awb_number);
+
 
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -394,6 +424,10 @@ export default function TrackOrder() {
                 </div>
               </section>
             )}
+
+            {/* Shipment Tracking */}
+            {shipmentDispatch && <ShipmentTracking dispatch={shipmentDispatch} />}
+
           </div>
         )}
       </main>
@@ -465,5 +499,148 @@ function Skeleton() {
       <div className="h-24 rounded-2xl bg-slate-100" />
       <div className="h-40 rounded-2xl bg-slate-100" />
     </div>
+  );
+}
+
+function ShipmentTracking({
+  dispatch,
+}: {
+  dispatch: { courier_name?: string; lr_number?: string; awb_number?: string };
+}) {
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [info, setInfo] = useState<any>(null);
+
+  const fetchTracking = useCallback(async () => {
+    setLoading(true);
+    setFailed(false);
+    try {
+      const url = `https://n8n.srv1141999.hstgr.cloud/webhook/po-shipment-track?lr_number=${encodeURIComponent(
+        dispatch.lr_number || dispatch.awb_number || ""
+      )}&courier=${encodeURIComponent((dispatch.courier_name || "").toLowerCase())}`;
+      const res = await fetch(url);
+      const raw = await res.json();
+      const json = Array.isArray(raw) ? raw[0] : raw;
+      const payload = json?.data && (json.data.milestones || json.data.current_status) ? json.data : json;
+      if (!res.ok || !json || json.success === false || !payload) {
+        setFailed(true);
+      } else {
+        setInfo(payload);
+      }
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [dispatch.lr_number, dispatch.awb_number, dispatch.courier_name]);
+
+  useEffect(() => {
+    fetchTracking();
+  }, [fetchTracking]);
+
+  const milestones: Milestone[] = Array.isArray(info?.milestones) ? info.milestones : [];
+  const lastCompletedIdx = milestones.reduce((acc, m, i) => (m.completed ? i : acc), -1);
+
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">📦 Shipment Tracking</h2>
+        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">
+          Powered by LogiFlow Pro
+        </span>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        {/* Header bar */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-4 py-3 text-xs text-white" style={{ backgroundColor: TEAL }}>
+          {dispatch.courier_name && <span className="font-semibold">{dispatch.courier_name}</span>}
+          {dispatch.lr_number && <span className="opacity-90">LR# {dispatch.lr_number}</span>}
+          {dispatch.awb_number && <span className="opacity-90">AWB# {dispatch.awb_number}</span>}
+        </div>
+
+        <div className="p-4 sm:p-5">
+          {loading && (
+            <div className="animate-pulse space-y-4">
+              <div className="h-6 w-40 rounded-full bg-slate-100" />
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex gap-3">
+                  <div className="h-4 w-4 shrink-0 rounded-full bg-slate-100" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-1/3 rounded bg-slate-100" />
+                    <div className="h-3 w-1/4 rounded bg-slate-100" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && (failed || milestones.length === 0) && (
+            <div className="py-6 text-center">
+              <p className="text-sm text-slate-500">Tracking data will be available shortly</p>
+              <button
+                onClick={fetchTracking}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:bg-slate-50"
+                style={{ borderColor: TEAL, color: TEAL }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Retry
+              </button>
+            </div>
+          )}
+
+          {!loading && !failed && milestones.length > 0 && (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {info?.current_status && (
+                  <span
+                    className="rounded-full px-3 py-1 text-xs font-semibold text-white"
+                    style={{ backgroundColor: TEAL }}
+                  >
+                    {info.current_status}
+                  </span>
+                )}
+                {info?.estimated_delivery && (
+                  <span className="text-xs text-slate-500">
+                    Est. delivery:{" "}
+                    <span className="font-semibold text-slate-800">{fmtDate(info.estimated_delivery)}</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="relative mt-5 pl-7">
+                <div className="absolute bottom-2 left-[9px] top-2 w-px bg-slate-200" />
+                <div className="space-y-6">
+                  {milestones.map((m, idx) => {
+                    const done = !!m.completed;
+                    const isCurrent = idx === lastCompletedIdx;
+                    return (
+                      <div key={idx} className="relative">
+                        <div
+                          className={`absolute -left-7 top-1 flex h-[19px] w-[19px] items-center justify-center rounded-full border-2 border-white text-[10px] ${
+                            isCurrent ? "animate-pulse" : ""
+                          }`}
+                          style={{
+                            backgroundColor: done ? TEAL : "#cbd5e1",
+                            boxShadow: "0 0 0 1px #e2e8f0",
+                          }}
+                        >
+                          <span>{ICON_MAP[(m.icon || "").toLowerCase()] || ""}</span>
+                        </div>
+                        <div className={`text-sm font-semibold ${done ? "text-slate-900" : "text-slate-400"}`}>
+                          {m.status || "—"}
+                        </div>
+                        {m.location && <div className="text-xs text-slate-500">{m.location}</div>}
+                        {m.timestamp && (
+                          <div className="text-xs text-slate-400">{fmtMilestoneTime(m.timestamp)}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
