@@ -201,6 +201,8 @@ export default function TrackOrder() {
     (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
   );
   const proofs = normalizeMedia(order?.delivery_proof_urls);
+  const shipmentDispatch = dispatchList.find((d) => d.lr_number || d.awb_number);
+
 
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
