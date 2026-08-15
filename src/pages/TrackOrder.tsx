@@ -13,12 +13,14 @@ type TrackData = {
   order?: {
     order_number?: string;
     client_name?: string;
+    shipping_address?: string;
     order_date?: string;
     expected_delivery?: string;
     overall_status?: string;
     delivery_proof_urls?: (string | MediaItem)[];
     delivered_at?: string;
   };
+
   items?: Array<{
     id?: string;
     item_name?: string;
