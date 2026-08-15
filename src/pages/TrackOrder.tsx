@@ -13,12 +13,14 @@ type TrackData = {
   order?: {
     order_number?: string;
     client_name?: string;
+    shipping_address?: string;
     order_date?: string;
     expected_delivery?: string;
     overall_status?: string;
     delivery_proof_urls?: (string | MediaItem)[];
     delivered_at?: string;
   };
+
   items?: Array<{
     id?: string;
     item_name?: string;
@@ -426,7 +428,7 @@ export default function TrackOrder() {
             )}
 
             {/* Shipment Tracking */}
-            {shipmentDispatch && <ShipmentTracking dispatch={shipmentDispatch} />}
+            {shipmentDispatch && <ShipmentTracking dispatch={shipmentDispatch} order={order} />}
 
           </div>
         )}
@@ -511,8 +513,13 @@ function friendlyStatus(status?: string) {
 
 function ShipmentTracking({
   dispatch,
+  order,
 }: {
   dispatch: { courier_name?: string; lr_number?: string; awb_number?: string };
+  order?: {
+    client_name?: string;
+    shipping_address?: string;
+  };
 }) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -552,9 +559,12 @@ function ShipmentTracking({
 
   const lrNum = info?.lr_number || dispatch.lr_number;
   const awbNum = info?.awb_number || dispatch.awb_number;
-  const origin = info?.origin_city;
-  const destination = info?.destination_city;
-  const route = origin && destination ? `${origin} → ${destination}` : destination || origin;
+
+  // Prefer API-provided cities; fall back to order/dispatch defaults.
+  const origin = info?.origin_city || "Gurugram";
+  const destination = info?.destination_city || order?.shipping_address || order?.client_name;
+  const route = destination ? `${origin} → ${destination}` : "";
+
 
   return (
     <section>
