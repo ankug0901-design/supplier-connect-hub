@@ -422,6 +422,10 @@ export default function TrackOrder() {
                 </div>
               </section>
             )}
+
+            {/* Shipment Tracking */}
+            {shipmentDispatch && <ShipmentTracking dispatch={shipmentDispatch} />}
+
           </div>
         )}
       </main>
