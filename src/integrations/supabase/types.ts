@@ -497,7 +497,9 @@ export type Database = {
       po_dispatch: {
         Row: {
           actual_delivery_date: string | null
+          awb_number: string | null
           client_order_id: string | null
+          courier_name: string | null
           created_at: string | null
           delivery_proof_urls: Json | null
           delivery_status: string | null
@@ -522,7 +524,9 @@ export type Database = {
         }
         Insert: {
           actual_delivery_date?: string | null
+          awb_number?: string | null
           client_order_id?: string | null
+          courier_name?: string | null
           created_at?: string | null
           delivery_proof_urls?: Json | null
           delivery_status?: string | null
@@ -547,7 +551,9 @@ export type Database = {
         }
         Update: {
           actual_delivery_date?: string | null
+          awb_number?: string | null
           client_order_id?: string | null
+          courier_name?: string | null
           created_at?: string | null
           delivery_proof_urls?: Json | null
           delivery_status?: string | null

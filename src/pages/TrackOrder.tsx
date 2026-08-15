@@ -502,6 +502,13 @@ function Skeleton() {
   );
 }
 
+function friendlyStatus(status?: string) {
+  if (!status) return "—";
+  return status
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function ShipmentTracking({
   dispatch,
 }: {
@@ -540,6 +547,14 @@ function ShipmentTracking({
 
   const milestones: Milestone[] = Array.isArray(info?.milestones) ? info.milestones : [];
   const lastCompletedIdx = milestones.reduce((acc, m, i) => (m.completed ? i : acc), -1);
+  const latestMilestone = milestones[milestones.length - 1];
+  const latestLocation = latestMilestone?.location;
+
+  const lrNum = info?.lr_number || dispatch.lr_number;
+  const awbNum = info?.awb_number || dispatch.awb_number;
+  const origin = info?.origin_city;
+  const destination = info?.destination_city;
+  const route = origin && destination ? `${origin} → ${destination}` : destination || origin;
 
   return (
     <section>
@@ -552,11 +567,21 @@ function ShipmentTracking({
 
       <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         {/* Header bar */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-4 py-3 text-xs text-white" style={{ backgroundColor: TEAL }}>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-4 pt-3 pb-2 text-xs text-white" style={{ backgroundColor: TEAL }}>
           {dispatch.courier_name && <span className="font-semibold">{dispatch.courier_name}</span>}
-          {dispatch.lr_number && <span className="opacity-90">LR# {dispatch.lr_number}</span>}
-          {dispatch.awb_number && <span className="opacity-90">AWB# {dispatch.awb_number}</span>}
+          {(lrNum || awbNum) && (
+            <span className="opacity-90">
+              {lrNum ? `LR# ${lrNum}` : ""}
+              {lrNum && awbNum ? " | " : ""}
+              {awbNum ? `AWB# ${awbNum}` : ""}
+            </span>
+          )}
         </div>
+        {route && (
+          <div className="px-4 pb-3 text-xs font-medium text-white/90" style={{ backgroundColor: TEAL }}>
+            {route}
+          </div>
+        )}
 
         <div className="p-4 sm:p-5">
           {loading && (
@@ -589,17 +614,22 @@ function ShipmentTracking({
 
           {!loading && !failed && milestones.length > 0 && (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {info?.current_status && (
-                  <span
-                    className="rounded-full px-3 py-1 text-xs font-semibold text-white"
-                    style={{ backgroundColor: TEAL }}
-                  >
-                    {info.current_status}
-                  </span>
-                )}
+              <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-1">
+                  {info?.current_status && (
+                    <span
+                      className="w-fit rounded-full px-3 py-1 text-xs font-semibold text-white"
+                      style={{ backgroundColor: TEAL }}
+                    >
+                      {friendlyStatus(info.current_status)}
+                    </span>
+                  )}
+                  {latestLocation && (
+                    <span className="text-xs text-slate-500">Currently at: {latestLocation}</span>
+                  )}
+                </div>
                 {info?.estimated_delivery && (
-                  <span className="text-xs text-slate-500">
+                  <span className="mt-1 text-xs text-slate-500 sm:mt-0">
                     Est. delivery:{" "}
                     <span className="font-semibold text-slate-800">{fmtDate(info.estimated_delivery)}</span>
                   </span>
@@ -626,12 +656,12 @@ function ShipmentTracking({
                           <span>{ICON_MAP[(m.icon || "").toLowerCase()] || ""}</span>
                         </div>
                         <div className={`text-sm font-semibold ${done ? "text-slate-900" : "text-slate-400"}`}>
-                          {m.status || "—"}
+                          {friendlyStatus(m.status)}
                         </div>
-                        {m.location && <div className="text-xs text-slate-500">{m.location}</div>}
                         {m.timestamp && (
                           <div className="text-xs text-slate-400">{fmtMilestoneTime(m.timestamp)}</div>
                         )}
+                        {m.location && <div className="text-xs text-slate-500">{m.location}</div>}
                       </div>
                     );
                   })}
