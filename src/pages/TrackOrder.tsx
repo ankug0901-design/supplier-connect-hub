@@ -41,8 +41,36 @@ type TrackData = {
     lr_number?: string;
     expected_arrival?: string;
     vehicle_photo_url?: string;
+    courier_name?: string;
+    awb_number?: string;
   }>;
 };
+
+type Milestone = {
+  status?: string;
+  location?: string;
+  timestamp?: string;
+  icon?: string;
+  completed?: boolean;
+};
+
+const ICON_MAP: Record<string, string> = {
+  package: "📦",
+  pickup: "🏭",
+  transit: "🚛",
+  delivery: "🏠",
+  delivered: "✅",
+  pending: "⏳",
+  rto: "↩️",
+};
+
+function fmtMilestoneTime(v?: string) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return v;
+  return d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+}
+
 
 const STEPS = [
   { key: "order_received", label: "Order Received" },
