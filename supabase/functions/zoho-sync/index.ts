@@ -365,6 +365,7 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: { Authorization: `Bearer ${serviceRoleKey}`, "Content-Type": "application/json" },
           body: "{}",
+          signal: AbortSignal.timeout(8_000),
         });
       } catch (e) {
         console.warn("po-delivery-reminder kick failed", e);
