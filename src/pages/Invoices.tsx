@@ -76,8 +76,10 @@ export default function Invoices() {
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [searchParams] = useSearchParams();
+
   const minOverdueDays = useMemo(() => {
     const v = parseInt(searchParams.get('overdue') || '', 10);
     return Number.isFinite(v) && v > 0 ? v : 0;
