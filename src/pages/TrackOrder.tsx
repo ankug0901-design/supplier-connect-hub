@@ -574,7 +574,7 @@ function ShipmentTracking({
   const milestones: Milestone[] = Array.isArray(info?.milestones) ? info.milestones : [];
 
   const lrNum = info?.lr_number || dispatch.lr_number;
-  const awbNum = info?.awb_number || dispatch.awb_number;
+  const awbNum = dispatch.awb_number || info?.awb_number;
 
   // Prefer API-provided cities; fall back to order/dispatch defaults.
   const origin = info?.origin_city || "Gurugram";
