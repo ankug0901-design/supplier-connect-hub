@@ -469,8 +469,15 @@ const mapDbInvoice = (i: any, supplier?: SupplierRow, purchaseOrder?: any) => {
   };
 };
 
+// Kicks off a global Zoho sync without blocking the caller. Resolves when the
+// sync finishes so callers can refresh their data afterwards.
+export function syncZohoInBackground(force = true): Promise<void> {
+  return Promise.resolve(triggerGlobalSync(force)).catch((err) => {
+    console.warn('Zoho background sync failed', err);
+  });
+}
+
 export async function fetchInvoicesFromDb() {
-  await triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('invoices')
     .select('id, zoho_id, invoice_number, date, due_date, payment_date, amount, balance, has_attachment, attachment_name, status, po_id, supplier_id')
@@ -484,7 +491,6 @@ export async function fetchInvoicesFromDb() {
 }
 
 export async function fetchPaymentsFromDb() {
-  await triggerGlobalSync(true);
   const { data, error } = await supabase
     .from('payments')
     .select('id, payment_number, payment_mode, account, transaction_id, amount, date, status, invoice_id')
