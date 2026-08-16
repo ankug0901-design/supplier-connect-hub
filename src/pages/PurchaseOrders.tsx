@@ -14,6 +14,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb,
+  syncAndFetchPurchaseOrdersForSupplier,
+
   downloadPurchaseOrder,
 } from '@/services/api';
 import { exportToCsv } from '@/lib/exportCsv';
