@@ -178,6 +178,7 @@ export default function TrackOrder() {
   const [error, setError] = useState(false);
   const [lightbox, setLightbox] = useState<MediaItem | null>(null);
   const [copied, setCopied] = useState(false);
+  const [trackingInfo, setTrackingInfo] = useState<any>(null);
 
   const load = useCallback(
     async (initial = false) => {
