@@ -12,6 +12,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  /** Restricted internal role: PO production tracker updates only. */
+  isTrackerAdmin: boolean;
   role: string | null;
   isLoading: boolean;
   user: User | null;
@@ -34,6 +36,7 @@ const defaultAuthContext: AuthContextType = {
   isAuthenticated: false,
   isAdmin: false,
   isSuperAdmin: false,
+  isTrackerAdmin: false,
   role: null,
   isLoading: true,
   user: null,
@@ -106,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const r = profile.role ?? 'supplier';
     setRealRole(r);
     setRealIsSuperAdmin(r === 'admin');
-    setRealIsAdmin(r === 'admin' || r === 'super_user' || r === 'user');
+    setRealIsAdmin(r === 'admin' || r === 'super_user' || r === 'user' || r === 'tracker_admin');
   }
 
   useEffect(() => {
@@ -234,6 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user,
       isAdmin: effectiveIsAdmin,
       isSuperAdmin: effectiveIsSuperAdmin,
+      isTrackerAdmin: effectiveRole === 'tracker_admin',
       role: effectiveRole,
       isLoading,
       user,
