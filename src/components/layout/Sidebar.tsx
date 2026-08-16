@@ -51,6 +51,7 @@ const adminNavigation: NavItem[] = [
   { name: 'Admin Dashboard', href: '/admin', icon: LayoutDashboard, sectionKey: 'admin-dashboard' },
   { name: 'Live Dashboard', href: '/admin/live-dashboard', icon: Activity, sectionKey: 'admin-live-dashboard' },
   { name: 'PO Tracker', href: '/admin/po-tracker', icon: PackageCheck, sectionKey: 'admin-po-tracker' },
+  { name: 'PO Tracker Updates', href: '/admin/po-tracker-update', icon: Factory, sectionKey: 'admin-po-tracker-update' },
   { name: 'All Suppliers', href: '/admin/suppliers', icon: Users, sectionKey: 'admin-suppliers' },
   { name: 'Registrations', href: '/admin/registrations', icon: ClipboardList, badgeKey: 'pending_regs', sectionKey: 'admin-registrations' },
   { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all', sectionKey: 'admin-rfq' },
@@ -65,7 +66,7 @@ const adminNavigation: NavItem[] = [
 
 export function Sidebar() {
   const location = useLocation();
-  const { supplier, logout, isAdmin, isSuperAdmin, role, effectiveUserId } = useAuth();
+  const { supplier, logout, isAdmin, isSuperAdmin, isTrackerAdmin, role, effectiveUserId } = useAuth();
   const [pendingRegs, setPendingRegs] = useState(0);
   const [pendingRfqs, setPendingRfqs] = useState(0);
   const [pendingRfqsAll, setPendingRfqsAll] = useState(0);
@@ -186,10 +187,15 @@ export function Sidebar() {
     if (sectionKey in userOverrides) return userOverrides[sectionKey];
     return sectionAccess[sectionKey] === true;
   };
-  const visibleSupplierItems = supplierNavigation.filter((i) => isAllowed(i.sectionKey));
-  const visibleAdminItems = adminNavigation
-    .filter((i) => !i.superAdminOnly || isSuperAdmin)
-    .filter((i) => isAllowed(i.sectionKey));
+  // Tracker admins only ever see the production updater entry.
+  const visibleSupplierItems = isTrackerAdmin
+    ? []
+    : supplierNavigation.filter((i) => isAllowed(i.sectionKey));
+  const visibleAdminItems = isTrackerAdmin
+    ? adminNavigation.filter((i) => i.href === '/admin/po-tracker-update')
+    : adminNavigation
+        .filter((i) => !i.superAdminOnly || isSuperAdmin)
+        .filter((i) => isAllowed(i.sectionKey));
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -233,7 +239,7 @@ export function Sidebar() {
                 <p className="truncate text-sm font-medium">{supplier?.name}</p>
                 {isAdmin && (
                   <span className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground">
-                    {isSuperAdmin ? 'Admin' : role === 'super_user' ? 'Super User' : role === 'user' ? 'User' : role}
+                    {isSuperAdmin ? 'Admin' : role === 'super_user' ? 'Super User' : role === 'user' ? 'User' : role === 'tracker_admin' ? 'Tracker' : role}
                   </span>
                 )}
               </div>
