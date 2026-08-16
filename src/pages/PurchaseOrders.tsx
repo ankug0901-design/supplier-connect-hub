@@ -14,6 +14,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb,
+  syncAndFetchPurchaseOrdersForSupplier,
+
   downloadPurchaseOrder,
 } from '@/services/api';
 import { exportToCsv } from '@/lib/exportCsv';
@@ -182,7 +184,12 @@ export default function PurchaseOrders() {
           syncAndFetchPurchaseOrdersFromDb()
             .then((fresh) => { if (!cancelled) setPurchaseOrders(fresh); })
             .catch((e) => console.warn('Background PO refresh failed', e));
+        } else {
+          syncAndFetchPurchaseOrdersForSupplier(supplier!.zoho_vendor_id!, supplier!.id)
+            .then((fresh) => { if (!cancelled && fresh.length) setPurchaseOrders(fresh); })
+            .catch((e) => console.warn('Background PO refresh failed', e));
         }
+
       } catch (err) {
         console.error('Failed to load purchase orders', err);
       } finally { if (!cancelled) setIsLoading(false); }

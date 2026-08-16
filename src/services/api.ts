@@ -358,9 +358,24 @@ async function fetchPurchaseOrdersFromDbByVendor(zohoVendorId: string, supplierI
 export async function fetchPurchaseOrders(zohoVendorId: string, supplierId?: string) {
   const supplier = await resolveSupplierForPortal(zohoVendorId, supplierId);
   if (!supplier?.id) return [];
-  await triggerSupplierSync(supplier.id, false);
+  // Read cached DB data immediately; refresh from Zoho in the background.
+  const rows = await fetchPurchaseOrdersFromDbForSupplier(supplier);
+  void triggerSupplierSync(supplier.id, false);
+  return rows;
+}
+
+// Awaits the per-supplier Zoho sync, then re-reads the DB. Use for background refresh.
+export async function syncAndFetchPurchaseOrdersForSupplier(zohoVendorId: string, supplierId?: string) {
+  const supplier = await resolveSupplierForPortal(zohoVendorId, supplierId);
+  if (!supplier?.id) return [];
+  try {
+    await triggerSupplierSync(supplier.id, false);
+  } catch (e) {
+    console.warn('Supplier sync failed', e);
+  }
   return fetchPurchaseOrdersFromDbForSupplier(supplier);
 }
+
 
 // Directly fetch live POs from Zoho (via n8n) for enrichment with fields we
 // don't persist locally (HSN, tax breakdown, sub_total, tax_total).
