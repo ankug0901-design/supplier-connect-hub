@@ -312,8 +312,8 @@ export default function TrackOrder() {
             <section className="rounded-2xl border border-slate-100 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
               <div className="flex items-start">
                 {STEPS.map((s, i) => {
-                  const done = i < currentIdx || status === "delivered";
-                  const active = i === currentIdx && status !== "delivered";
+                  const done = i < currentIdx || isDelivered;
+                  const active = i === currentIdx && !isDelivered;
                   return (
                     <div key={s.key} className="flex flex-1 flex-col items-center">
                       <div className="flex w-full items-center">
