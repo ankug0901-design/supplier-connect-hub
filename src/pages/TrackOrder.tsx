@@ -68,6 +68,7 @@ type TrackData = {
 
 type Milestone = {
   status?: string;
+  description?: string;
   location?: string;
   timestamp?: string;
   icon?: string;
