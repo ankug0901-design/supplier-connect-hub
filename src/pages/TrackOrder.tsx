@@ -4,6 +4,24 @@ import { prettyStage } from "@/lib/stageTemplates";
 import { Check, Loader2, Package, Truck, CheckCircle2, Play, X, Copy, RefreshCw } from "lucide-react";
 
 const TEAL = "#0d7377";
+const GREEN = "#22c55e";
+
+function fmtFetchedAt(v?: string) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return v;
+  return d
+    .toLocaleString("en-IN", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    })
+    .replace(/AM|PM/, (m) => m.toLowerCase());
+}
 const ENDPOINT = "https://n8n.srv1141999.hstgr.cloud/webhook/po-track";
 
 type MediaItem = { url: string; type?: string };
