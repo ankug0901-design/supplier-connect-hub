@@ -638,6 +638,11 @@ function ShipmentTracking({
     )[0];
   }
 
+  // current_location fallback: shipment has moved even without an explicit transit milestone.
+  if (!inTransitMs && info?.current_location) {
+    inTransitMs = { timestamp: info?.fetched_at, location: info.current_location };
+  }
+
   const stages = [
     { label: "Order Placed", ms: manifestedMs },
     { label: "Picked Up", ms: pickedUpMs },
