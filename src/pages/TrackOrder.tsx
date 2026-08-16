@@ -574,7 +574,7 @@ function ShipmentTracking({
   const milestones: Milestone[] = Array.isArray(info?.milestones) ? info.milestones : [];
 
   const lrNum = info?.lr_number || dispatch.lr_number;
-  const awbNum = info?.awb_number || dispatch.awb_number;
+  const awbNum = dispatch.awb_number || info?.awb_number;
 
   // Prefer API-provided cities; fall back to order/dispatch defaults.
   const origin = info?.origin_city || "Gurugram";
@@ -636,6 +636,11 @@ function ShipmentTracking({
     inTransitMs = [...milestones].sort(
       (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
     )[0];
+  }
+
+  // current_location fallback: shipment has moved even without an explicit transit milestone.
+  if (!inTransitMs && info?.current_location) {
+    inTransitMs = { timestamp: info?.fetched_at, location: info.current_location };
   }
 
   const stages = [
