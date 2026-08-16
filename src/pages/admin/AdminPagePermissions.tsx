@@ -24,6 +24,7 @@ const ADMIN_SECTIONS: Section[] = [
   { key: 'admin-vendor-scores', label: 'Supplier Performance', description: 'Vendor scorecards' },
   { key: 'admin-exception-requests', label: 'Exception Requests', description: 'Review PO exception requests' },
   { key: 'admin-po-tracker', label: 'PO Tracker', description: 'Production tracking and dispatch management' },
+  { key: 'admin-po-tracker-update', label: 'PO Tracker Updates', description: 'Post production stage updates on behalf of suppliers' },
 ];
 
 const SUPPLIER_SECTIONS: Section[] = [
