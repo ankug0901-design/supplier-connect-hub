@@ -477,7 +477,9 @@ export default function TrackOrder() {
             )}
 
             {/* Shipment Tracking */}
-            {shipmentDispatch && <ShipmentTracking dispatch={shipmentDispatch} order={order} />}
+            {shipmentDispatch && (
+              <ShipmentTracking dispatch={shipmentDispatch} order={order} onTrackingLoad={setTrackingInfo} />
+            )}
 
           </div>
         )}
