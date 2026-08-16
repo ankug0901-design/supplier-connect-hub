@@ -565,12 +565,14 @@ function friendlyStatus(status?: string) {
 function ShipmentTracking({
   dispatch,
   order,
+  onTrackingLoad,
 }: {
   dispatch: { courier_name?: string; lr_number?: string; awb_number?: string };
   order?: {
     client_name?: string;
     shipping_address?: string;
   };
+  onTrackingLoad?: (info: any) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
