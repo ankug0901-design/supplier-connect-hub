@@ -364,15 +364,14 @@ function PODetailView({
     try {
       for (const original of incoming) {
         const file = await compressImage(original);
-        const resp = await poTrackerRpc({ action: 'upload_url', filename: file.name });
-        const d = Array.isArray(resp) ? resp[0] : (resp?.data ?? resp);
-        const path: string = d?.path || d?.bucket_path || `${Date.now()}-${file.name}`;
+        // Uploads are scoped to the PO folder so storage policies can verify ownership.
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '_');
+        const path = `${poId}/${Date.now()}_${safeName}`;
         const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, file, {
           upsert: true, contentType: file.type,
         });
         if (error) throw error;
-        const publicUrl =
-          d?.public_url || supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+        const publicUrl = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
         added.push({ url: publicUrl, type: file.type, filename: file.name });
       }
       setItems([...existing, ...added]);
