@@ -1604,6 +1604,7 @@ export type Database = {
         Returns: undefined
       }
       _supplier_dash_auth: { Args: { _supplier_id: string }; Returns: boolean }
+      can_write_po_media: { Args: { _object_name: string }; Returns: boolean }
       confirm_po_delivery_dates: {
         Args: { _items: Json; _po_id: string }
         Returns: Json
