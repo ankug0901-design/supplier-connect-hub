@@ -581,29 +581,73 @@ function ShipmentTracking({
   const destination = info?.destination_city || order?.shipping_address || order?.client_name;
   const route = destination ? `${origin} → ${destination}` : "";
 
-  const findMs = (...needles: string[]) =>
-    milestones.find((m) => {
-      const s = (m.status || "").toLowerCase();
-      return needles.some((n) => s.includes(n.toLowerCase()));
-    });
+  const TRANSIT_KEYWORDS = [
+    "in transit",
+    "vehicle departed",
+    "departed origin",
+    "dispatched",
+    "arrived",
+    "received at hub",
+    "left origin",
+  ];
 
-  const findMsExact = (needle: string) =>
-    milestones.find((m) => (m.status || "").toLowerCase() === needle.toLowerCase());
+  function milestoneText(m: Milestone) {
+    return `${m.status || ""} ${m.description || ""}`.toLowerCase();
+  }
+
+  function milestoneBestStage(m: Milestone): string | null {
+    const text = milestoneText(m);
+    if (text.includes("delivered")) return "delivered";
+    if (text.includes("out for delivery")) return "out_for_delivery";
+    if (TRANSIT_KEYWORDS.some((k) => text.includes(k))) return "in_transit";
+    if (text.includes("picked up") || text.includes("picked")) return "picked_up";
+    if (text.includes("manifested")) return "manifested";
+    return null;
+  }
+
+  const findStageMs = (stage: string) =>
+    milestones
+      .filter((m) => milestoneBestStage(m) === stage)
+      .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())[0];
+
+  const manifestedMs = findStageMs("manifested");
+  const pickedUpMs = findStageMs("picked_up");
+  let inTransitMs = findStageMs("in_transit");
+  const outForDeliveryMs = findStageMs("out_for_delivery");
+  const deliveredMs = findStageMs("delivered");
+
+  // Location-based transit detection: any milestone after pickup at a different location.
+  if (pickedUpMs && !inTransitMs) {
+    const pickupLoc = (pickedUpMs.location || "").toLowerCase().trim();
+    const laterTransit = milestones
+      .filter((m) => {
+        if (!m.timestamp || !pickedUpMs.timestamp) return false;
+        const afterPickup = new Date(m.timestamp).getTime() > new Date(pickedUpMs.timestamp).getTime();
+        const loc = (m.location || "").toLowerCase().trim();
+        return afterPickup && loc && loc !== pickupLoc;
+      })
+      .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())[0];
+    if (laterTransit) inTransitMs = laterTransit;
+  }
+
+  // current_status fallback for in-transit.
+  const currentStatus = (info?.current_status || "").toLowerCase();
+  if (!inTransitMs && (currentStatus.includes("transit") || currentStatus.includes("departed"))) {
+    inTransitMs = [...milestones].sort(
+      (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+    )[0];
+  }
 
   const stages = [
-    { label: "Order Placed", ms: findMsExact("Manifested") },
-    { label: "Picked Up", ms: findMs("picked up") },
-    {
-      label: "In Transit",
-      ms: findMs("in transit", "departed origin", "vehicle departed", "received at hub"),
-    },
-    { label: "Out for Delivery", ms: findMsExact("Out for Delivery") },
-    { label: "Delivered", ms: findMsExact("Delivered") },
+    { label: "Order Placed", ms: manifestedMs },
+    { label: "Picked Up", ms: pickedUpMs },
+    { label: "In Transit", ms: inTransitMs },
+    { label: "Out for Delivery", ms: outForDeliveryMs },
+    { label: "Delivered", ms: deliveredMs },
   ];
   const lastDoneIdx = stages.reduce((acc, s, i) => (s.ms ? i : acc), -1);
 
-  const pickupMs = milestones.find((m) => (m.status || "").toLowerCase().includes("picked"));
-  const deliveredMs = findMsExact("Delivered");
+  const pickupMs = milestones.find((m) => milestoneText(m).includes("picked"));
 
   return (
     <section>
