@@ -76,8 +76,10 @@ export default function Invoices() {
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [searchParams] = useSearchParams();
+
   const minOverdueDays = useMemo(() => {
     const v = parseInt(searchParams.get('overdue') || '', 10);
     return Number.isFinite(v) && v > 0 ? v : 0;
@@ -137,70 +139,89 @@ export default function Invoices() {
       return;
     }
     let cancelled = false;
+
+    const loadAndEnrich = async () => {
+      const raw = isAdmin
+        ? await fetchInvoicesFromDb()
+        : await fetchInvoices(supplier!.zoho_vendor_id!);
+
+      const baseEnriched = (raw || []).map((i: any) => {
+        const derived = deriveStatusAndDays(i);
+        return {
+          ...i,
+          status: derived.status,
+          daysInfo: i.daysInfo || derived.daysInfo,
+          submittedAt: null as string | null,
+        };
+      });
+      if (cancelled) return;
+      setInvoices(baseEnriched);
+      setIsLoading(false);
+
+      const invoiceNumbers = Array.from(
+        new Set(baseEnriched.map((i: any) => i.invoiceNumber).filter(Boolean)),
+      ) as string[];
+      if (!invoiceNumbers.length) return;
+      setEnriching(true);
+      try {
+        const { data: liData } = await supabase
+          .from('invoice_line_items')
+          .select('invoice_number, created_at')
+          .in('invoice_number', invoiceNumbers);
+        if (cancelled) return;
+        const submissionByNumber: Record<string, string> = {};
+        (liData || []).forEach((row: any) => {
+          const k = row.invoice_number;
+          if (!k) return;
+          if (!submissionByNumber[k] || row.created_at < submissionByNumber[k]) {
+            submissionByNumber[k] = row.created_at;
+          }
+        });
+        if (cancelled) return;
+        setInvoices((prev) =>
+          prev.map((i: any) => ({
+            ...i,
+            submittedAt: submissionByNumber[i.invoiceNumber] || i.submittedAt || null,
+          })),
+        );
+      } finally {
+        if (!cancelled) setEnriching(false);
+      }
+    };
+
     (async () => {
       setIsLoading(true);
       try {
-        const data = isAdmin
-          ? await fetchInvoicesFromDb()
-          : await fetchInvoices(supplier!.zoho_vendor_id!);
-        // Refresh from Zoho in the background; never block the first paint.
-        if (isAdmin) void syncZohoInBackground(true);
-
-        // First paint: show invoices immediately (with derived status), so the
-        // first 15 rows render right away.
-        const baseEnriched = (data || []).map((i: any) => {
-          const derived = deriveStatusAndDays(i);
-          return {
-            ...i,
-            status: derived.status,
-            daysInfo: i.daysInfo || derived.daysInfo,
-            submittedAt: null as string | null,
-          };
-        });
-        if (cancelled) return;
-        setInvoices(baseEnriched);
-        setIsLoading(false);
-
-        // Background: fetch supplier submission timestamps from invoice_line_items
-        // and merge them in once available. This does not block the first paint.
-        const invoiceNumbers = Array.from(
-          new Set(baseEnriched.map((i: any) => i.invoiceNumber).filter(Boolean)),
-        ) as string[];
-        if (!invoiceNumbers.length) return;
-        setEnriching(true);
-        try {
-          const { data: liData } = await supabase
-            .from('invoice_line_items')
-            .select('invoice_number, created_at')
-            .in('invoice_number', invoiceNumbers);
-          if (cancelled) return;
-          const submissionByNumber: Record<string, string> = {};
-          (liData || []).forEach((row: any) => {
-            const k = row.invoice_number;
-            if (!k) return;
-            if (!submissionByNumber[k] || row.created_at < submissionByNumber[k]) {
-              submissionByNumber[k] = row.created_at;
-            }
-          });
-          if (cancelled) return;
-          setInvoices((prev) =>
-            prev.map((i: any) => ({
-              ...i,
-              submittedAt: submissionByNumber[i.invoiceNumber] || i.submittedAt || null,
-            })),
-          );
-        } finally {
-          if (!cancelled) setEnriching(false);
-        }
+        await loadAndEnrich();
       } catch (err) {
         console.error('Failed to load invoices', err);
         if (!cancelled) setIsLoading(false);
       }
+
+      // Refresh from Zoho in the background, then reload without blocking the UI.
+      if (isAdmin && !cancelled) {
+        setIsSyncing(true);
+        try {
+          await syncZohoInBackground(true);
+        } catch (err) {
+          console.error('Background sync failed', err);
+        }
+        if (cancelled) return;
+        try {
+          await loadAndEnrich();
+        } catch (err) {
+          console.error('Post-sync reload failed', err);
+        } finally {
+          if (!cancelled) setIsSyncing(false);
+        }
+      }
     })();
+
     return () => {
       cancelled = true;
     };
   }, [supplier?.zoho_vendor_id, isAdmin]);
+
 
 
   const filteredInvoices = invoices.filter((invoice: any) => {
@@ -263,7 +284,14 @@ export default function Invoices() {
   return (
     <DashboardLayout title="Invoices" subtitle="Manage your submitted invoices">
       <div className="space-y-6">
+        {isSyncing && (
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Refreshing latest data from Zoho…
+          </div>
+        )}
         {/* Filters */}
+
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 gap-4">
             <div className="relative flex-1 max-w-md">
