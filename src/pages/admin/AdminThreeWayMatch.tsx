@@ -451,7 +451,7 @@ export default function AdminThreeWayMatch() {
     };
     const ch = supabase
       .channel('three_way_matches_rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'three_way_matches' }, trigger)
+      // realtime disabled on three_way_matches for security; the 60s poller keeps data fresh
       .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, trigger)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, trigger)
       .subscribe();
