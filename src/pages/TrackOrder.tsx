@@ -219,7 +219,34 @@ export default function TrackOrder() {
 
   const order = data?.order;
   const status = (order?.overall_status || "order_received").toLowerCase();
-  const currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === status));
+  let currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === status));
+
+  const trackingMilestones: Milestone[] = Array.isArray(trackingInfo?.milestones) ? trackingInfo.milestones : [];
+  const transitKeywords = [
+    "in transit",
+    "vehicle departed",
+    "departed origin",
+    "dispatched",
+    "arrived",
+    "received at hub",
+    "left origin",
+  ];
+  const hasTransitMilestone = trackingMilestones.some((m) => {
+    const text = `${m.status || ""} ${m.description || ""}`.toLowerCase();
+    return transitKeywords.some((k) => text.includes(k));
+  });
+  const hasCurrentLocation = !!trackingInfo?.current_location;
+  const isDelivered =
+    (trackingInfo?.current_status || "").toLowerCase() === "delivered" || status === "delivered";
+
+  const inTransitIdx = STEPS.findIndex((s) => s.key === "in_transit");
+  const deliveredIdx = STEPS.findIndex((s) => s.key === "delivered");
+  if ((hasCurrentLocation || hasTransitMilestone) && inTransitIdx >= 0) {
+    currentIdx = Math.max(currentIdx, inTransitIdx);
+  }
+  if (isDelivered && deliveredIdx >= 0) {
+    currentIdx = Math.max(currentIdx, deliveredIdx);
+  }
   const dispatchList = data?.dispatch || [];
   const updates = [...(data?.production_updates || [])].sort(
     (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
