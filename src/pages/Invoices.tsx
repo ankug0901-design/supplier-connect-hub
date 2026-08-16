@@ -15,7 +15,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchInvoices, fetchInvoicesFromDb, downloadBillAttachment, type BillAttachment } from '@/services/api';
+import { fetchInvoices, fetchInvoicesFromDb, downloadBillAttachment, syncZohoInBackground, type BillAttachment } from '@/services/api';
 import { supabase } from '@/integrations/supabase/client';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { PdfViewer } from '@/components/PdfViewer';
@@ -143,6 +143,8 @@ export default function Invoices() {
         const data = isAdmin
           ? await fetchInvoicesFromDb()
           : await fetchInvoices(supplier!.zoho_vendor_id!);
+        // Refresh from Zoho in the background; never block the first paint.
+        if (isAdmin) void syncZohoInBackground(true);
 
         // First paint: show invoices immediately (with derived status), so the
         // first 15 rows render right away.
