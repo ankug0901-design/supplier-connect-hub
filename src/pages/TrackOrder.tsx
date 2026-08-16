@@ -593,6 +593,7 @@ function ShipmentTracking({
         setFailed(true);
       } else {
         setInfo(payload);
+        onTrackingLoad?.(payload);
       }
     } catch {
       setFailed(true);
