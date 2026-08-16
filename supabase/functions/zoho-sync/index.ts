@@ -215,10 +215,9 @@ Deno.serve(async (req) => {
         );
         const invRows = invs.map((i: any) => {
           const poId = i.poNumber ? poByNumber.get(i.poNumber) : null;
-          if (!poId) return null;
           return {
             supplier_id: sup.id,
-            po_id: poId,
+            po_id: poId || null,
             invoice_number: i.invoiceNumber,
             zoho_id: i.id,
             date: i.date || new Date().toISOString().slice(0, 10),
@@ -307,8 +306,12 @@ Deno.serve(async (req) => {
         const payRows = pays.map((p: any) => {
           const invoiceNumber = p.invoiceNumber || p.invoice_number || p.billNumber || p.bill_number;
           const paymentNumber = p.paymentNumber || p.payment_number || p.referenceNumber || p.reference_number || p.id || p.payment_id;
-          const invId = invoiceNumber ? invByNumber.get(invoiceNumber) : null;
-          if (!invId) return null;
+          const invoiceNumbers = invoiceNumber ? String(invoiceNumber).split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+          let invId: string | null = null;
+          for (const num of invoiceNumbers) {
+            const found = invByNumber.get(num);
+            if (found) { invId = found; break; }
+          }
           return {
             invoice_id: invId,
             amount: Number(p.amount || p.payment_amount || p.paymentAmount || 0),
