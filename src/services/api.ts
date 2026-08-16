@@ -306,13 +306,21 @@ async function runSync(key: string, body: Record<string, unknown>, force = false
   if (!force && lastSyncAt[key] && now - lastSyncAt[key] < SYNC_THROTTLE_MS) return;
   if (syncInFlight[key]) return syncInFlight[key];
   lastSyncAt[key] = now;
-  syncInFlight[key] = supabase.functions
-    .invoke('zoho-sync', { body })
-    .then(({ data, error }) => {
+  syncInFlight[key] = (async () => {
+    let pageBody = body;
+    let pages = 0;
+    while (pages < 25) {
+      const { data, error } = await supabase.functions.invoke('zoho-sync', { body: pageBody });
       if (error || data?.success === false) {
         console.warn('Zoho sync failed', error || data?.error || data);
+        return;
       }
-    })
+      pages += 1;
+      if (!data?.has_more || typeof data?.next_offset !== 'number') return;
+      pageBody = { ...body, offset: data.next_offset };
+    }
+    console.warn('Zoho sync stopped after reaching the page safety limit');
+  })()
     .catch((err) => console.warn('Zoho sync failed', err))
     .finally(() => {
       syncInFlight[key] = undefined;
