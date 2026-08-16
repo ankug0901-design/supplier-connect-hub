@@ -143,6 +143,8 @@ export default function Invoices() {
         const data = isAdmin
           ? await fetchInvoicesFromDb()
           : await fetchInvoices(supplier!.zoho_vendor_id!);
+        // Refresh from Zoho in the background; never block the first paint.
+        if (isAdmin) void syncZohoInBackground(true);
 
         // First paint: show invoices immediately (with derived status), so the
         // first 15 rows render right away.
