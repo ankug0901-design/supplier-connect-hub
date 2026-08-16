@@ -98,6 +98,7 @@ const STEPS = [
   { key: "material_sourced", label: "Material Sourced" },
   { key: "in_production", label: "In Production" },
   { key: "dispatched", label: "Dispatched" },
+  { key: "in_transit", label: "In Transit" },
   { key: "delivered", label: "Delivered" },
 ];
 
@@ -106,6 +107,7 @@ const STAGE_COLORS: Record<string, string> = {
   material_sourced: "bg-blue-50 text-blue-700 border-blue-200",
   in_production: "bg-amber-50 text-amber-700 border-amber-200",
   dispatched: "bg-purple-50 text-purple-700 border-purple-200",
+  in_transit: "bg-cyan-50 text-cyan-700 border-cyan-200",
   delivered: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
@@ -176,6 +178,7 @@ export default function TrackOrder() {
   const [error, setError] = useState(false);
   const [lightbox, setLightbox] = useState<MediaItem | null>(null);
   const [copied, setCopied] = useState(false);
+  const [trackingInfo, setTrackingInfo] = useState<any>(null);
 
   const load = useCallback(
     async (initial = false) => {
@@ -216,7 +219,34 @@ export default function TrackOrder() {
 
   const order = data?.order;
   const status = (order?.overall_status || "order_received").toLowerCase();
-  const currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === status));
+  let currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === status));
+
+  const trackingMilestones: Milestone[] = Array.isArray(trackingInfo?.milestones) ? trackingInfo.milestones : [];
+  const transitKeywords = [
+    "in transit",
+    "vehicle departed",
+    "departed origin",
+    "dispatched",
+    "arrived",
+    "received at hub",
+    "left origin",
+  ];
+  const hasTransitMilestone = trackingMilestones.some((m) => {
+    const text = `${m.status || ""} ${m.description || ""}`.toLowerCase();
+    return transitKeywords.some((k) => text.includes(k));
+  });
+  const hasCurrentLocation = !!trackingInfo?.current_location;
+  const isDelivered =
+    (trackingInfo?.current_status || "").toLowerCase() === "delivered" || status === "delivered";
+
+  const inTransitIdx = STEPS.findIndex((s) => s.key === "in_transit");
+  const deliveredIdx = STEPS.findIndex((s) => s.key === "delivered");
+  if ((hasCurrentLocation || hasTransitMilestone) && inTransitIdx >= 0) {
+    currentIdx = Math.max(currentIdx, inTransitIdx);
+  }
+  if (isDelivered && deliveredIdx >= 0) {
+    currentIdx = Math.max(currentIdx, deliveredIdx);
+  }
   const dispatchList = data?.dispatch || [];
   const updates = [...(data?.production_updates || [])].sort(
     (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
@@ -282,8 +312,8 @@ export default function TrackOrder() {
             <section className="rounded-2xl border border-slate-100 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
               <div className="flex items-start">
                 {STEPS.map((s, i) => {
-                  const done = i < currentIdx || status === "delivered";
-                  const active = i === currentIdx && status !== "delivered";
+                  const done = i < currentIdx || isDelivered;
+                  const active = i === currentIdx && !isDelivered;
                   return (
                     <div key={s.key} className="flex flex-1 flex-col items-center">
                       <div className="flex w-full items-center">
@@ -447,7 +477,9 @@ export default function TrackOrder() {
             )}
 
             {/* Shipment Tracking */}
-            {shipmentDispatch && <ShipmentTracking dispatch={shipmentDispatch} order={order} />}
+            {shipmentDispatch && (
+              <ShipmentTracking dispatch={shipmentDispatch} order={order} onTrackingLoad={setTrackingInfo} />
+            )}
 
           </div>
         )}
@@ -533,12 +565,14 @@ function friendlyStatus(status?: string) {
 function ShipmentTracking({
   dispatch,
   order,
+  onTrackingLoad,
 }: {
   dispatch: { courier_name?: string; lr_number?: string; awb_number?: string };
   order?: {
     client_name?: string;
     shipping_address?: string;
   };
+  onTrackingLoad?: (info: any) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -559,6 +593,7 @@ function ShipmentTracking({
         setFailed(true);
       } else {
         setInfo(payload);
+        onTrackingLoad?.(payload);
       }
     } catch {
       setFailed(true);
