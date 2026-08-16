@@ -7,22 +7,32 @@ const corsHeaders = {
 
 const N8N_BASE = "https://n8n.srv1141999.hstgr.cloud/webhook";
 const ACCESS_CODE = Deno.env.get("N8N_ACCESS_CODE") ?? "";
+const DEFAULT_BATCH_SIZE = 4;
+const MAX_BATCH_SIZE = 6;
+const UPSTREAM_TIMEOUT_MS = 12_000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Zoho (via n8n) rate-limits aggressively (429 -> proxy 502). Retry with
 // backoff so a transient throttle doesn't produce an empty/partial payload.
-async function zoho(operation: string, vendorId: string, attempts = 3) {
+async function zoho(operation: string, vendorId: string, attempts = 2) {
   let lastErr = "";
   for (let i = 0; i < attempts; i++) {
-    const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ access_code: ACCESS_CODE, operation, vendor_id: vendorId }),
-    });
-    if (res.ok) return res.json();
-    lastErr = `Zoho proxy ${operation} failed ${res.status}`;
-    if (![429, 500, 502, 503, 504].includes(res.status)) break;
+    try {
+      const res = await fetch(`${N8N_BASE}/zoho-supplier-data`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_code: ACCESS_CODE, operation, vendor_id: vendorId }),
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+      if (res.ok) return res.json();
+      lastErr = `Zoho proxy ${operation} failed ${res.status}`;
+      if (![429, 500, 502, 503, 504].includes(res.status)) break;
+    } catch (error) {
+      lastErr = error instanceof DOMException && error.name === "TimeoutError"
+        ? `Zoho proxy ${operation} timed out after ${UPSTREAM_TIMEOUT_MS / 1000}s`
+        : `Zoho proxy ${operation} failed: ${error instanceof Error ? error.message : String(error)}`;
+    }
     if (i < attempts - 1) await sleep(2000 * Math.pow(2, i));
   }
   throw new Error(lastErr);
@@ -37,6 +47,12 @@ Deno.serve(async (req) => {
 
   const requestBody = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const requestedSupplierId = typeof requestBody?.supplier_id === "string" ? requestBody.supplier_id : null;
+  const requestedOffset = Number.isFinite(Number(requestBody?.offset))
+    ? Math.max(0, Math.floor(Number(requestBody.offset)))
+    : 0;
+  const requestedBatchSize = Number.isFinite(Number(requestBody?.batch_size))
+    ? Math.min(MAX_BATCH_SIZE, Math.max(1, Math.floor(Number(requestBody.batch_size))))
+    : DEFAULT_BATCH_SIZE;
 
   // Auth check: accept either the service role key (for internal calls from other edge
   // functions like admin-ai-insights), cron, an admin user, or a supplier syncing
@@ -101,6 +117,10 @@ Deno.serve(async (req) => {
         .from("suppliers")
         .select("id, zoho_vendor_id")
         .eq("id", requestedSupplierId);
+    } else {
+      supplierQuery = supplierQuery
+        .order("id", { ascending: true })
+        .range(requestedOffset, requestedOffset + requestedBatchSize - 1);
     }
 
     const { data: suppliers, error: sErr } = await supplierQuery;
@@ -351,7 +371,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, ...summary }), {
+    const processedCount = (suppliers || []).length;
+    const hasMore = !requestedSupplierId && processedCount === requestedBatchSize;
+    return new Response(JSON.stringify({
+      success: true,
+      ...summary,
+      has_more: hasMore,
+      next_offset: hasMore ? requestedOffset + processedCount : null,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
