@@ -284,7 +284,14 @@ export default function Invoices() {
   return (
     <DashboardLayout title="Invoices" subtitle="Manage your submitted invoices">
       <div className="space-y-6">
+        {isSyncing && (
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Refreshing latest data from Zoho…
+          </div>
+        )}
         {/* Filters */}
+
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 gap-4">
             <div className="relative flex-1 max-w-md">
