@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPayments, fetchInvoices, fetchPaymentsFromDb, fetchInvoicesFromDb } from '@/services/api';
+import { fetchPayments, fetchInvoices, fetchPaymentsFromDb, fetchInvoicesFromDb, syncZohoInBackground } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { cn } from '@/lib/utils';
 import { exportToCsv } from '@/lib/exportCsv';
@@ -19,6 +19,8 @@ export default function Payments() {
   const [payments, setPayments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<TabKey>('received');
@@ -29,25 +31,48 @@ export default function Payments() {
       return;
     }
     let cancelled = false;
+
+    const load = async () => {
+      const [pData, iData] = isAdmin
+        ? await Promise.all([fetchPaymentsFromDb(), fetchInvoicesFromDb()])
+        : await Promise.all([
+            fetchPayments(supplier!.zoho_vendor_id!),
+            fetchInvoices(supplier!.zoho_vendor_id!),
+          ]);
+      if (!cancelled) {
+        setPayments(pData);
+        setInvoices(iData);
+        setLoadError(null);
+      }
+    };
+
     (async () => {
       setIsLoading(true);
       try {
-        const [pData, iData] = isAdmin
-          ? await Promise.all([fetchPaymentsFromDb(), fetchInvoicesFromDb()])
-          : await Promise.all([
-              fetchPayments(supplier!.zoho_vendor_id!),
-              fetchInvoices(supplier!.zoho_vendor_id!),
-            ]);
-        if (!cancelled) {
-          setPayments(pData);
-          setInvoices(iData);
-        }
-      } catch (err) {
+        // Render last-known DB data immediately.
+        await load();
+      } catch (err: any) {
         console.error('Failed to load payments/invoices', err);
+        if (!cancelled) setLoadError(err?.message || 'Failed to load payments. Please retry.');
       } finally {
         if (!cancelled) setIsLoading(false);
       }
+
+      // Refresh from Zoho in the background, then reload without blocking the UI.
+      if (isAdmin && !cancelled) {
+        setIsSyncing(true);
+        await syncZohoInBackground(true);
+        if (cancelled) return;
+        try {
+          await load();
+        } catch (err) {
+          console.error('Post-sync reload failed', err);
+        } finally {
+          if (!cancelled) setIsSyncing(false);
+        }
+      }
     })();
+
     return () => {
       cancelled = true;
     };
