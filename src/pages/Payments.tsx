@@ -141,6 +141,18 @@ export default function Payments() {
     <DashboardLayout title="Payments" subtitle={isAdmin ? 'Vendor payments made to suppliers' : 'Payments made to you by Emboss'}>
 
       <div className="space-y-6">
+        {loadError && (
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <AlertTriangle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {isSyncing && (
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Refreshing latest data from Zoho in the background…
+          </div>
+        )}
         {/* Summary Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <button
