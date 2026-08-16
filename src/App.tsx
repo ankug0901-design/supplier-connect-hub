@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,6 +88,7 @@ import AdminUserAccessReport from "./pages/admin/AdminUserAccessReport";
 import AdminExceptionRequests from "./pages/admin/AdminExceptionRequests";
 import AdminLiveDashboard from "./pages/admin/AdminLiveDashboard";
 import AdminPoTracker from "./pages/admin/AdminPoTracker";
+import AdminPoTrackerUpdate from "./pages/admin/AdminPoTrackerUpdate";
 import RfqRequests from "./pages/RfqRequests";
 import ProductionOrders from "./pages/ProductionOrders";
 import ResetPassword from "./pages/ResetPassword";
@@ -116,8 +117,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+const TRACKER_ADMIN_PATH = "/admin/po-tracker-update";
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+  const { isAuthenticated, isAdmin, isTrackerAdmin, isLoading } = useAuth();
+  const location = useLocation();
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -127,6 +131,10 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
   if (!isAuthenticated) return <Navigate to="/" replace />;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  // Tracker admins may only reach the production updater page.
+  if (isTrackerAdmin && location.pathname !== TRACKER_ADMIN_PATH) {
+    return <Navigate to={TRACKER_ADMIN_PATH} replace />;
+  }
   return <>{children}</>;
 }
 
@@ -181,6 +189,7 @@ function AppRoutes() {
       <Route path="/shipments" element={<ProtectedRoute><SupplierSectionGuard sectionKey="shipments"><Shipments /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/awb" element={<Navigate to="/shipments" replace />} />
       <Route path="/admin" element={<AdminRoute><AdminLanding /></AdminRoute>} />
+      <Route path="/admin/po-tracker-update" element={<AdminRoute><AdminPoTrackerUpdate /></AdminRoute>} />
       <Route path="/admin/suppliers" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-suppliers"><AdminSuppliers /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/admin/registrations" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-registrations"><AdminRegistrations /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/admin/rfq" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-rfq"><AdminRfq /></SupplierSectionGuard></AdminRoute>} />
