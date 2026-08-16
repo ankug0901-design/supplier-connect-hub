@@ -571,7 +571,6 @@ function ShipmentTracking({
   }, [fetchTracking]);
 
   const milestones: Milestone[] = Array.isArray(info?.milestones) ? info.milestones : [];
-  const latestMilestone = [...milestones].reverse().find((m) => m.timestamp) || milestones[milestones.length - 1];
 
   const lrNum = info?.lr_number || dispatch.lr_number;
   const awbNum = info?.awb_number || dispatch.awb_number;
@@ -584,24 +583,26 @@ function ShipmentTracking({
   const findMs = (...needles: string[]) =>
     milestones.find((m) => {
       const s = (m.status || "").toLowerCase();
-      return needles.some((n) => s.includes(n));
+      return needles.some((n) => s.includes(n.toLowerCase()));
     });
 
+  const findMsExact = (needle: string) =>
+    milestones.find((m) => (m.status || "").toLowerCase() === needle.toLowerCase());
+
   const stages = [
-    { label: "Order Placed", ms: findMs("manifest", "order placed", "booked") },
-    { label: "Picked Up", ms: findMs("picked up", "pickup") },
+    { label: "Order Placed", ms: findMsExact("Manifested") },
+    { label: "Picked Up", ms: findMs("picked up") },
     {
       label: "In Transit",
-      ms: findMs("in transit", "departed", "vehicle departed", "received at", "hub", "reached"),
+      ms: findMs("in transit", "departed origin", "vehicle departed", "received at hub"),
     },
-    { label: "Out for Delivery", ms: findMs("out for delivery") },
-    { label: "Delivered", ms: findMs("delivered") },
+    { label: "Out for Delivery", ms: findMsExact("Out for Delivery") },
+    { label: "Delivered", ms: findMsExact("Delivered") },
   ];
   const lastDoneIdx = stages.reduce((acc, s, i) => (s.ms ? i : acc), -1);
 
-  const currentLocation = info?.current_location || latestMilestone?.location;
-  const pickupMs = stages[1].ms;
-  const deliveredMs = stages[4].ms;
+  const pickupMs = milestones.find((m) => (m.status || "").toLowerCase().includes("picked"));
+  const deliveredMs = findMsExact("Delivered");
 
   return (
     <section>
@@ -635,15 +636,15 @@ function ShipmentTracking({
             <div className="animate-pulse space-y-4">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="h-20 rounded-xl bg-slate-100" />
+                  <div key={i} className="h-24 rounded-xl bg-slate-100" />
                 ))}
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="h-16 rounded-xl bg-slate-100" />
+                  <div key={i} className="h-20 rounded-xl bg-slate-100" />
                 ))}
               </div>
-              <div className="h-40 rounded-xl bg-slate-100" />
+              <div className="h-48 rounded-xl bg-slate-100" />
             </div>
           )}
 
@@ -665,29 +666,44 @@ function ShipmentTracking({
               {/* Section 1 — info cards */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <InfoCard
+                  icon="📦"
                   label="Current Status"
-                  value={`🚚 ${friendlyStatus(info?.current_status)}`}
+                  value={friendlyStatus(info?.current_status)}
                 />
-                <InfoCard label="AWB #" value={awbNum || "N/A"} />
+                <InfoCard icon="📋" label="AWB #" value={awbNum || "N/A"} />
                 <InfoCard
+                  icon="📍"
                   label="Current Location"
-                  value={currentLocation || "N/A"}
-                  sub={info?.fetched_at ? `(${fmtFetchedAt(info.fetched_at)})` : undefined}
+                  value={info?.current_location || "N/A"}
+                  sub={info?.fetched_at ? fmtFetchedAt(info.fetched_at) : undefined}
                 />
                 <InfoCard
-                  label="Final Destination"
+                  icon="🏁"
+                  label="Destination"
                   value={info?.destination_city || order?.client_name || "N/A"}
                 />
               </div>
 
               {/* Section 2 — dates */}
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <InfoCard label="Pickup Date" value={pickupMs?.timestamp ? fmtMilestoneTime(pickupMs.timestamp) : "—"} />
-                <InfoCard label="Delivered Date" value={deliveredMs?.timestamp ? fmtMilestoneTime(deliveredMs.timestamp) : "—"} />
-                <InfoCard label="Promised Date" value={info?.estimated_delivery ? fmtDate(info.estimated_delivery) : "—"} />
+                <InfoCard
+                  icon="📅"
+                  label="Pickup Date"
+                  value={pickupMs?.timestamp ? fmtMilestoneTime(pickupMs.timestamp) : "—"}
+                />
+                <InfoCard
+                  icon="📅"
+                  label="Delivered Date"
+                  value={deliveredMs?.timestamp ? fmtMilestoneTime(deliveredMs.timestamp) : "—"}
+                />
+                <InfoCard
+                  icon="📅"
+                  label="Promised Date"
+                  value={info?.estimated_delivery ? fmtDate(info.estimated_delivery) : "—"}
+                />
               </div>
 
-              {/* Section 3 — journey timeline */}
+              {/* Section 3 — fixed 5-stage journey timeline */}
               <div className="mt-6">
                 <h3 className="mb-4 text-xs font-bold uppercase tracking-wide text-slate-500">Full Journey</h3>
                 <div className="relative pl-8">
@@ -714,20 +730,20 @@ function ShipmentTracking({
                             style={
                               done
                                 ? { backgroundColor: GREEN }
-                                : { backgroundColor: "#fff", border: "2px solid #cbd5e1" }
+                                : { backgroundColor: "#fff", border: "2px solid #d1d5db" }
                             }
                           >
                             {done ? "✓" : ""}
                           </div>
                           <div>
-                            <div className={`text-sm font-semibold ${done ? "text-slate-900" : "text-slate-400"}`}>
+                            <div className={`text-sm ${done ? "font-bold text-slate-900" : "font-medium text-slate-400"}`}>
                               {s.label}
                             </div>
                             {done && s.ms?.location && (
                               <div className="text-xs text-slate-500">{s.ms.location}</div>
                             )}
                           </div>
-                          <div className="shrink-0 text-right text-xs text-slate-400">
+                          <div className="shrink-0 text-right text-xs font-medium text-slate-500">
                             {done && s.ms?.timestamp ? fmtMilestoneTime(s.ms.timestamp) : ""}
                           </div>
                         </div>
@@ -744,11 +760,15 @@ function ShipmentTracking({
   );
 }
 
-function InfoCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function InfoCard({ icon, label, value, sub }: { icon?: string; label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl bg-slate-50 px-3 py-3 text-center">
+    <div
+      className="flex flex-col items-center justify-center rounded-xl px-3 py-4 text-center"
+      style={{ backgroundColor: "#f8f9fa" }}
+    >
+      {icon && <div className="mb-1 text-xl">{icon}</div>}
       <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="mt-1 break-words text-sm font-semibold text-slate-800">{value}</div>
+      <div className="mt-1 whitespace-pre-line break-words text-sm font-semibold text-slate-800">{value}</div>
       {sub && <div className="mt-0.5 text-[11px] text-slate-400">{sub}</div>}
     </div>
   );
