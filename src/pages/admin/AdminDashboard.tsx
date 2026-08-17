@@ -7,6 +7,7 @@ import {
   CircleCheck, ArrowRight, IndianRupee, CalendarClock, CheckCheck,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   useDashboardData,
   type ActivityEvent,
@@ -428,28 +429,9 @@ export default function AdminDashboard() {
               <Legend icon={<CreditCard className="h-3 w-3 text-[#2563EB]" />} label="Payments" />
             </div>
             <div className="flex gap-1.5">
-              {(thisWeek?.days || []).map((d: WeekDay, i: number) => {
-                const empty = d.deliveries_count + d.bills_due_count + d.rfqs_closing_count + d.payments_count === 0;
-                const dayObj = new Date(d.date);
-                const isWeekend = dayObj.getDay() === 0 || dayObj.getDay() === 6;
-                return (
-                  <div key={i} className={`flex-1 min-w-0 rounded-[10px] border p-2 text-center ${
-                    d.is_today ? 'bg-white border-[1.5px] border-[#10B981] shadow-[0_0_0_3px_rgba(16,185,129,0.08)]' :
-                    isWeekend || empty ? 'bg-[#FAFAFA] border-[#E5E7EB]' : 'bg-[#F9FAFB] border-[#E5E7EB]'
-                  }`}>
-                    <div className={`text-[10px] font-medium tracking-wider ${d.is_today ? 'text-[#047857]' : isWeekend || empty ? 'text-[#9CA3AF]' : 'text-[#6B7280]'}`}>{d.day_name.toUpperCase()}</div>
-                    <div className={`my-1 text-[20px] font-medium leading-none ${d.is_today ? 'text-[#047857]' : isWeekend || empty ? 'text-[#9CA3AF]' : 'text-[#111827]'}`}>{d.day_num}</div>
-                    {empty ? <div className="text-[10.5px] text-[#9CA3AF] mt-2">—</div> : (
-                      <div className="space-y-1">
-                        {d.deliveries_count > 0 && <DayEv bg="#ECFDF5" fg="#047857" icon={<Truck className="h-2.5 w-2.5" />} count={d.deliveries_count} />}
-                        {d.bills_due_count > 0 && <DayEv bg="#FFFBEB" fg="#92400E" icon={<Receipt className="h-2.5 w-2.5" />} count={d.bills_due_count} />}
-                        {d.rfqs_closing_count > 0 && <DayEv bg="#FEF2F2" fg="#991B1B" icon={<Clock className="h-2.5 w-2.5" />} count={d.rfqs_closing_count} />}
-                        {d.payments_count > 0 && <DayEv bg="#EFF6FF" fg="#1E40AF" icon={<CreditCard className="h-2.5 w-2.5" />} count={d.payments_count} />}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {(thisWeek?.days || []).map((d: WeekDay, i: number) => (
+                <WeekDayCell key={i} d={d} />
+              ))}
             </div>
             {thisWeek?.next_imminent && (
               <div className="mt-3.5 flex items-start gap-2 rounded-[9px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2.5 text-[12px] text-[#991B1B]">
@@ -524,6 +506,84 @@ function DayEv({ bg, fg, icon, count }: { bg: string; fg: string; icon: React.Re
     </div>
   );
 }
+
+function DetailSection({ title, color, icon, children }: { title: string; color: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="mb-2 last:mb-0">
+      <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium" style={{ color }}>{icon}{title}</div>
+      <div>{children}</div>
+    </div>
+  );
+}
+function DetailRow({ children }: { children: React.ReactNode }) {
+  return <div className="border-b border-[#F3F4F6] py-1 text-[11px] leading-snug text-[#374151] last:border-b-0">{children}</div>;
+}
+
+function WeekDayCell({ d }: { d: WeekDay }) {
+  const empty = d.deliveries_count + d.bills_due_count + d.rfqs_closing_count + d.payments_count === 0;
+  const dayObj = new Date(d.date);
+  const isWeekend = dayObj.getDay() === 0 || dayObj.getDay() === 6;
+  const deliveries = d.deliveries || [];
+  const bills = d.bills_due || [];
+  const rfqs = d.rfqs_closing || [];
+  const payments = d.payments || [];
+  const hasDetails = deliveries.length + bills.length + rfqs.length + payments.length > 0;
+
+  const cell = (
+    <div
+      className={`flex-1 min-w-0 rounded-[10px] border p-2 text-center ${hasDetails ? 'cursor-pointer hover:shadow-sm' : ''} ${
+        d.is_today ? 'bg-white border-[1.5px] border-[#10B981] shadow-[0_0_0_3px_rgba(16,185,129,0.08)]' :
+        isWeekend || empty ? 'bg-[#FAFAFA] border-[#E5E7EB]' : 'bg-[#F9FAFB] border-[#E5E7EB]'
+      }`}
+    >
+      <div className={`text-[10px] font-medium tracking-wider ${d.is_today ? 'text-[#047857]' : isWeekend || empty ? 'text-[#9CA3AF]' : 'text-[#6B7280]'}`}>{d.day_name.toUpperCase()}</div>
+      <div className={`my-1 text-[20px] font-medium leading-none ${d.is_today ? 'text-[#047857]' : isWeekend || empty ? 'text-[#9CA3AF]' : 'text-[#111827]'}`}>{d.day_num}</div>
+      {empty ? <div className="text-[10.5px] text-[#9CA3AF] mt-2">—</div> : (
+        <div className="space-y-1">
+          {d.deliveries_count > 0 && <DayEv bg="#ECFDF5" fg="#047857" icon={<Truck className="h-2.5 w-2.5" />} count={d.deliveries_count} />}
+          {d.bills_due_count > 0 && <DayEv bg="#FFFBEB" fg="#92400E" icon={<Receipt className="h-2.5 w-2.5" />} count={d.bills_due_count} />}
+          {d.rfqs_closing_count > 0 && <DayEv bg="#FEF2F2" fg="#991B1B" icon={<Clock className="h-2.5 w-2.5" />} count={d.rfqs_closing_count} />}
+          {d.payments_count > 0 && <DayEv bg="#EFF6FF" fg="#1E40AF" icon={<CreditCard className="h-2.5 w-2.5" />} count={d.payments_count} />}
+        </div>
+      )}
+    </div>
+  );
+
+  if (!hasDetails) return cell;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="flex-1 min-w-0 text-left">{cell}</button>
+      </PopoverTrigger>
+      <PopoverContent align="center" className="w-[280px] max-w-[280px] p-3">
+        <div className="mb-2 text-[11px] font-medium text-[#6B7280]">{d.day_name}, {fmtShort(d.date)}</div>
+        {deliveries.length > 0 && (
+          <DetailSection title="Deliveries" color="#047857" icon={<Truck className="h-3 w-3" />}>
+            {deliveries.map((it, i) => <DetailRow key={i}>{it.po_number} · {it.supplier}</DetailRow>)}
+          </DetailSection>
+        )}
+        {bills.length > 0 && (
+          <DetailSection title="Bills due" color="#92400E" icon={<Receipt className="h-3 w-3" />}>
+            {bills.map((it, i) => <DetailRow key={i}>{it.invoice_number} · {it.supplier} · {fmtLakh(it.amount)}</DetailRow>)}
+          </DetailSection>
+        )}
+        {rfqs.length > 0 && (
+          <DetailSection title="RFQs closing" color="#991B1B" icon={<Clock className="h-3 w-3" />}>
+            {rfqs.map((it, i) => <DetailRow key={i}>{it.rfq_id} · {it.product}</DetailRow>)}
+          </DetailSection>
+        )}
+        {payments.length > 0 && (
+          <DetailSection title="Payments" color="#1E40AF" icon={<CreditCard className="h-3 w-3" />}>
+            {payments.map((it, i) => <DetailRow key={i}>{it.reference} · {it.supplier} · {fmtLakh(it.amount)}</DetailRow>)}
+          </DetailSection>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+
 
 function KpiGradient(props: {
   variant: 'k1' | 'k2' | 'k3' | 'k4';
@@ -632,7 +692,13 @@ function SpendChart({ data }: { data: SpendTrendPoint[] }) {
         return (
           <g key={i}>
             <rect x={x} y={top + chartH - poH} width="20" height={poH} fill="#10B981" rx="2" />
+            {d.po_value > 0 && (
+              <text x={x + 10} y={top + chartH - poH - 4} textAnchor="middle" fontSize="8" fill="#374151">{fmtLakh(d.po_value).replace(' ', '')}</text>
+            )}
             <rect x={x + 22} y={top + chartH - paidH} width="20" height={paidH} fill="#0891B2" rx="2" />
+            {d.paid > 0 && (
+              <text x={x + 32} y={top + chartH - paidH - 4} textAnchor="middle" fontSize="8" fill="#374151">{fmtLakh(d.paid).replace(' ', '')}</text>
+            )}
             <text x={x + 21} y={h - 8} textAnchor="middle" fontSize="10" fill="#6B7280">{d.month}</text>
           </g>
         );
@@ -650,25 +716,34 @@ function SpendChart({ data }: { data: SpendTrendPoint[] }) {
 }
 
 function ApAgingDonut({ a030, a3160, a60 }: { a030: number; a3160: number; a60: number }) {
+  const navigate = useNavigate();
   const total = a030 + a3160 + a60;
   const C = 2 * Math.PI * 44;
   const s1 = total ? (a030 / total) * C : 0;
   const s2 = total ? (a3160 / total) * C : 0;
   const s3 = total ? (a60 / total) * C : 0;
+  const go = (bucket: string) => () => navigate(`/invoices?aging=${bucket}`);
+  const arcProps = (bucket: string, label: string) => ({
+    onClick: go(bucket),
+    role: 'button' as const,
+    tabIndex: 0,
+    'aria-label': `View invoices aged ${label}`,
+    className: 'cursor-pointer transition-opacity hover:opacity-80',
+  });
   return (
     <div className="flex items-center gap-3.5">
       <svg width="130" height="130" viewBox="0 0 120 120">
         <circle cx="60" cy="60" r="44" fill="none" stroke="#F3F4F6" strokeWidth="15" />
-        <circle cx="60" cy="60" r="44" fill="none" stroke="#FCD34D" strokeWidth="15" strokeDasharray={`${s1} ${C - s1}`} transform="rotate(-90 60 60)" />
-        <circle cx="60" cy="60" r="44" fill="none" stroke="#FB923C" strokeWidth="15" strokeDasharray={`${s2} ${C - s2}`} strokeDashoffset={`-${s1}`} transform="rotate(-90 60 60)" />
-        <circle cx="60" cy="60" r="44" fill="none" stroke="#DC2626" strokeWidth="15" strokeDasharray={`${s3} ${C - s3}`} strokeDashoffset={`-${s1 + s2}`} transform="rotate(-90 60 60)" />
+        <circle {...arcProps('0-30', '0-30 days')} cx="60" cy="60" r="44" fill="none" stroke="#FCD34D" strokeWidth="15" strokeDasharray={`${s1} ${C - s1}`} transform="rotate(-90 60 60)" />
+        <circle {...arcProps('31-60', '31-60 days')} cx="60" cy="60" r="44" fill="none" stroke="#FB923C" strokeWidth="15" strokeDasharray={`${s2} ${C - s2}`} strokeDashoffset={`-${s1}`} transform="rotate(-90 60 60)" />
+        <circle {...arcProps('60-plus', '60 days or more')} cx="60" cy="60" r="44" fill="none" stroke="#DC2626" strokeWidth="15" strokeDasharray={`${s3} ${C - s3}`} strokeDashoffset={`-${s1 + s2}`} transform="rotate(-90 60 60)" />
         <text x="60" y="58" textAnchor="middle" fontSize="16" fontWeight="500" fill="#111827">{fmtLakh(total)}</text>
         <text x="60" y="73" textAnchor="middle" fontSize="10" fill="#6B7280">total AP</text>
       </svg>
       <div className="flex-1 text-[12px]">
-        <div className="flex justify-between border-b border-[#F3F4F6] py-1.5"><Legend dot="#FCD34D" label="0-30 d" /><span className="font-medium">{fmtLakh(a030)}</span></div>
-        <div className="flex justify-between border-b border-[#F3F4F6] py-1.5"><Legend dot="#FB923C" label="31-60 d" /><span className="font-medium">{fmtLakh(a3160)}</span></div>
-        <div className="flex justify-between py-1.5"><Legend dot="#DC2626" label="60+ d" /><span className="font-medium text-[#991B1B]">{fmtLakh(a60)}</span></div>
+        <Link to="/invoices?aging=0-30" className="flex justify-between rounded-[6px] border-b border-[#F3F4F6] px-1 py-1.5 transition-colors hover:bg-[#F9FAFB]"><Legend dot="#FCD34D" label="0-30 d" /><span className="font-medium">{fmtLakh(a030)}</span></Link>
+        <Link to="/invoices?aging=31-60" className="flex justify-between rounded-[6px] border-b border-[#F3F4F6] px-1 py-1.5 transition-colors hover:bg-[#F9FAFB]"><Legend dot="#FB923C" label="31-60 d" /><span className="font-medium">{fmtLakh(a3160)}</span></Link>
+        <Link to="/invoices?aging=60-plus" className="flex justify-between rounded-[6px] px-1 py-1.5 transition-colors hover:bg-[#F9FAFB]"><Legend dot="#DC2626" label="60+ d" /><span className="font-medium text-[#991B1B]">{fmtLakh(a60)}</span></Link>
       </div>
     </div>
   );
