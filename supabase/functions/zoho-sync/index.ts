@@ -344,12 +344,20 @@ Deno.serve(async (req) => {
           };
         }).filter((r: any) => r && r.transaction_id);
 
-        if (payRows.length) {
+        // payments.invoice_id is NOT NULL; skip unmatched payments instead of
+        // failing the whole supplier batch on a not-null violation.
+        const matchedPayRows = payRows.filter((r: any) => !!r.invoice_id);
+        const unmatchedCount = payRows.length - matchedPayRows.length;
+        if (unmatchedCount) {
+          summary.errors.push(`Payment ${sup.id}: ${unmatchedCount} payment(s) skipped (no matching invoice)`);
+        }
+
+        if (matchedPayRows.length) {
           const { error } = await supabase
             .from("payments")
-            .upsert(payRows, { onConflict: "invoice_id,transaction_id" });
+            .upsert(matchedPayRows, { onConflict: "invoice_id,transaction_id" });
           if (error) throw error;
-          summary.payments_upserted += payRows.length;
+          summary.payments_upserted += matchedPayRows.length;
         }
       } catch (e: any) {
         summary.errors.push(`Payment ${sup.id}: ${e.message}`);

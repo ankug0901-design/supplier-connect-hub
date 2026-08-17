@@ -385,7 +385,7 @@ export type Database = {
           id: string
           invoice_number: string
           payment_date: string | null
-          po_id: string
+          po_id: string | null
           status: string
           supplier_id: string
           updated_at: string
@@ -403,7 +403,7 @@ export type Database = {
           id?: string
           invoice_number: string
           payment_date?: string | null
-          po_id: string
+          po_id?: string | null
           status?: string
           supplier_id: string
           updated_at?: string
@@ -421,7 +421,7 @@ export type Database = {
           id?: string
           invoice_number?: string
           payment_date?: string | null
-          po_id?: string
+          po_id?: string | null
           status?: string
           supplier_id?: string
           updated_at?: string
@@ -1641,10 +1641,22 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_tracker_admin: { Args: never; Returns: boolean }
-      link_po_to_so: {
-        Args: { p_po_number: string; p_so_number: string }
-        Returns: Json
-      }
+      link_po_to_so:
+        | { Args: { p_po_number: string; p_so_number: string }; Returns: Json }
+        | {
+            Args: {
+              p_amount?: number
+              p_date?: string
+              p_expected_delivery?: string
+              p_po_number: string
+              p_so_number: string
+              p_status?: string
+              p_vendor_name?: string
+              p_vendor_zoho_id?: string
+              p_zoho_id?: string
+            }
+            Returns: Json
+          }
       move_to_dlq: {
         Args: {
           dlq_name: string
