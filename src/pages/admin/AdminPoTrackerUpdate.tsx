@@ -777,8 +777,25 @@ export default function AdminPoTrackerUpdate() {
   const [updates, setUpdates] = useState<RecentUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const updatedBy = supplier?.name || user?.email || 'Emboss Team';
+
+  const handleDeleteUpdate = async (updateId: string) => {
+    if (!window.confirm('Delete this update? This cannot be undone.')) return;
+    setDeletingId(updateId);
+    try {
+      const data = await poTrackerRpc({ action: 'delete_update', update_id: updateId });
+      if (data?.ok === false) throw new Error(data?.error || 'Delete failed');
+      toast({ title: 'Update deleted' });
+      await load();
+    } catch (e: any) {
+      toast({ title: 'Delete failed', description: e?.message, variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
