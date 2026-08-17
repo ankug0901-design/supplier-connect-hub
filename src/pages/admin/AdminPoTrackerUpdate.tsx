@@ -137,6 +137,7 @@ function ItemUpdateForm({
   const { toast } = useToast();
   const stages = stagesFor(item);
   const [stage, setStage] = useState<string>(item.current_stage || stages[0]);
+  const [customStage, setCustomStage] = useState('');
   const [status, setStatus] = useState<'completed' | 'in_progress'>('completed');
   const [note, setNote] = useState('');
   const [media, setMedia] = useState<MediaItem[]>([]);
