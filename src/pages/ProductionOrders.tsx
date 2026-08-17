@@ -3,7 +3,7 @@ import { prettyStage } from '@/lib/stageTemplates';
 
 import {
   Factory, Loader2, RefreshCw, ChevronLeft, Camera, Images, X, CheckCircle2,
-  Truck, Clock, AlertTriangle, Package, Send,
+  Truck, Clock, AlertTriangle, Package, Send, Trash2,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
