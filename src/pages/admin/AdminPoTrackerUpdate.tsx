@@ -38,6 +38,7 @@ interface TrackPO {
   id: string;
   po_number: string;
   status: string | null;
+  date: string | null;
   updated_at: string | null;
   supplier: { company: string | null; name: string | null } | null;
   client_order: {
@@ -361,10 +362,10 @@ export default function AdminPoTrackerUpdate() {
       supabase
         .from('purchase_orders')
         .select(
-          'id, po_number, status, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, overall_status), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
+          'id, po_number, status, date, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, overall_status), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
         )
         .not('status', 'in', '(closed,cancelled,rejected,void)')
-        .order('updated_at', { ascending: false })
+        .order('date', { ascending: false })
         .limit(300),
       supabase
         .from('po_production_updates')
