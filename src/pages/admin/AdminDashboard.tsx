@@ -632,7 +632,13 @@ function SpendChart({ data }: { data: SpendTrendPoint[] }) {
         return (
           <g key={i}>
             <rect x={x} y={top + chartH - poH} width="20" height={poH} fill="#10B981" rx="2" />
+            {d.po_value > 0 && (
+              <text x={x + 10} y={top + chartH - poH - 4} textAnchor="middle" fontSize="8" fill="#374151">{fmtLakh(d.po_value).replace(' ', '')}</text>
+            )}
             <rect x={x + 22} y={top + chartH - paidH} width="20" height={paidH} fill="#0891B2" rx="2" />
+            {d.paid > 0 && (
+              <text x={x + 32} y={top + chartH - paidH - 4} textAnchor="middle" fontSize="8" fill="#374151">{fmtLakh(d.paid).replace(' ', '')}</text>
+            )}
             <text x={x + 21} y={h - 8} textAnchor="middle" fontSize="10" fill="#6B7280">{d.month}</text>
           </g>
         );
