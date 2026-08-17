@@ -658,7 +658,12 @@ function POCard({
               <p className="text-sm text-muted-foreground">No line items on this PO.</p>
             ) : (
               po.items.map((it) => (
-                <ItemUpdateForm key={it.id} po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
+                <div key={it.id} className="space-y-3">
+                  <ItemUpdateForm po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
+                  {it.current_stage === 'ready_for_dispatch' && (
+                    <AdminDispatchForm po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
+                  )}
+                </div>
               ))
             )}
           </div>
