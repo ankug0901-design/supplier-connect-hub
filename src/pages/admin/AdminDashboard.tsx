@@ -428,28 +428,9 @@ export default function AdminDashboard() {
               <Legend icon={<CreditCard className="h-3 w-3 text-[#2563EB]" />} label="Payments" />
             </div>
             <div className="flex gap-1.5">
-              {(thisWeek?.days || []).map((d: WeekDay, i: number) => {
-                const empty = d.deliveries_count + d.bills_due_count + d.rfqs_closing_count + d.payments_count === 0;
-                const dayObj = new Date(d.date);
-                const isWeekend = dayObj.getDay() === 0 || dayObj.getDay() === 6;
-                return (
-                  <div key={i} className={`flex-1 min-w-0 rounded-[10px] border p-2 text-center ${
-                    d.is_today ? 'bg-white border-[1.5px] border-[#10B981] shadow-[0_0_0_3px_rgba(16,185,129,0.08)]' :
-                    isWeekend || empty ? 'bg-[#FAFAFA] border-[#E5E7EB]' : 'bg-[#F9FAFB] border-[#E5E7EB]'
-                  }`}>
-                    <div className={`text-[10px] font-medium tracking-wider ${d.is_today ? 'text-[#047857]' : isWeekend || empty ? 'text-[#9CA3AF]' : 'text-[#6B7280]'}`}>{d.day_name.toUpperCase()}</div>
-                    <div className={`my-1 text-[20px] font-medium leading-none ${d.is_today ? 'text-[#047857]' : isWeekend || empty ? 'text-[#9CA3AF]' : 'text-[#111827]'}`}>{d.day_num}</div>
-                    {empty ? <div className="text-[10.5px] text-[#9CA3AF] mt-2">—</div> : (
-                      <div className="space-y-1">
-                        {d.deliveries_count > 0 && <DayEv bg="#ECFDF5" fg="#047857" icon={<Truck className="h-2.5 w-2.5" />} count={d.deliveries_count} />}
-                        {d.bills_due_count > 0 && <DayEv bg="#FFFBEB" fg="#92400E" icon={<Receipt className="h-2.5 w-2.5" />} count={d.bills_due_count} />}
-                        {d.rfqs_closing_count > 0 && <DayEv bg="#FEF2F2" fg="#991B1B" icon={<Clock className="h-2.5 w-2.5" />} count={d.rfqs_closing_count} />}
-                        {d.payments_count > 0 && <DayEv bg="#EFF6FF" fg="#1E40AF" icon={<CreditCard className="h-2.5 w-2.5" />} count={d.payments_count} />}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {(thisWeek?.days || []).map((d: WeekDay, i: number) => (
+                <WeekDayCell key={i} d={d} />
+              ))}
             </div>
             {thisWeek?.next_imminent && (
               <div className="mt-3.5 flex items-start gap-2 rounded-[9px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2.5 text-[12px] text-[#991B1B]">
