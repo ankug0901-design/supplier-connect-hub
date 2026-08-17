@@ -504,6 +504,7 @@ export type Database = {
           delivery_proof_urls: Json | null
           delivery_status: string | null
           dispatch_date: string | null
+          dispatch_quantity: number | null
           driver_name: string | null
           driver_phone: string | null
           eway_bill_number: string | null
@@ -531,6 +532,7 @@ export type Database = {
           delivery_proof_urls?: Json | null
           delivery_status?: string | null
           dispatch_date?: string | null
+          dispatch_quantity?: number | null
           driver_name?: string | null
           driver_phone?: string | null
           eway_bill_number?: string | null
@@ -558,6 +560,7 @@ export type Database = {
           delivery_proof_urls?: Json | null
           delivery_status?: string | null
           dispatch_date?: string | null
+          dispatch_quantity?: number | null
           driver_name?: string | null
           driver_phone?: string | null
           eway_bill_number?: string | null
