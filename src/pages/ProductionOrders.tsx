@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { poTrackerRpc } from '@/lib/poTracker';
+import { n8nPost } from '@/lib/n8n';
 import { cn } from '@/lib/utils';
 
 const MEDIA_BUCKET = 'po-tracker-media';
@@ -406,6 +407,7 @@ function PODetailView({
             readOnly={readOnly}
             clientOrderId={clientOrderId}
             poId={poId}
+            poNumber={po.po_number}
             supplierName={supplierName}
             uploadFiles={uploadFiles}
             onDone={onRefresh}
@@ -475,12 +477,13 @@ function PODetailView({
 /* -------------------------------- Item card ------------------------------- */
 
 function ItemCard({
-  item, readOnly, clientOrderId, poId, supplierName, uploadFiles, onDone,
+  item, readOnly, clientOrderId, poId, poNumber, supplierName, uploadFiles, onDone,
 }: {
   item: ProdItem;
   readOnly: boolean;
   clientOrderId: string | null;
   poId: string | null;
+  poNumber: string;
   supplierName: string;
   uploadFiles: (fl: FileList | null, existing: MediaItem[], setBusy: (b: boolean) => void, setItems: (m: MediaItem[]) => void) => Promise<void>;
   onDone: () => Promise<void>;
@@ -517,6 +520,14 @@ function ItemCard({
       });
       if (data?.ok === false) throw new Error(data?.error || 'Update failed');
       toast({ title: 'Production update submitted' });
+      n8nPost('notify-emboss-team', {
+        po_number: poNumber,
+        item_name: item.item_name,
+        stage,
+        status,
+        note,
+        supplier_name: supplierName,
+      }).catch(() => {});
       setShowForm(false);
       setNote('');
       setMedia([]);
@@ -635,6 +646,7 @@ function ItemCard({
             itemId={item.id}
             clientOrderId={clientOrderId}
             poId={poId}
+            poNumber={poNumber}
             supplierName={supplierName}
             uploadFiles={uploadFiles}
             onDone={onDone}
@@ -648,11 +660,12 @@ function ItemCard({
 /* ------------------------------ Dispatch form ----------------------------- */
 
 function DispatchForm({
-  itemId, clientOrderId, poId, supplierName, uploadFiles, onDone,
+  itemId, clientOrderId, poId, poNumber, supplierName, uploadFiles, onDone,
 }: {
   itemId: string;
   clientOrderId: string | null;
   poId: string | null;
+  poNumber: string;
   supplierName: string;
   uploadFiles: (fl: FileList | null, existing: MediaItem[], setBusy: (b: boolean) => void, setItems: (m: MediaItem[]) => void) => Promise<void>;
   onDone: () => Promise<void>;
@@ -693,6 +706,14 @@ function DispatchForm({
       });
       if (data?.ok === false) throw new Error(data?.error || 'Dispatch failed');
       toast({ title: 'Dispatch details submitted' });
+      n8nPost('notify-emboss-team', {
+        po_number: poNumber,
+        item_name: '',
+        stage: 'dispatched',
+        status: 'completed',
+        note: form.notes || form.vehicle_number,
+        supplier_name: supplierName,
+      }).catch(() => {});
       setOpen(false);
       await onDone();
     } catch (e: any) {
