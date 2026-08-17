@@ -444,10 +444,21 @@ function PODetailView({
               <ol className="space-y-4 border-l border-border pl-4">
                 {updates.map((u: any, i: number) => {
                   const media: any[] = Array.isArray(u.media_urls) ? u.media_urls : [];
+                  const isDeleting = deletingId === u.id;
                   return (
                     <li key={u.id || i} className="relative">
                       <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
-                      <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        onClick={() => u.id && handleDeleteUpdate(u.id)}
+                        className="absolute right-0 top-0 text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                        aria-label="Delete update"
+                        title="Delete update"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                      <div className="flex flex-wrap items-center gap-2 pr-6">
                         <span className="text-sm font-medium">{prettyStage(u.stage)}</span>
                         <Badge variant="secondary" className="text-[10px]">{prettyStage(u.status)}</Badge>
                         <span className="text-xs text-muted-foreground">
