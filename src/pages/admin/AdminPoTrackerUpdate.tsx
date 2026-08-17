@@ -93,12 +93,12 @@ function escapeHtml(s: string): string {
 
 function wrapEmailHtml(
   contentHtml: string,
-  meta: { poNumber: string; orderNumber?: string | null; clientName?: string | null; trackingToken?: string | null },
+  meta: { orderNumber?: string | null; clientName?: string | null; trackingToken?: string | null },
+  items?: { name: string; stage: string }[],
 ): string {
   const detailRows = [
     ...(meta.orderNumber ? [{ label: 'Order Number', value: meta.orderNumber }] : []),
     ...(meta.clientName ? [{ label: 'Client', value: meta.clientName }] : []),
-    { label: 'PO Number', value: meta.poNumber },
   ];
   const rowsHtml = detailRows
     .map(
@@ -107,6 +107,27 @@ function wrapEmailHtml(
         `<td style="padding:8px 0;border-bottom:1px solid #e5e7eb;font-weight:600;color:#111827;">${escapeHtml(String(r.value))}</td></tr>`,
     )
     .join('');
+  const noteBlock = contentHtml.trim()
+    ? `<div style="margin-bottom:24px;font-size:14px;line-height:1.6;color:#374151;">${contentHtml}</div>`
+    : '';
+  const itemsTable = (items || []).length
+    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;font-size:14px;color:#374151;margin-bottom:24px;">` +
+      `<thead><tr>` +
+      `<th align="left" style="padding:8px 0;border-bottom:1px solid #d1d5db;color:#6b7280;font-weight:600;width:70%;">Item</th>` +
+      `<th align="left" style="padding:8px 0;border-bottom:1px solid #d1d5db;color:#6b7280;font-weight:600;">Status</th>` +
+      `</tr></thead>` +
+      `<tbody>` +
+      items
+        .map(
+          (it) =>
+            `<tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#111827;vertical-align:middle;">${escapeHtml(it.name)}</td>` +
+            `<td style="padding:10px 0;border-bottom:1px solid #e5e7eb;vertical-align:middle;">` +
+            `<span style="display:inline-block;background-color:#e0f2f2;color:#0d7377;font-size:12px;font-weight:600;padding:4px 10px;border-radius:9999px;">${escapeHtml(it.stage)}</span>` +
+            `</td></tr>`,
+        )
+        .join('') +
+      `</tbody></table>`
+    : '';
   const trackButton = meta.trackingToken
     ? `<div style="margin-top:24px;text-align:center;">` +
       `<a href="https://supplierconnect.embossmarketing.in/track?t=${encodeURIComponent(meta.trackingToken)}" ` +
@@ -133,7 +154,8 @@ function wrapEmailHtml(
         <tr>
           <td style="padding:32px;font-size:14px;line-height:1.6;color:#374151;">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;color:#374151;line-height:1.5;margin-bottom:24px;">${rowsHtml}</table>
-            ${contentHtml}
+            ${noteBlock}
+            ${itemsTable}
             ${trackButton}
           </td>
         </tr>
