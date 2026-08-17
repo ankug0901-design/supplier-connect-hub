@@ -55,6 +55,7 @@ interface TrackPO {
     order_number: string | null;
     client_name: string | null;
     client_email: string | null;
+    tracking_token: string | null;
     overall_status: string | null;
   } | null;
   items: TrackItem[];
@@ -86,7 +87,32 @@ function mediaList(raw: any): MediaItem[] {
     .filter((m: any) => m?.url);
 }
 
-function wrapEmailHtml(contentHtml: string): string {
+function escapeHtml(s: string): string {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+function wrapEmailHtml(
+  contentHtml: string,
+  meta: { poNumber: string; orderNumber?: string | null; clientName?: string | null; trackingToken?: string | null },
+): string {
+  const detailRows = [
+    ...(meta.orderNumber ? [{ label: 'Order Number', value: meta.orderNumber }] : []),
+    ...(meta.clientName ? [{ label: 'Client', value: meta.clientName }] : []),
+    { label: 'PO Number', value: meta.poNumber },
+  ];
+  const rowsHtml = detailRows
+    .map(
+      (r) =>
+        `<tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;width:140px;vertical-align:top;">${r.label}</td>` +
+        `<td style="padding:8px 0;border-bottom:1px solid #e5e7eb;font-weight:600;color:#111827;">${escapeHtml(String(r.value))}</td></tr>`,
+    )
+    .join('');
+  const trackButton = meta.trackingToken
+    ? `<div style="margin-top:24px;text-align:center;">` +
+      `<a href="https://supplierconnect.embossmarketing.in/track?t=${encodeURIComponent(meta.trackingToken)}" ` +
+      `style="display:inline-block;background-color:#0d7377;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Track Your Order</a>` +
+      `</div>`
+    : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,7 +132,9 @@ function wrapEmailHtml(contentHtml: string): string {
         </tr>
         <tr>
           <td style="padding:32px;font-size:14px;line-height:1.6;color:#374151;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;color:#374151;line-height:1.5;margin-bottom:24px;">${rowsHtml}</table>
             ${contentHtml}
+            ${trackButton}
           </td>
         </tr>
         <tr>
