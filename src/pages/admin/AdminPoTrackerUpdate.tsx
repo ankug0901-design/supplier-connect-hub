@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown, Play, Mail, Truck,
+  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown, Play, Mail, Truck, Trash2,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -777,8 +777,25 @@ export default function AdminPoTrackerUpdate() {
   const [updates, setUpdates] = useState<RecentUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const updatedBy = supplier?.name || user?.email || 'Emboss Team';
+
+  const handleDeleteUpdate = async (updateId: string) => {
+    if (!window.confirm('Delete this update? This cannot be undone.')) return;
+    setDeletingId(updateId);
+    try {
+      const data = await poTrackerRpc({ action: 'delete_update', update_id: updateId });
+      if (data?.ok === false) throw new Error(data?.error || 'Delete failed');
+      toast({ title: 'Update deleted' });
+      await load();
+    } catch (e: any) {
+      toast({ title: 'Delete failed', description: e?.message, variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -868,13 +885,24 @@ export default function AdminPoTrackerUpdate() {
             <div className="space-y-2">
               {updates.map((u) => {
                 const media = mediaList(u.media_urls);
+                const isDeleting = deletingId === u.id;
                 return (
                   <Card key={u.id}>
-                    <CardContent className="flex flex-wrap items-start gap-3 p-4">
+                    <CardContent className="relative flex flex-wrap items-start gap-3 p-4">
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        onClick={() => handleDeleteUpdate(u.id)}
+                        className="absolute right-3 top-3 text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                        aria-label="Delete update"
+                        title="Delete update"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                       <CheckCircle2
                         className={cn('mt-0.5 h-4 w-4', u.status === 'completed' ? 'text-primary' : 'text-muted-foreground')}
                       />
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 pr-6">
                         <p className="text-sm font-medium">
                           {prettyStage(u.stage)}
                           {u.po?.po_number ? ` · PO ${u.po.po_number}` : ''}

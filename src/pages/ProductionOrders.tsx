@@ -3,7 +3,7 @@ import { prettyStage } from '@/lib/stageTemplates';
 
 import {
   Factory, Loader2, RefreshCw, ChevronLeft, Camera, Images, X, CheckCircle2,
-  Truck, Clock, AlertTriangle, Package, Send,
+  Truck, Clock, AlertTriangle, Package, Send, Trash2,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -353,6 +353,22 @@ function PODetailView({
   const clientOrderId = po.client_order?.id || po.client_order?.client_order_id || null;
   const poId = po.po_id || po.id || null;
   const updates: any[] = po.production_updates || [];
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDeleteUpdate = async (updateId: string) => {
+    if (!window.confirm('Delete this update? This cannot be undone.')) return;
+    setDeletingId(updateId);
+    try {
+      const data = await poTrackerRpc({ action: 'delete_update', update_id: updateId });
+      if (data?.ok === false) throw new Error(data?.error || 'Delete failed');
+      toast({ title: 'Update deleted' });
+      await onRefresh();
+    } catch (e: any) {
+      toast({ title: 'Delete failed', description: e?.message, variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const uploadFiles = async (fileList: FileList | null, existing: MediaItem[], setBusy: (b: boolean) => void, setItems: (m: MediaItem[]) => void) => {
     if (!fileList || fileList.length === 0) return;
@@ -428,10 +444,21 @@ function PODetailView({
               <ol className="space-y-4 border-l border-border pl-4">
                 {updates.map((u: any, i: number) => {
                   const media: any[] = Array.isArray(u.media_urls) ? u.media_urls : [];
+                  const isDeleting = deletingId === u.id;
                   return (
                     <li key={u.id || i} className="relative">
                       <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
-                      <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        onClick={() => u.id && handleDeleteUpdate(u.id)}
+                        className="absolute right-0 top-0 text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                        aria-label="Delete update"
+                        title="Delete update"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                      <div className="flex flex-wrap items-center gap-2 pr-6">
                         <span className="text-sm font-medium">{prettyStage(u.stage)}</span>
                         <Badge variant="secondary" className="text-[10px]">{prettyStage(u.status)}</Badge>
                         <span className="text-xs text-muted-foreground">
