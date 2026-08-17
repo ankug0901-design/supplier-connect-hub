@@ -633,7 +633,12 @@ function POCard({
         to: emailTo.trim(),
         cc: emailCc.trim(),
         subject: emailSubject,
-        html: wrapEmailHtml(emailBody.replace(/\n/g, '<br/>')),
+        html: wrapEmailHtml(emailBody.replace(/\n/g, '<br/>'), {
+          poNumber: po.po_number,
+          orderNumber: po.client_order?.order_number,
+          clientName: po.client_order?.client_name,
+          trackingToken: po.client_order?.tracking_token,
+        }),
       });
       toast({ title: 'Email sent' });
       setEmailOpen(false);
@@ -759,7 +764,7 @@ export default function AdminPoTrackerUpdate() {
       supabase
         .from('purchase_orders')
         .select(
-          'id, po_number, status, date, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, client_email, overall_status), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
+          'id, po_number, status, date, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, client_email, tracking_token, overall_status), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
         )
         .not('status', 'in', '(closed,cancelled,rejected,void)')
         .order('date', { ascending: false })
