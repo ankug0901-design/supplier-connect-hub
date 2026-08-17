@@ -506,6 +506,84 @@ function DayEv({ bg, fg, icon, count }: { bg: string; fg: string; icon: React.Re
   );
 }
 
+function DetailSection({ title, color, icon, children }: { title: string; color: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="mb-2 last:mb-0">
+      <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium" style={{ color }}>{icon}{title}</div>
+      <div>{children}</div>
+    </div>
+  );
+}
+function DetailRow({ children }: { children: React.ReactNode }) {
+  return <div className="border-b border-[#F3F4F6] py-1 text-[11px] leading-snug text-[#374151] last:border-b-0">{children}</div>;
+}
+
+function WeekDayCell({ d }: { d: WeekDay }) {
+  const empty = d.deliveries_count + d.bills_due_count + d.rfqs_closing_count + d.payments_count === 0;
+  const dayObj = new Date(d.date);
+  const isWeekend = dayObj.getDay() === 0 || dayObj.getDay() === 6;
+  const deliveries = d.deliveries || [];
+  const bills = d.bills_due || [];
+  const rfqs = d.rfqs_closing || [];
+  const payments = d.payments || [];
+  const hasDetails = deliveries.length + bills.length + rfqs.length + payments.length > 0;
+
+  const cell = (
+    <div
+      className={`flex-1 min-w-0 rounded-[10px] border p-2 text-center ${hasDetails ? 'cursor-pointer hover:shadow-sm' : ''} ${
+        d.is_today ? 'bg-white border-[1.5px] border-[#10B981] shadow-[0_0_0_3px_rgba(16,185,129,0.08)]' :
+        isWeekend || empty ? 'bg-[#FAFAFA] border-[#E5E7EB]' : 'bg-[#F9FAFB] border-[#E5E7EB]'
+      }`}
+    >
+      <div className={`text-[10px] font-medium tracking-wider ${d.is_today ? 'text-[#047857]' : isWeekend || empty ? 'text-[#9CA3AF]' : 'text-[#6B7280]'}`}>{d.day_name.toUpperCase()}</div>
+      <div className={`my-1 text-[20px] font-medium leading-none ${d.is_today ? 'text-[#047857]' : isWeekend || empty ? 'text-[#9CA3AF]' : 'text-[#111827]'}`}>{d.day_num}</div>
+      {empty ? <div className="text-[10.5px] text-[#9CA3AF] mt-2">—</div> : (
+        <div className="space-y-1">
+          {d.deliveries_count > 0 && <DayEv bg="#ECFDF5" fg="#047857" icon={<Truck className="h-2.5 w-2.5" />} count={d.deliveries_count} />}
+          {d.bills_due_count > 0 && <DayEv bg="#FFFBEB" fg="#92400E" icon={<Receipt className="h-2.5 w-2.5" />} count={d.bills_due_count} />}
+          {d.rfqs_closing_count > 0 && <DayEv bg="#FEF2F2" fg="#991B1B" icon={<Clock className="h-2.5 w-2.5" />} count={d.rfqs_closing_count} />}
+          {d.payments_count > 0 && <DayEv bg="#EFF6FF" fg="#1E40AF" icon={<CreditCard className="h-2.5 w-2.5" />} count={d.payments_count} />}
+        </div>
+      )}
+    </div>
+  );
+
+  if (!hasDetails) return cell;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="flex-1 min-w-0 text-left">{cell}</button>
+      </PopoverTrigger>
+      <PopoverContent align="center" className="w-[280px] max-w-[280px] p-3">
+        <div className="mb-2 text-[11px] font-medium text-[#6B7280]">{d.day_name}, {fmtShort(d.date)}</div>
+        {deliveries.length > 0 && (
+          <DetailSection title="Deliveries" color="#047857" icon={<Truck className="h-3 w-3" />}>
+            {deliveries.map((it, i) => <DetailRow key={i}>{it.po_number} · {it.supplier}</DetailRow>)}
+          </DetailSection>
+        )}
+        {bills.length > 0 && (
+          <DetailSection title="Bills due" color="#92400E" icon={<Receipt className="h-3 w-3" />}>
+            {bills.map((it, i) => <DetailRow key={i}>{it.invoice_number} · {it.supplier} · {fmtLakh(it.amount)}</DetailRow>)}
+          </DetailSection>
+        )}
+        {rfqs.length > 0 && (
+          <DetailSection title="RFQs closing" color="#991B1B" icon={<Clock className="h-3 w-3" />}>
+            {rfqs.map((it, i) => <DetailRow key={i}>{it.rfq_id} · {it.product}</DetailRow>)}
+          </DetailSection>
+        )}
+        {payments.length > 0 && (
+          <DetailSection title="Payments" color="#1E40AF" icon={<CreditCard className="h-3 w-3" />}>
+            {payments.map((it, i) => <DetailRow key={i}>{it.reference} · {it.supplier} · {fmtLakh(it.amount)}</DetailRow>)}
+          </DetailSection>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+
+
 function KpiGradient(props: {
   variant: 'k1' | 'k2' | 'k3' | 'k4';
   label: string; value: string; icon: React.ReactNode; iconBg: string; iconColor: string; labelColor: string;
