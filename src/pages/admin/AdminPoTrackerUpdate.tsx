@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown, Play,
+  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown, Play, Mail,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { poTrackerRpc } from '@/lib/poTracker';
 import { STAGE_TEMPLATES, prettyStage } from '@/lib/stageTemplates';
+import { n8nPost } from '@/lib/n8n';
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 const MEDIA_BUCKET = 'po-tracker-media';
@@ -50,6 +54,7 @@ interface TrackPO {
     id: string;
     order_number: string | null;
     client_name: string | null;
+    client_email: string | null;
     overall_status: string | null;
   } | null;
   items: TrackItem[];
@@ -334,10 +339,49 @@ function POCard({
   onDone: () => Promise<void> | void;
 }) {
   const lead = po.items[0];
+  const { toast } = useToast();
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailCc, setEmailCc] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+
+  const openEmail = () => {
+    setEmailTo(po.client_order?.client_email || '');
+    setEmailCc('');
+    setEmailSubject(`Production Update — PO ${po.po_number}`);
+    setEmailBody(
+      (po.items || [])
+        .map((it) => `${it.item_name || it.description || 'Item'}: ${prettyStage(it.current_stage || '') || 'Not started'}`)
+        .join('\n'),
+    );
+    setEmailOpen(true);
+  };
+
+  const sendEmail = async () => {
+    if (!emailTo.trim()) { toast({ title: 'Recipient is required', variant: 'destructive' }); return; }
+    setSending(true);
+    try {
+      await n8nPost('send-email', {
+        to: emailTo.trim(),
+        cc: emailCc.trim(),
+        subject: emailSubject,
+        html: emailBody.replace(/\n/g, '<br/>'),
+      });
+      toast({ title: 'Email sent' });
+      setEmailOpen(false);
+    } catch (e: any) {
+      toast({ title: 'Failed to send email', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <Card>
       <CardContent className="space-y-3 p-4">
-        <button type="button" onClick={onToggle} className="w-full text-left">
+        <div role="button" tabIndex={0} onClick={onToggle} className="w-full cursor-pointer text-left">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="font-semibold">PO {po.po_number}</p>
@@ -354,6 +398,15 @@ function POCard({
                 <Clock className="h-3 w-3" />
                 {fmt(po.updated_at)}
               </Badge>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                onClick={(e) => { e.stopPropagation(); openEmail(); }}
+              >
+                <Mail className="h-3.5 w-3.5" /> Send Email
+              </Button>
               <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} />
             </div>
           </div>
@@ -362,7 +415,39 @@ function POCard({
               <StageBar item={lead} />
             </div>
           )}
-        </button>
+        </div>
+
+        <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Send email — PO {po.po_number}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label>To</Label>
+                <Input value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="client@example.com" />
+              </div>
+              <div className="space-y-1">
+                <Label>Cc (comma separated)</Label>
+                <Input value={emailCc} onChange={(e) => setEmailCc(e.target.value)} placeholder="optional" />
+              </div>
+              <div className="space-y-1">
+                <Label>Subject</Label>
+                <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Message</Label>
+                <Textarea rows={6} value={emailBody} onChange={(e) => setEmailBody(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEmailOpen(false)} disabled={sending}>Cancel</Button>
+              <Button onClick={sendEmail} disabled={sending} className="gap-2">
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {expanded && (
           <div className="space-y-3 pt-1">
@@ -396,7 +481,7 @@ export default function AdminPoTrackerUpdate() {
       supabase
         .from('purchase_orders')
         .select(
-          'id, po_number, status, date, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, overall_status), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
+          'id, po_number, status, date, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, client_email, overall_status), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
         )
         .not('status', 'in', '(closed,cancelled,rejected,void)')
         .order('date', { ascending: false })
