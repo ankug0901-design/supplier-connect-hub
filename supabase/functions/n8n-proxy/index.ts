@@ -225,6 +225,9 @@ Deno.serve(async (req) => {
 
       if (path === 'notify-emboss-team') {
         const p = safePayload;
+        const order_number = String(p.order_number || '');
+        const client_name = String(p.client_name || '');
+        const tracking_token = String(p.tracking_token || '');
         const po_number = String(p.po_number || '');
         const item_name = String(p.item_name || '');
         const stage = String(p.stage || '');
@@ -233,6 +236,8 @@ Deno.serve(async (req) => {
         const supplier_name = String(p.supplier_name || '');
         const subject = `Production Update: PO ${po_number} — ${item_name || 'Item'}`;
         const detailRows = [
+          ...(order_number ? [{ label: 'Order Number', value: order_number }] : []),
+          ...(client_name ? [{ label: 'Client', value: client_name }] : []),
           { label: 'PO Number', value: po_number },
           { label: 'Item', value: item_name || 'Item' },
           { label: 'Stage', value: stage },
@@ -245,9 +250,16 @@ Deno.serve(async (req) => {
           `<tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;width:140px;vertical-align:top;">${r.label}</td>` +
           `<td style="padding:8px 0;border-bottom:1px solid #e5e7eb;font-weight:600;color:#111827;">${escapeHtml(r.value)}</td></tr>`
         ).join('');
+        const trackButton = tracking_token
+          ? `<div style="margin-top:24px;text-align:center;">` +
+            `<a href="https://supplierconnect.embossmarketing.in/track?t=${encodeURIComponent(tracking_token)}" ` +
+            `style="display:inline-block;background-color:#0d7377;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Track Your Order</a>` +
+            `</div>`
+          : '';
         const htmlBody = brandedEmailHtml(
           `<h2 style="margin:0 0 20px;color:#111827;font-size:20px;font-weight:700;">Production Update</h2>` +
-          `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;color:#374151;line-height:1.5;">${rowsHtml}</table>`
+          `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;color:#374151;line-height:1.5;">${rowsHtml}</table>` +
+          trackButton
         );
         return {
           url: `${N8N_BASE}/send-email`,
