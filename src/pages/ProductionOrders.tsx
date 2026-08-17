@@ -48,6 +48,7 @@ interface ProdPO {
     client_name?: string;
     expected_delivery?: string | null;
     overall_status?: string;
+    tracking_token?: string | null;
   } | null;
   items?: ProdItem[];
   production_updates?: any[];
@@ -408,6 +409,7 @@ function PODetailView({
             clientOrderId={clientOrderId}
             poId={poId}
             poNumber={po.po_number}
+            clientOrder={po.client_order}
             supplierName={supplierName}
             uploadFiles={uploadFiles}
             onDone={onRefresh}
@@ -477,13 +479,14 @@ function PODetailView({
 /* -------------------------------- Item card ------------------------------- */
 
 function ItemCard({
-  item, readOnly, clientOrderId, poId, poNumber, supplierName, uploadFiles, onDone,
+  item, readOnly, clientOrderId, poId, poNumber, clientOrder, supplierName, uploadFiles, onDone,
 }: {
   item: ProdItem;
   readOnly: boolean;
   clientOrderId: string | null;
   poId: string | null;
   poNumber: string;
+  clientOrder: ProdPO['client_order'];
   supplierName: string;
   uploadFiles: (fl: FileList | null, existing: MediaItem[], setBusy: (b: boolean) => void, setItems: (m: MediaItem[]) => void) => Promise<void>;
   onDone: () => Promise<void>;
@@ -522,6 +525,9 @@ function ItemCard({
       toast({ title: 'Production update submitted' });
       n8nPost('notify-emboss-team', {
         po_number: poNumber,
+        order_number: clientOrder?.order_number || '',
+        client_name: clientOrder?.client_name || '',
+        tracking_token: clientOrder?.tracking_token || '',
         item_name: item.item_name,
         stage,
         status,
@@ -647,6 +653,7 @@ function ItemCard({
             clientOrderId={clientOrderId}
             poId={poId}
             poNumber={poNumber}
+            clientOrder={clientOrder}
             supplierName={supplierName}
             itemQuantity={item.quantity}
             uploadFiles={uploadFiles}
@@ -661,12 +668,13 @@ function ItemCard({
 /* ------------------------------ Dispatch form ----------------------------- */
 
 function DispatchForm({
-  itemId, clientOrderId, poId, poNumber, supplierName, itemQuantity, uploadFiles, onDone,
+  itemId, clientOrderId, poId, poNumber, clientOrder, supplierName, itemQuantity, uploadFiles, onDone,
 }: {
   itemId: string;
   clientOrderId: string | null;
   poId: string | null;
   poNumber: string;
+  clientOrder: ProdPO['client_order'];
   supplierName: string;
   itemQuantity?: number | string;
   uploadFiles: (fl: FileList | null, existing: MediaItem[], setBusy: (b: boolean) => void, setItems: (m: MediaItem[]) => void) => Promise<void>;
@@ -711,6 +719,9 @@ function DispatchForm({
       toast({ title: 'Dispatch details submitted' });
       n8nPost('notify-emboss-team', {
         po_number: poNumber,
+        order_number: clientOrder?.order_number || '',
+        client_name: clientOrder?.client_name || '',
+        tracking_token: clientOrder?.tracking_token || '',
         item_name: '',
         stage: 'dispatched',
         status: 'completed',
