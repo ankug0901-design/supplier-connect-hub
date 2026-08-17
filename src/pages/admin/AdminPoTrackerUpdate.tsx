@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown,
+  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown, Play,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -305,7 +305,7 @@ function ItemUpdateForm({
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept="image/*,video/*"
           multiple
           className="hidden"
           onChange={(e) => upload(e.target.files)}
