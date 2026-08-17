@@ -172,9 +172,13 @@ function ItemUpdateForm({
     }
   };
 
+  const normalizedCustom = customStage.trim().toLowerCase().replace(/\s+/g, '_');
+  const isCustom = stage === CUSTOM_STAGE;
+  const effectiveStage = isCustom ? normalizedCustom : stage;
+
   const submit = async () => {
-    if (!stage) {
-      toast({ title: 'Select a stage', variant: 'destructive' });
+    if (!effectiveStage) {
+      toast({ title: 'Select or type a stage', variant: 'destructive' });
       return;
     }
     setSaving(true);
