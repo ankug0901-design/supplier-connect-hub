@@ -312,7 +312,7 @@ function ItemUpdateForm({
         />
       </div>
 
-      <Button onClick={submit} disabled={saving || uploading} className="w-full sm:w-auto">
+      <Button onClick={submit} disabled={saving || uploading || !effectiveStage} className="w-full sm:w-auto">
         {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
         Post update
       </Button>
