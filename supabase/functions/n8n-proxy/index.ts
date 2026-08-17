@@ -56,6 +56,10 @@ const GET_PATHS = new Set([
   'rfq-price-trends',
 ]);
 
+function escapeHtml(s: string): string {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -183,6 +187,40 @@ Deno.serve(async (req) => {
       }
       const safePayload = { ...(payload as Record<string, unknown>) };
       delete safePayload.access_code;
+
+      if (path === 'notify-emboss-team') {
+        const p = safePayload;
+        const po_number = String(p.po_number || '');
+        const item_name = String(p.item_name || '');
+        const stage = String(p.stage || '');
+        const status = String(p.status || '');
+        const note = String(p.note || '');
+        const supplier_name = String(p.supplier_name || '');
+        const subject = `Production Update: PO ${po_number} — ${item_name || 'Item'}`;
+        const htmlBody = [
+          '<p><strong>PO Number:</strong> ' + escapeHtml(po_number) + '</p>',
+          '<p><strong>Item:</strong> ' + escapeHtml(item_name || 'Item') + '</p>',
+          '<p><strong>Stage:</strong> ' + escapeHtml(stage) + '</p>',
+          '<p><strong>Status:</strong> ' + escapeHtml(status) + '</p>',
+          note ? '<p><strong>Note:</strong> ' + escapeHtml(note) + '</p>' : '',
+          '<p><strong>Supplier:</strong> ' + escapeHtml(supplier_name) + '</p>',
+          '<p><strong>Timestamp:</strong> ' + escapeHtml(new Date().toISOString()) + '</p>',
+        ].join('');
+        return {
+          url: `${N8N_BASE}/send-email`,
+          init: {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              access_code: accessCode,
+              to: 'pooja.rathee@embossmarketing.in,hkumar@embossmarketing.in,ankur.gupta@embossmarketing.in',
+              subject,
+              html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#111827;">${htmlBody}</body></html>`,
+            }),
+          },
+        };
+      }
+
       if (GET_PATHS.has(path!)) {
         const qs = new URLSearchParams({ access_code: accessCode });
         for (const [k, v] of Object.entries(safePayload)) {
