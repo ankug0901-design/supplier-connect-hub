@@ -363,6 +363,7 @@ export default function AdminPoTrackerUpdate() {
         .select(
           'id, po_number, status, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, overall_status), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
         )
+        .not('status', 'in', '(closed,cancelled,rejected,void)')
         .order('updated_at', { ascending: false })
         .limit(300),
       supabase
