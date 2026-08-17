@@ -104,6 +104,26 @@ export interface AiInsight {
   action_url: string;
 }
 
+export interface WeekDayDelivery {
+  po_number: string;
+  supplier: string;
+  item: string;
+}
+export interface WeekDayBill {
+  invoice_number: string;
+  supplier: string;
+  amount: number;
+}
+export interface WeekDayRfq {
+  rfq_id: string;
+  product: string;
+}
+export interface WeekDayPayment {
+  reference: string;
+  supplier: string;
+  amount: number;
+}
+
 export interface WeekDay {
   date: string;
   day_name: string;
@@ -113,6 +133,10 @@ export interface WeekDay {
   bills_due_count: number;
   rfqs_closing_count: number;
   payments_count: number;
+  deliveries?: WeekDayDelivery[];
+  bills_due?: WeekDayBill[];
+  rfqs_closing?: WeekDayRfq[];
+  payments?: WeekDayPayment[];
 }
 export interface ThisWeek {
   days: WeekDay[];
