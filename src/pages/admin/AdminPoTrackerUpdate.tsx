@@ -188,7 +188,7 @@ function ItemUpdateForm({
         client_order_id: po.client_order?.id ?? null,
         po_id: po.id,
         item_id: item.id,
-        stage,
+        stage: effectiveStage,
         status,
         note,
         media_urls: media,
