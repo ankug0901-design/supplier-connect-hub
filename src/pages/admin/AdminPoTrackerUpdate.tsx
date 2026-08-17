@@ -159,7 +159,9 @@ function ItemUpdateForm({
         });
         if (error) throw error;
         const url = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
-        next.push({ url, type: file.type || 'image', filename: file.name });
+        const isVid =
+          (file.type || '').startsWith('video/') || /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(file.name);
+        next.push({ url, type: isVid ? 'video' : 'image', filename: file.name });
       }
       setMedia((m) => [...m, ...next]);
     } catch (e: any) {
