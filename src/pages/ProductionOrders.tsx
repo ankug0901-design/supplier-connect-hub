@@ -353,6 +353,22 @@ function PODetailView({
   const clientOrderId = po.client_order?.id || po.client_order?.client_order_id || null;
   const poId = po.po_id || po.id || null;
   const updates: any[] = po.production_updates || [];
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDeleteUpdate = async (updateId: string) => {
+    if (!window.confirm('Delete this update? This cannot be undone.')) return;
+    setDeletingId(updateId);
+    try {
+      const data = await poTrackerRpc({ action: 'delete_update', update_id: updateId });
+      if (data?.ok === false) throw new Error(data?.error || 'Delete failed');
+      toast({ title: 'Update deleted' });
+      await onRefresh();
+    } catch (e: any) {
+      toast({ title: 'Delete failed', description: e?.message, variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const uploadFiles = async (fileList: FileList | null, existing: MediaItem[], setBusy: (b: boolean) => void, setItems: (m: MediaItem[]) => void) => {
     if (!fileList || fileList.length === 0) return;
