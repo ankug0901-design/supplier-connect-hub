@@ -692,14 +692,21 @@ function POCard({
             {po.items.length === 0 ? (
               <p className="text-sm text-muted-foreground">No line items on this PO.</p>
             ) : (
-              po.items.map((it) => (
-                <div key={it.id} className="space-y-3">
-                  <ItemUpdateForm po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
-                  {it.current_stage === 'ready_for_dispatch' && (
-                    <AdminDispatchForm po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
-                  )}
-                </div>
-              ))
+              po.items.map((it) => {
+                const itStages = stagesFor(it);
+                const itCompleted = it.completed_stages || [];
+                const readyForDispatch =
+                  it.current_stage === 'ready_for_dispatch' ||
+                  (itStages.length > 0 && itCompleted.length >= itStages.length);
+                return (
+                  <div key={it.id} className="space-y-3">
+                    <ItemUpdateForm po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
+                    {readyForDispatch && (
+                      <AdminDispatchForm po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         )}
