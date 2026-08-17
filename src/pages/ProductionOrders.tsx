@@ -648,6 +648,7 @@ function ItemCard({
             poId={poId}
             poNumber={poNumber}
             supplierName={supplierName}
+            itemQuantity={item.quantity}
             uploadFiles={uploadFiles}
             onDone={onDone}
           />
@@ -660,20 +661,21 @@ function ItemCard({
 /* ------------------------------ Dispatch form ----------------------------- */
 
 function DispatchForm({
-  itemId, clientOrderId, poId, poNumber, supplierName, uploadFiles, onDone,
+  itemId, clientOrderId, poId, poNumber, supplierName, itemQuantity, uploadFiles, onDone,
 }: {
   itemId: string;
   clientOrderId: string | null;
   poId: string | null;
   poNumber: string;
   supplierName: string;
+  itemQuantity?: number | string;
   uploadFiles: (fl: FileList | null, existing: MediaItem[], setBusy: (b: boolean) => void, setItems: (m: MediaItem[]) => void) => Promise<void>;
   onDone: () => Promise<void>;
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    vehicle_number: '', transporter_name: '', lr_number: '', driver_name: '',
+    vehicle_number: '', dispatch_quantity: '', transporter_name: '', lr_number: '', driver_name: '',
     driver_phone: '', eway_bill_number: '', expected_arrival: '', notes: '',
   });
   const [vehicleMedia, setVehicleMedia] = useState<MediaItem[]>([]);
@@ -698,6 +700,7 @@ function DispatchForm({
         po_id: poId,
         item_id: itemId,
         ...form,
+        dispatch_quantity: form.dispatch_quantity || null,
         vehicle_photo_url: vehicleMedia[0]?.url || null,
         eway_bill_url: ewayMedia[0]?.url || null,
         loading_photo_urls: vehicleMedia,
@@ -737,6 +740,7 @@ function DispatchForm({
         <div className="mt-4 space-y-3">
           {([
             ['vehicle_number', 'Vehicle number *'],
+            ['dispatch_quantity', 'Quantity being dispatched'],
             ['transporter_name', 'Transporter name'],
             ['lr_number', 'LR / Docket number'],
             ['driver_name', 'Driver name'],
@@ -745,7 +749,13 @@ function DispatchForm({
           ] as const).map(([key, label]) => (
             <div key={key} className="space-y-1.5">
               <Label>{label}</Label>
-              <Input className="h-12" value={form[key]} onChange={set(key)} />
+              <Input
+                className="h-12"
+                type={key === 'dispatch_quantity' ? 'number' : 'text'}
+                placeholder={key === 'dispatch_quantity' && itemQuantity ? `Ordered: ${itemQuantity}` : undefined}
+                value={form[key]}
+                onChange={set(key)}
+              />
             </div>
           ))}
           <div className="space-y-1.5">
