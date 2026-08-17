@@ -20,7 +20,12 @@ import { STAGE_TEMPLATES, prettyStage } from '@/lib/stageTemplates';
 import { cn } from '@/lib/utils';
 
 const MEDIA_BUCKET = 'po-tracker-media';
-const MAX_FILES = 5;
+const MAX_FILES = 10;
+const CUSTOM_STAGE = '__custom__';
+
+const isVideoItem = (m: { type?: string; filename?: string; url?: string }) =>
+  (m.type || '').startsWith('video') ||
+  /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(m.filename || m.url || '');
 
 type MediaItem = { url: string; type: string; filename: string };
 
