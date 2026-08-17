@@ -656,25 +656,34 @@ function SpendChart({ data }: { data: SpendTrendPoint[] }) {
 }
 
 function ApAgingDonut({ a030, a3160, a60 }: { a030: number; a3160: number; a60: number }) {
+  const navigate = useNavigate();
   const total = a030 + a3160 + a60;
   const C = 2 * Math.PI * 44;
   const s1 = total ? (a030 / total) * C : 0;
   const s2 = total ? (a3160 / total) * C : 0;
   const s3 = total ? (a60 / total) * C : 0;
+  const go = (bucket: string) => () => navigate(`/invoices?aging=${bucket}`);
+  const arcProps = (bucket: string, label: string) => ({
+    onClick: go(bucket),
+    role: 'button' as const,
+    tabIndex: 0,
+    'aria-label': `View invoices aged ${label}`,
+    className: 'cursor-pointer transition-opacity hover:opacity-80',
+  });
   return (
     <div className="flex items-center gap-3.5">
       <svg width="130" height="130" viewBox="0 0 120 120">
         <circle cx="60" cy="60" r="44" fill="none" stroke="#F3F4F6" strokeWidth="15" />
-        <circle cx="60" cy="60" r="44" fill="none" stroke="#FCD34D" strokeWidth="15" strokeDasharray={`${s1} ${C - s1}`} transform="rotate(-90 60 60)" />
-        <circle cx="60" cy="60" r="44" fill="none" stroke="#FB923C" strokeWidth="15" strokeDasharray={`${s2} ${C - s2}`} strokeDashoffset={`-${s1}`} transform="rotate(-90 60 60)" />
-        <circle cx="60" cy="60" r="44" fill="none" stroke="#DC2626" strokeWidth="15" strokeDasharray={`${s3} ${C - s3}`} strokeDashoffset={`-${s1 + s2}`} transform="rotate(-90 60 60)" />
+        <circle {...arcProps('0-30', '0-30 days')} cx="60" cy="60" r="44" fill="none" stroke="#FCD34D" strokeWidth="15" strokeDasharray={`${s1} ${C - s1}`} transform="rotate(-90 60 60)" />
+        <circle {...arcProps('31-60', '31-60 days')} cx="60" cy="60" r="44" fill="none" stroke="#FB923C" strokeWidth="15" strokeDasharray={`${s2} ${C - s2}`} strokeDashoffset={`-${s1}`} transform="rotate(-90 60 60)" />
+        <circle {...arcProps('60-plus', '60 days or more')} cx="60" cy="60" r="44" fill="none" stroke="#DC2626" strokeWidth="15" strokeDasharray={`${s3} ${C - s3}`} strokeDashoffset={`-${s1 + s2}`} transform="rotate(-90 60 60)" />
         <text x="60" y="58" textAnchor="middle" fontSize="16" fontWeight="500" fill="#111827">{fmtLakh(total)}</text>
         <text x="60" y="73" textAnchor="middle" fontSize="10" fill="#6B7280">total AP</text>
       </svg>
       <div className="flex-1 text-[12px]">
-        <div className="flex justify-between border-b border-[#F3F4F6] py-1.5"><Legend dot="#FCD34D" label="0-30 d" /><span className="font-medium">{fmtLakh(a030)}</span></div>
-        <div className="flex justify-between border-b border-[#F3F4F6] py-1.5"><Legend dot="#FB923C" label="31-60 d" /><span className="font-medium">{fmtLakh(a3160)}</span></div>
-        <div className="flex justify-between py-1.5"><Legend dot="#DC2626" label="60+ d" /><span className="font-medium text-[#991B1B]">{fmtLakh(a60)}</span></div>
+        <Link to="/invoices?aging=0-30" className="flex justify-between rounded-[6px] border-b border-[#F3F4F6] px-1 py-1.5 transition-colors hover:bg-[#F9FAFB]"><Legend dot="#FCD34D" label="0-30 d" /><span className="font-medium">{fmtLakh(a030)}</span></Link>
+        <Link to="/invoices?aging=31-60" className="flex justify-between rounded-[6px] border-b border-[#F3F4F6] px-1 py-1.5 transition-colors hover:bg-[#F9FAFB]"><Legend dot="#FB923C" label="31-60 d" /><span className="font-medium">{fmtLakh(a3160)}</span></Link>
+        <Link to="/invoices?aging=60-plus" className="flex justify-between rounded-[6px] px-1 py-1.5 transition-colors hover:bg-[#F9FAFB]"><Legend dot="#DC2626" label="60+ d" /><span className="font-medium text-[#991B1B]">{fmtLakh(a60)}</span></Link>
       </div>
     </div>
   );
