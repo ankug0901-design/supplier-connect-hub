@@ -730,7 +730,7 @@ function POCard({
               </div>
               <div className="space-y-1">
                 <Label>Message</Label>
-                <Textarea rows={6} value={emailBody} onChange={(e) => setEmailBody(e.target.value)} />
+                <Textarea rows={6} value={emailBody} onChange={(e) => setEmailBody(e.target.value)} placeholder="Optional note to include…" />
               </div>
             </div>
             <DialogFooter>
