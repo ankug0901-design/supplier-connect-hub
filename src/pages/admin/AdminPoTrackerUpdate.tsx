@@ -639,11 +639,7 @@ function POCard({
     setEmailTo(po.client_order?.client_email || '');
     setEmailCc('');
     setEmailSubject(`Production Update — PO ${po.po_number}`);
-    setEmailBody(
-      (po.items || [])
-        .map((it) => `${it.item_name || it.description || 'Item'}: ${prettyStage(it.current_stage || '') || 'Not started'}`)
-        .join('\n'),
-    );
+    setEmailBody('');
     setEmailOpen(true);
   };
 
@@ -651,16 +647,20 @@ function POCard({
     if (!emailTo.trim()) { toast({ title: 'Recipient is required', variant: 'destructive' }); return; }
     setSending(true);
     try {
+      const mappedItems = (po.items || [])
+        .map((it) => ({
+          name: it.item_name || it.description || 'Item',
+          stage: prettyStage(it.current_stage || '') || 'Not started',
+        }));
       await n8nPost('send-email', {
         to: emailTo.trim(),
         cc: emailCc.trim(),
         subject: emailSubject,
         html: wrapEmailHtml(emailBody.replace(/\n/g, '<br/>'), {
-          poNumber: po.po_number,
           orderNumber: po.client_order?.order_number,
           clientName: po.client_order?.client_name,
           trackingToken: po.client_order?.tracking_token,
-        }),
+        }, mappedItems),
       });
       toast({ title: 'Email sent' });
       setEmailOpen(false);
