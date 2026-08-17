@@ -266,11 +266,20 @@ function ItemUpdateForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Photos ({media.length}/{MAX_FILES})</Label>
+        <Label>Photos & Videos ({media.length}/{MAX_FILES})</Label>
         <div className="flex flex-wrap gap-2">
           {media.map((m, i) => (
             <div key={m.url} className="relative">
-              <img src={m.url} alt={m.filename || 'Update photo'} className="h-16 w-16 rounded-md object-cover" />
+              {isVideoItem(m) ? (
+                <div className="relative h-16 w-16 overflow-hidden rounded-md bg-black">
+                  <video src={m.url} muted playsInline className="h-full w-full object-cover" />
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <Play className="h-5 w-5 text-white drop-shadow" />
+                  </div>
+                </div>
+              ) : (
+                <img src={m.url} alt={m.filename || 'Update photo'} className="h-16 w-16 rounded-md object-cover" />
+              )}
               <button
                 type="button"
                 onClick={() => setMedia((arr) => arr.filter((_, idx) => idx !== i))}
