@@ -227,8 +227,21 @@ function ItemUpdateForm({
               {stages.map((s) => (
                 <SelectItem key={s} value={s}>{prettyStage(s)}</SelectItem>
               ))}
+              <SelectItem value={CUSTOM_STAGE}>Other (type a stage)…</SelectItem>
             </SelectContent>
           </Select>
+          {isCustom && (
+            <>
+              <Input
+                value={customStage}
+                onChange={(e) => setCustomStage(e.target.value)}
+                placeholder="Type stage name e.g. Printing"
+              />
+              {!normalizedCustom && (
+                <p className="text-xs text-destructive">Enter a stage name to continue.</p>
+              )}
+            </>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label>Status</Label>
