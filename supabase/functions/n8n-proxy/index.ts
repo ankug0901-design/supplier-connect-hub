@@ -60,6 +60,41 @@ function escapeHtml(s: string): string {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
+function brandedEmailHtml(contentHtml: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emboss Marketing</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f3f4f6">
+    <tr><td align="center" style="padding:24px 0;">
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+        <tr>
+          <td style="background-color:#0d7377;padding:24px 32px;">
+            <div style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:0.5px;">EMBOSS MARKETING</div>
+            <div style="color:#a5f3f3;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-top:4px;">PRINTING · PACKAGING · POS MATERIALS</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            ${contentHtml}
+          </td>
+        </tr>
+        <tr>
+          <td style="background-color:#f9fafb;padding:16px 32px;text-align:center;color:#6b7280;font-size:12px;line-height:1.5;">
+            Emboss Marketing LLP · Gurugram, Haryana
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -197,15 +232,23 @@ Deno.serve(async (req) => {
         const note = String(p.note || '');
         const supplier_name = String(p.supplier_name || '');
         const subject = `Production Update: PO ${po_number} — ${item_name || 'Item'}`;
-        const htmlBody = [
-          '<p><strong>PO Number:</strong> ' + escapeHtml(po_number) + '</p>',
-          '<p><strong>Item:</strong> ' + escapeHtml(item_name || 'Item') + '</p>',
-          '<p><strong>Stage:</strong> ' + escapeHtml(stage) + '</p>',
-          '<p><strong>Status:</strong> ' + escapeHtml(status) + '</p>',
-          note ? '<p><strong>Note:</strong> ' + escapeHtml(note) + '</p>' : '',
-          '<p><strong>Supplier:</strong> ' + escapeHtml(supplier_name) + '</p>',
-          '<p><strong>Timestamp:</strong> ' + escapeHtml(new Date().toISOString()) + '</p>',
-        ].join('');
+        const detailRows = [
+          { label: 'PO Number', value: po_number },
+          { label: 'Item', value: item_name || 'Item' },
+          { label: 'Stage', value: stage },
+          { label: 'Status', value: status },
+          ...(note ? [{ label: 'Note', value: note }] : []),
+          { label: 'Supplier', value: supplier_name },
+          { label: 'Timestamp', value: new Date().toISOString() },
+        ];
+        const rowsHtml = detailRows.map((r) =>
+          `<tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;width:140px;vertical-align:top;">${r.label}</td>` +
+          `<td style="padding:8px 0;border-bottom:1px solid #e5e7eb;font-weight:600;color:#111827;">${escapeHtml(r.value)}</td></tr>`
+        ).join('');
+        const htmlBody = brandedEmailHtml(
+          `<h2 style="margin:0 0 20px;color:#111827;font-size:20px;font-weight:700;">Production Update</h2>` +
+          `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;color:#374151;line-height:1.5;">${rowsHtml}</table>`
+        );
         return {
           url: `${N8N_BASE}/send-email`,
           init: {
@@ -215,7 +258,7 @@ Deno.serve(async (req) => {
               access_code: accessCode,
               to: 'pooja.rathee@embossmarketing.in,hkumar@embossmarketing.in,ankur.gupta@embossmarketing.in',
               subject,
-              html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#111827;">${htmlBody}</body></html>`,
+              html: htmlBody,
             }),
           },
         };
