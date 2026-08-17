@@ -385,7 +385,7 @@ export type Database = {
           id: string
           invoice_number: string
           payment_date: string | null
-          po_id: string
+          po_id: string | null
           status: string
           supplier_id: string
           updated_at: string
@@ -403,7 +403,7 @@ export type Database = {
           id?: string
           invoice_number: string
           payment_date?: string | null
-          po_id: string
+          po_id?: string | null
           status?: string
           supplier_id: string
           updated_at?: string
@@ -421,7 +421,7 @@ export type Database = {
           id?: string
           invoice_number?: string
           payment_date?: string | null
-          po_id?: string
+          po_id?: string | null
           status?: string
           supplier_id?: string
           updated_at?: string
