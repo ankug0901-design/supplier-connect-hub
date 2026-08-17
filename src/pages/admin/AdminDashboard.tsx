@@ -7,6 +7,7 @@ import {
   CircleCheck, ArrowRight, IndianRupee, CalendarClock, CheckCheck,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   useDashboardData,
   type ActivityEvent,
