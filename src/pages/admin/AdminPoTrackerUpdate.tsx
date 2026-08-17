@@ -498,7 +498,16 @@ export default function AdminPoTrackerUpdate() {
                         <div className="flex gap-1">
                           {media.slice(0, 4).map((m) => (
                             <a key={m.url} href={m.url} target="_blank" rel="noreferrer">
-                              <img src={m.url} alt={m.filename || 'Update photo'} className="h-12 w-12 rounded object-cover" />
+                              {isVideoItem(m) ? (
+                                <div className="relative h-12 w-12 overflow-hidden rounded bg-black">
+                                  <video src={m.url} muted playsInline className="h-full w-full object-cover" />
+                                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                    <Play className="h-4 w-4 text-white drop-shadow" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <img src={m.url} alt={m.filename || 'Update photo'} className="h-12 w-12 rounded object-cover" />
+                              )}
                             </a>
                           ))}
                         </div>
