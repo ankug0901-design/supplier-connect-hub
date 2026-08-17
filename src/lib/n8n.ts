@@ -14,7 +14,9 @@ export type N8nPath =
   | 'rfq-tca-report'
   | 'rfq-dashboard'
   | 'rfq-price-trends'
-  | 'po-tracker';
+  | 'po-tracker'
+  | 'send-email'
+  | 'notify-emboss-team';
 
 export interface N8nResult {
   ok: boolean;
