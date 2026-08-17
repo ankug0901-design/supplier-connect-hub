@@ -25,6 +25,8 @@ const ALLOWED_PATHS = new Set([
   'rfq-dashboard',
   'rfq-price-trends',
   'po-tracker',
+  'send-email',
+  'notify-emboss-team',
 ]);
 
 // Subset of paths that only top-tier admins are allowed to invoke.
@@ -33,6 +35,7 @@ const ADMIN_ONLY_PATHS = new Set([
   'bulk-register-suppliers',
   'rfq-send-attachment',
   'delhivery-b2b-master',
+  'send-email',
 ]);
 
 // RFQ operators may invoke these when they have RFQ Management page access.
