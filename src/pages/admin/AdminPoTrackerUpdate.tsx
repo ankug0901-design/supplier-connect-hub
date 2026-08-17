@@ -325,6 +325,209 @@ function ItemUpdateForm({
   );
 }
 
+function AdminDispatchForm({
+  po,
+  item,
+  updatedBy,
+  onDone,
+}: {
+  po: TrackPO;
+  item: TrackItem;
+  updatedBy: string;
+  onDone: () => Promise<void> | void;
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    vehicle_number: '', dispatch_quantity: '', transporter_name: '', lr_number: '', driver_name: '',
+    driver_phone: '', eway_bill_number: '', expected_arrival: '', notes: '',
+  });
+  const [vehicleMedia, setVehicleMedia] = useState<MediaItem[]>([]);
+  const [ewayMedia, setEwayMedia] = useState<MediaItem[]>([]);
+  const [busyA, setBusyA] = useState(false);
+  const [busyB, setBusyB] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const vehicleRef = useRef<HTMLInputElement>(null);
+  const ewayRef = useRef<HTMLInputElement>(null);
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const uploadTo = async (
+    fl: FileList | null,
+    existing: MediaItem[],
+    setBusy: (b: boolean) => void,
+    setItems: React.Dispatch<React.SetStateAction<MediaItem[]>>,
+    inputRef: React.RefObject<HTMLInputElement>,
+  ) => {
+    if (!fl?.length) return;
+    const files = Array.from(fl).slice(0, MAX_FILES - existing.length);
+    setBusy(true);
+    try {
+      const next: MediaItem[] = [];
+      for (const file of files) {
+        const path = `${po.id}/${item.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]+/g, '_')}`;
+        const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, file, {
+          contentType: file.type || undefined,
+          upsert: false,
+        });
+        if (error) throw error;
+        const url = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+        const isVid =
+          (file.type || '').startsWith('video/') || /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(file.name);
+        next.push({ url, type: isVid ? 'video' : 'image', filename: file.name });
+      }
+      setItems((m) => [...m, ...next]);
+    } catch (e: any) {
+      toast({ title: 'Upload failed', description: e?.message, variant: 'destructive' });
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const submit = async () => {
+    if (!form.vehicle_number.trim()) {
+      toast({ title: 'Vehicle number is required', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const data = await poTrackerRpc({
+        action: 'dispatch',
+        client_order_id: po.client_order?.id ?? null,
+        po_id: po.id,
+        item_id: item.id,
+        ...form,
+        dispatch_quantity: form.dispatch_quantity || null,
+        vehicle_photo_url: vehicleMedia[0]?.url || null,
+        eway_bill_url: ewayMedia[0]?.url || null,
+        loading_photo_urls: vehicleMedia,
+        updated_by: updatedBy,
+        notify_client: true,
+      });
+      if (data?.ok === false) throw new Error(data?.error || 'Dispatch failed');
+      toast({ title: 'Dispatch details submitted' });
+      setOpen(false);
+      await onDone();
+    } catch (e: any) {
+      toast({ title: 'Dispatch failed', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderUploader = (
+    label: string,
+    files: MediaItem[],
+    setFiles: React.Dispatch<React.SetStateAction<MediaItem[]>>,
+    busy: boolean,
+    inputRef: React.RefObject<HTMLInputElement>,
+    setBusy: (b: boolean) => void,
+  ) => (
+    <div className="space-y-2">
+      <Label>{label} ({files.length}/{MAX_FILES})</Label>
+      <div className="flex flex-wrap gap-2">
+        {files.map((m, i) => (
+          <div key={m.url} className="relative">
+            {isVideoItem(m) ? (
+              <div className="relative h-16 w-16 overflow-hidden rounded-md bg-black">
+                <video src={m.url} muted playsInline className="h-full w-full object-cover" />
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <Play className="h-5 w-5 text-white drop-shadow" />
+                </div>
+              </div>
+            ) : (
+              <img src={m.url} alt={m.filename || label} className="h-16 w-16 rounded-md object-cover" />
+            )}
+            <button
+              type="button"
+              onClick={() => setFiles((arr) => arr.filter((_, idx) => idx !== i))}
+              className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+        {files.length < MAX_FILES && (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-16 w-16 flex-col gap-1"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Images className="h-4 w-4" />}
+            <span className="text-[10px]">Add</span>
+          </Button>
+        )}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,video/*"
+        multiple
+        className="hidden"
+        onChange={(e) => uploadTo(e.target.files, files, setBusy, setFiles, inputRef)}
+      />
+    </div>
+  );
+
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+      <div className="flex items-center gap-2">
+        <Truck className="h-4 w-4 text-primary" />
+        <p className="text-sm font-semibold">Ready for dispatch — {item.item_name || item.description}</p>
+      </div>
+      <Button className="mt-3 w-full gap-2 sm:w-auto" variant={open ? 'outline' : 'default'} onClick={() => setOpen((v) => !v)}>
+        {open ? 'Cancel' : 'Submit Dispatch Details'}
+      </Button>
+
+      {open && (
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {([
+              ['vehicle_number', 'Vehicle number *'],
+              ['dispatch_quantity', 'Quantity being dispatched'],
+              ['transporter_name', 'Transporter name'],
+              ['lr_number', 'LR / Docket number'],
+              ['driver_name', 'Driver name'],
+              ['driver_phone', 'Driver phone'],
+              ['eway_bill_number', 'E-way bill number'],
+            ] as const).map(([key, label]) => (
+              <div key={key} className="space-y-1.5">
+                <Label>{label}</Label>
+                <Input
+                  type={key === 'dispatch_quantity' ? 'number' : 'text'}
+                  placeholder={key === 'dispatch_quantity' && item.quantity ? `Ordered: ${item.quantity}` : undefined}
+                  value={form[key]}
+                  onChange={set(key)}
+                />
+              </div>
+            ))}
+            <div className="space-y-1.5">
+              <Label>Expected arrival</Label>
+              <Input type="date" value={form.expected_arrival} onChange={set('expected_arrival')} />
+            </div>
+          </div>
+
+          {renderUploader('Vehicle loaded photo', vehicleMedia, setVehicleMedia, busyA, vehicleRef, setBusyA)}
+          {renderUploader('E-way bill photo', ewayMedia, setEwayMedia, busyB, ewayRef, setBusyB)}
+
+          <div className="space-y-1.5">
+            <Label>Notes</Label>
+            <Textarea rows={3} value={form.notes} onChange={set('notes')} />
+          </div>
+
+          <Button className="w-full gap-2 sm:w-auto" onClick={submit} disabled={saving || busyA || busyB}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />} Submit Dispatch
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function POCard({
   po,
   expanded,
