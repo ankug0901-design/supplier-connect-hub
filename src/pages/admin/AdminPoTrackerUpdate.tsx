@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown,
+  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown, Play,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,12 @@ import { STAGE_TEMPLATES, prettyStage } from '@/lib/stageTemplates';
 import { cn } from '@/lib/utils';
 
 const MEDIA_BUCKET = 'po-tracker-media';
-const MAX_FILES = 5;
+const MAX_FILES = 10;
+const CUSTOM_STAGE = '__custom__';
+
+const isVideoItem = (m: { type?: string; filename?: string; url?: string }) =>
+  (m.type || '').startsWith('video') ||
+  /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(m.filename || m.url || '');
 
 type MediaItem = { url: string; type: string; filename: string };
 
@@ -132,6 +137,7 @@ function ItemUpdateForm({
   const { toast } = useToast();
   const stages = stagesFor(item);
   const [stage, setStage] = useState<string>(item.current_stage || stages[0]);
+  const [customStage, setCustomStage] = useState('');
   const [status, setStatus] = useState<'completed' | 'in_progress'>('completed');
   const [note, setNote] = useState('');
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -153,7 +159,9 @@ function ItemUpdateForm({
         });
         if (error) throw error;
         const url = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
-        next.push({ url, type: file.type || 'image', filename: file.name });
+        const isVid =
+          (file.type || '').startsWith('video/') || /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(file.name);
+        next.push({ url, type: isVid ? 'video' : 'image', filename: file.name });
       }
       setMedia((m) => [...m, ...next]);
     } catch (e: any) {
@@ -164,9 +172,13 @@ function ItemUpdateForm({
     }
   };
 
+  const normalizedCustom = customStage.trim().toLowerCase().replace(/\s+/g, '_');
+  const isCustom = stage === CUSTOM_STAGE;
+  const effectiveStage = isCustom ? normalizedCustom : stage;
+
   const submit = async () => {
-    if (!stage) {
-      toast({ title: 'Select a stage', variant: 'destructive' });
+    if (!effectiveStage) {
+      toast({ title: 'Select or type a stage', variant: 'destructive' });
       return;
     }
     setSaving(true);
@@ -176,7 +188,7 @@ function ItemUpdateForm({
         client_order_id: po.client_order?.id ?? null,
         po_id: po.id,
         item_id: item.id,
-        stage,
+        stage: effectiveStage,
         status,
         note,
         media_urls: media,
@@ -215,8 +227,21 @@ function ItemUpdateForm({
               {stages.map((s) => (
                 <SelectItem key={s} value={s}>{prettyStage(s)}</SelectItem>
               ))}
+              <SelectItem value={CUSTOM_STAGE}>Other (type a stage)…</SelectItem>
             </SelectContent>
           </Select>
+          {isCustom && (
+            <>
+              <Input
+                value={customStage}
+                onChange={(e) => setCustomStage(e.target.value)}
+                placeholder="Type stage name e.g. Printing"
+              />
+              {!normalizedCustom && (
+                <p className="text-xs text-destructive">Enter a stage name to continue.</p>
+              )}
+            </>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label>Status</Label>
@@ -241,11 +266,20 @@ function ItemUpdateForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Photos ({media.length}/{MAX_FILES})</Label>
+        <Label>Photos & Videos ({media.length}/{MAX_FILES})</Label>
         <div className="flex flex-wrap gap-2">
           {media.map((m, i) => (
             <div key={m.url} className="relative">
-              <img src={m.url} alt={m.filename || 'Update photo'} className="h-16 w-16 rounded-md object-cover" />
+              {isVideoItem(m) ? (
+                <div className="relative h-16 w-16 overflow-hidden rounded-md bg-black">
+                  <video src={m.url} muted playsInline className="h-full w-full object-cover" />
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <Play className="h-5 w-5 text-white drop-shadow" />
+                  </div>
+                </div>
+              ) : (
+                <img src={m.url} alt={m.filename || 'Update photo'} className="h-16 w-16 rounded-md object-cover" />
+              )}
               <button
                 type="button"
                 onClick={() => setMedia((arr) => arr.filter((_, idx) => idx !== i))}
@@ -271,14 +305,14 @@ function ItemUpdateForm({
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept="image/*,video/*"
           multiple
           className="hidden"
           onChange={(e) => upload(e.target.files)}
         />
       </div>
 
-      <Button onClick={submit} disabled={saving || uploading} className="w-full sm:w-auto">
+      <Button onClick={submit} disabled={saving || uploading || !effectiveStage} className="w-full sm:w-auto">
         {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
         Post update
       </Button>
