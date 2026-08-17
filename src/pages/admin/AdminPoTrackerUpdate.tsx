@@ -885,13 +885,24 @@ export default function AdminPoTrackerUpdate() {
             <div className="space-y-2">
               {updates.map((u) => {
                 const media = mediaList(u.media_urls);
+                const isDeleting = deletingId === u.id;
                 return (
                   <Card key={u.id}>
-                    <CardContent className="flex flex-wrap items-start gap-3 p-4">
+                    <CardContent className="relative flex flex-wrap items-start gap-3 p-4">
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        onClick={() => handleDeleteUpdate(u.id)}
+                        className="absolute right-3 top-3 text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                        aria-label="Delete update"
+                        title="Delete update"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                       <CheckCircle2
                         className={cn('mt-0.5 h-4 w-4', u.status === 'completed' ? 'text-primary' : 'text-muted-foreground')}
                       />
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 pr-6">
                         <p className="text-sm font-medium">
                           {prettyStage(u.stage)}
                           {u.po?.po_number ? ` · PO ${u.po.po_number}` : ''}
