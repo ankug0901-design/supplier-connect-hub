@@ -786,7 +786,7 @@ function MetaBadge({ meta }: { meta: string | null }) {
   if (!meta) return null;
 
   const map: Record<string, { label: string; bg: string; fg: string }> = {
-    'awaiting match': { label: 'Verify in 3-Way Match', bg: '#FEF3C7', fg: '#92400E' },
+    'awaiting match': { label: 'Pending match sync', bg: '#FEF3C7', fg: '#92400E' },
     'matched': { label: 'Matched ✓', bg: '#D1FAE5', fg: '#065F46' },
     'exception': { label: 'Exception — review needed', bg: '#FEE2E2', fg: '#991B1B' },
     'awaiting grn': { label: 'Waiting for GRN', bg: '#FFF7ED', fg: '#9A3412' },
@@ -815,7 +815,7 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
   };
   const routeFor = (e: ActivityEvent): string | null => {
     switch (e.type) {
-      case 'bill_uploaded': return '/admin/three-way-match';
+      case 'bill_uploaded': return e.ref_id ? `/admin/three-way-match?search=${encodeURIComponent(e.ref_id)}` : '/admin/three-way-match';
       case 'rfq_quote_submitted': return e.ref_id ? `/admin/rfq?id=${e.ref_id}` : '/admin/rfq';
       case 'challan_generated': return e.ref_id ? `/delivery-challan?id=${e.ref_id}` : '/delivery-challan';
       case 'supplier_registered': return '/admin/registrations';
