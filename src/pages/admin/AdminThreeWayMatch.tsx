@@ -384,7 +384,7 @@ function SoCard({ r, onView }: { r: Match; onView: () => void }) {
 export default function AdminThreeWayMatch() {
   const [rows, setRows] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch);
   const [searchParams] = useSearchParams();
   const initialTab = (() => {
     const t = (searchParams.get('tab') || searchParams.get('filter') || '').toLowerCase();

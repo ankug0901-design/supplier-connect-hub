@@ -815,7 +815,7 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
   };
   const routeFor = (e: ActivityEvent): string | null => {
     switch (e.type) {
-      case 'bill_uploaded': return '/admin/three-way-match';
+      case 'bill_uploaded': return e.ref_id ? `/admin/three-way-match?search=${encodeURIComponent(e.ref_id)}` : '/admin/three-way-match';
       case 'rfq_quote_submitted': return e.ref_id ? `/admin/rfq?id=${e.ref_id}` : '/admin/rfq';
       case 'challan_generated': return e.ref_id ? `/delivery-challan?id=${e.ref_id}` : '/delivery-challan';
       case 'supplier_registered': return '/admin/registrations';
