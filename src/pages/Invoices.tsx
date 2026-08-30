@@ -84,9 +84,18 @@ export default function Invoices() {
     const v = parseInt(searchParams.get('overdue') || '', 10);
     return Number.isFinite(v) && v > 0 ? v : 0;
   }, [searchParams]);
+  const agingBucket = useMemo(() => searchParams.get('aging') || null, [searchParams]);
+  const agingRange = useMemo(() => {
+    switch (agingBucket) {
+      case '0-30': return { min: 0, max: 30 };
+      case '31-60': return { min: 31, max: 60 };
+      case '60-plus': return { min: 60, max: Infinity };
+      default: return null;
+    }
+  }, [agingBucket]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>(
-    (searchParams.get('status') || (minOverdueDays > 0 ? 'overdue' : 'all')).toLowerCase(),
+    (searchParams.get('status') || (minOverdueDays > 0 || agingBucket ? 'overdue' : 'all')).toLowerCase(),
   );
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
