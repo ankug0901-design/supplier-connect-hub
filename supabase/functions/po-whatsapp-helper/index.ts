@@ -22,19 +22,17 @@ Deno.serve(async (req) => {
   const { action } = body
 
   try {
-    // ACTION: get_supplier_by_phone
     if (action === 'get_supplier_by_phone') {
       const { phone } = body
       const { data, error } = await supabase
         .from('suppliers')
         .select('id, name, email, phone, whatsapp_number')
-        .eq('whatsapp_number', phone)
+        .or(`phone.eq.${phone},whatsapp_number.eq.${phone}`)
         .limit(1)
       if (error) throw error
       return new Response(JSON.stringify({ ok: true, rows: data }), { headers: corsHeaders })
     }
 
-    // ACTION: get_supplier_by_name
     if (action === 'get_supplier_by_name') {
       const { name } = body
       const { data, error } = await supabase
@@ -46,13 +44,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, rows: data }), { headers: corsHeaders })
     }
 
-    // ACTION: get_open_po_by_supplier
     if (action === 'get_open_po_by_supplier') {
-      const { supplier_name } = body
+      const { supplier_id } = body
       const { data, error } = await supabase
         .from('purchase_orders')
-        .select('id, po_number, supplier_name, amount, date, expected_delivery, client_order_id, whatsapp_sent_at')
-        .eq('supplier_name', supplier_name)
+        .select('id, po_number, supplier_id, amount, date, expected_delivery, client_order_id, whatsapp_sent_at')
+        .eq('supplier_id', supplier_id)
         .eq('status', 'open')
         .not('whatsapp_sent_at', 'is', null)
         .order('date', { ascending: false })
@@ -61,7 +58,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, rows: data }), { headers: corsHeaders })
     }
 
-    // ACTION: mark_whatsapp_sent
     if (action === 'mark_whatsapp_sent') {
       const { po_id } = body
       const { error } = await supabase
@@ -72,7 +68,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
     }
 
-    // ACTION: update_delivery_date
     if (action === 'update_delivery_date') {
       const { po_id, delivery_date } = body
       const { error } = await supabase
