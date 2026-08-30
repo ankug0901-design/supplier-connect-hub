@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -799,6 +799,8 @@ export type Database = {
           created_at: string
           date: string
           delivery_address: string | null
+          delivery_confirmed_at: string | null
+          delivery_confirmed_via_wa: boolean | null
           delivery_dates_confirmed_at: string | null
           delivery_first_notified_at: string | null
           delivery_notification_sent_at: string | null
@@ -812,6 +814,7 @@ export type Database = {
           status: string
           supplier_id: string
           updated_at: string
+          whatsapp_sent_at: string | null
           zoho_id: string | null
           zoho_so_number: string | null
         }
@@ -821,6 +824,8 @@ export type Database = {
           created_at?: string
           date?: string
           delivery_address?: string | null
+          delivery_confirmed_at?: string | null
+          delivery_confirmed_via_wa?: boolean | null
           delivery_dates_confirmed_at?: string | null
           delivery_first_notified_at?: string | null
           delivery_notification_sent_at?: string | null
@@ -834,6 +839,7 @@ export type Database = {
           status?: string
           supplier_id: string
           updated_at?: string
+          whatsapp_sent_at?: string | null
           zoho_id?: string | null
           zoho_so_number?: string | null
         }
@@ -843,6 +849,8 @@ export type Database = {
           created_at?: string
           date?: string
           delivery_address?: string | null
+          delivery_confirmed_at?: string | null
+          delivery_confirmed_via_wa?: boolean | null
           delivery_dates_confirmed_at?: string | null
           delivery_first_notified_at?: string | null
           delivery_notification_sent_at?: string | null
@@ -856,6 +864,7 @@ export type Database = {
           status?: string
           supplier_id?: string
           updated_at?: string
+          whatsapp_sent_at?: string | null
           zoho_id?: string | null
           zoho_so_number?: string | null
         }
@@ -1352,6 +1361,7 @@ export type Database = {
           role: string | null
           updated_at: string
           user_id: string
+          whatsapp_number: string | null
           zoho_vendor_id: string | null
         }
         Insert: {
@@ -1366,6 +1376,7 @@ export type Database = {
           role?: string | null
           updated_at?: string
           user_id: string
+          whatsapp_number?: string | null
           zoho_vendor_id?: string | null
         }
         Update: {
@@ -1380,6 +1391,7 @@ export type Database = {
           role?: string | null
           updated_at?: string
           user_id?: string
+          whatsapp_number?: string | null
           zoho_vendor_id?: string | null
         }
         Relationships: []
@@ -1644,22 +1656,20 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_tracker_admin: { Args: never; Returns: boolean }
-      link_po_to_so:
-        | { Args: { p_po_number: string; p_so_number: string }; Returns: Json }
-        | {
-            Args: {
-              p_amount?: number
-              p_date?: string
-              p_expected_delivery?: string
-              p_po_number: string
-              p_so_number: string
-              p_status?: string
-              p_vendor_name?: string
-              p_vendor_zoho_id?: string
-              p_zoho_id?: string
-            }
-            Returns: Json
-          }
+      link_po_to_so: {
+        Args: {
+          p_amount?: number
+          p_date?: string
+          p_expected_delivery?: string
+          p_po_number: string
+          p_so_number: string
+          p_status?: string
+          p_vendor_name?: string
+          p_vendor_zoho_id?: string
+          p_zoho_id?: string
+        }
+        Returns: Json
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
