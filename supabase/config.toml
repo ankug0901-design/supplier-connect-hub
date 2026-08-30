@@ -23,6 +23,8 @@ project_id = "agrhkarauqxkgyvfthvc"
     verify_jwt = true
   [functions.po-delivery-reminder]
     verify_jwt = true
+  [functions.po-whatsapp-helper]
+    verify_jwt = false
   [functions.rfq-documents-manage]
     verify_jwt = false
 
