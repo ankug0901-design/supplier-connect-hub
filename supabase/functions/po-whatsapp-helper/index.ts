@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
         .eq('supplier_id', supplier_id)
         .eq('status', 'open')
         .not('whatsapp_sent_at', 'is', null)
-        .order('date', { ascending: false })
+        .order('whatsapp_sent_at', { ascending: false })
         .limit(1)
       if (error) throw error
       return new Response(JSON.stringify({ ok: true, rows: data }), { headers: corsHeaders })
