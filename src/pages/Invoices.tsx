@@ -252,7 +252,20 @@ export default function Invoices() {
         matchesOverdue = daysOver >= minOverdueDays;
       }
     }
-    return matchesSearch && matchesStatus && matchesOverdue;
+    let matchesAging = true;
+    if (agingRange) {
+      const dueDate = invoice.dueDate || invoice.due_date;
+      if (!dueDate || PAID.has(invStatus)) {
+        matchesAging = false;
+      } else {
+        const dayMs = 1000 * 60 * 60 * 24;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const due = new Date(dueDate); due.setHours(0, 0, 0, 0);
+        const daysOver = Math.round((today.getTime() - due.getTime()) / dayMs);
+        matchesAging = daysOver >= agingRange.min && (agingRange.max === Infinity || daysOver <= agingRange.max);
+      }
+    }
+    return matchesSearch && matchesStatus && matchesOverdue && matchesAging;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
