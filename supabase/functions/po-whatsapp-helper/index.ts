@@ -95,6 +95,38 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, rows: supplier ? [supplier] : [] }), { headers: corsHeaders })
     }
 
+    if (action === 'get_pos_needing_delivery_confirmation') {
+      const { data, error } = await supabase
+        .from('purchase_orders')
+        .select(`
+          id, po_number, status, amount, expected_delivery, date, supplier_id,
+          whatsapp_sent_at, delivery_confirmed_via_wa,
+          supplier_id!inner(id, name, whatsapp_number, phone, email)
+        `)
+        .in('status', ['open', 'approved', 'partial'])
+        .eq('delivery_confirmed_via_wa', false)
+      if (error) throw error
+      const rows = (data || []).map((po: Record<string, unknown>) => {
+        const supplier = po.supplier_id as Record<string, unknown> | null
+        return {
+          id: po.id,
+          po_number: po.po_number,
+          status: po.status,
+          amount: po.amount,
+          expected_delivery: po.expected_delivery,
+          date: po.date,
+          supplier_id: supplier?.id ?? po.supplier_id,
+          whatsapp_sent_at: po.whatsapp_sent_at,
+          delivery_confirmed_via_wa: po.delivery_confirmed_via_wa,
+          supplier_name: supplier?.name,
+          whatsapp_number: supplier?.whatsapp_number,
+          phone: supplier?.phone,
+          email: supplier?.email,
+        }
+      })
+      return new Response(JSON.stringify({ ok: true, rows }), { headers: corsHeaders })
+    }
+
     return new Response(JSON.stringify({ error: 'Unknown action' }), { status: 400, headers: corsHeaders })
 
   } catch (e) {
