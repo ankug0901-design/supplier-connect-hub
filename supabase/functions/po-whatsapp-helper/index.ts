@@ -82,6 +82,19 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
     }
 
+    if (action === 'get_supplier_for_po') {
+      const { po_id } = body
+      const { data, error } = await supabase
+        .from('purchase_orders')
+        .select('supplier_id!inner(id, name, phone, whatsapp_number, email)')
+        .eq('id', po_id)
+        .limit(1)
+        .single()
+      if (error) throw error
+      const supplier = data?.supplier_id as Record<string, unknown> | null
+      return new Response(JSON.stringify({ ok: true, rows: supplier ? [supplier] : [] }), { headers: corsHeaders })
+    }
+
     return new Response(JSON.stringify({ error: 'Unknown action' }), { status: 400, headers: corsHeaders })
 
   } catch (e) {
