@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "boq_update" ON storage.objects;
