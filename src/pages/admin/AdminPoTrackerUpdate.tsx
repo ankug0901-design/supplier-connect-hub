@@ -652,7 +652,7 @@ function POCard({
           name: it.item_name || it.description || 'Item',
           stage: prettyStage(it.current_stage || '') || 'Not started',
         }));
-      await n8nPost('send-email', {
+      const result = await n8nPost('send-email', {
         to: emailTo.trim(),
         cc: emailCc.trim(),
         subject: emailSubject,
@@ -662,6 +662,7 @@ function POCard({
           trackingToken: po.client_order?.tracking_token,
         }, mappedItems),
       });
+      if (!result.ok) throw new Error(`Email send failed (${result.status})`);
       toast({ title: 'Email sent' });
       setEmailOpen(false);
     } catch (e: any) {
