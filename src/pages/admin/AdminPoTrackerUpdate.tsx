@@ -810,7 +810,7 @@ export default function AdminPoTrackerUpdate() {
         .select(
           'id, po_number, status, date, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, client_email, tracking_token, overall_status), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
         )
-        .not('status', 'in', '(closed,cancelled,rejected,void)')
+        .not('status', 'in', '(cancelled,rejected,void)')
         .order('date', { ascending: false })
         .limit(300),
       supabase
