@@ -30,6 +30,8 @@ const STAGE_LABELS: Record<string, string> = {
   fabrication_welding: 'Fabrication & Welding',
   branding_vinyl: 'Branding / Vinyl',
   print_branding: 'Print & Branding',
+  dispatched: 'Dispatched',
+  delivered: 'Delivered',
 };
 
 export function prettyStage(s?: string | null): string {

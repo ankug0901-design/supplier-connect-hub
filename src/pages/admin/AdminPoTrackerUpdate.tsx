@@ -317,6 +317,8 @@ function ItemUpdateForm({
               {stages.map((s) => (
                 <SelectItem key={s} value={s}>{prettyStage(s)}</SelectItem>
               ))}
+              <SelectItem value="dispatched">Dispatched</SelectItem>
+              <SelectItem value="delivered">Delivered</SelectItem>
               <SelectItem value={CUSTOM_STAGE}>Other (type a stage)…</SelectItem>
             </SelectContent>
           </Select>
