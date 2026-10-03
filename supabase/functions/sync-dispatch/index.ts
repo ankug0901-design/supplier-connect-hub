@@ -1,8 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { corsHeaders as sdkCorsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3.23.8";
 
 const SYNC_KEY = "emboss-sync-2026";
+const corsHeaders = {
+  ...sdkCorsHeaders,
+  "Access-Control-Allow-Headers": `${sdkCorsHeaders["Access-Control-Allow-Headers"]}, x-sync-key`,
+};
 const allowedStatuses = [
   "dispatched",
   "in_transit",
