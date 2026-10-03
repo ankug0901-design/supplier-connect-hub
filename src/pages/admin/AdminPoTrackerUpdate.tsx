@@ -652,17 +652,21 @@ function POCard({
           name: it.item_name || it.description || 'Item',
           stage: prettyStage(it.current_stage || '') || 'Not started',
         }));
-      const result = await n8nPost('send-email', {
-        to: emailTo.trim(),
-        cc: emailCc.trim(),
-        subject: emailSubject,
-        html: wrapEmailHtml(emailBody.replace(/\n/g, '<br/>'), {
-          orderNumber: po.client_order?.order_number,
-          clientName: po.client_order?.client_name,
-          trackingToken: po.client_order?.tracking_token,
-        }, mappedItems),
+      const emailRes = await fetch('https://n8n.srv1141999.hstgr.cloud/webhook/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: emailTo.trim(),
+          cc: emailCc.trim(),
+          subject: emailSubject,
+          html: wrapEmailHtml(emailBody.replace(/\n/g, '<br/>'), {
+            orderNumber: po.client_order?.order_number,
+            clientName: po.client_order?.client_name,
+            trackingToken: po.client_order?.tracking_token,
+          }, mappedItems),
+        }),
       });
-      if (!result.ok) throw new Error(`Email send failed (${result.status})`);
+      if (!emailRes.ok) throw new Error(`Email send failed (${emailRes.status})`);
       toast({ title: 'Email sent' });
       setEmailOpen(false);
     } catch (e: any) {
