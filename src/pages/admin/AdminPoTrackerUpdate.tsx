@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown, Play, Mail, Truck, Trash2,
+  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown, Play, Mail, Truck, Trash2, MapPin, Route,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -70,6 +72,21 @@ interface RecentUpdate {
   updated_by: string | null;
   created_at: string | null;
   po: { po_number: string | null } | null;
+}
+
+interface LogisticsShipment {
+  lr_number: string | null;
+  courier: string | null;
+  current_status: string | null;
+  dispatch_date: string | null;
+  pickup_date: string | null;
+  qty: string | number | null;
+  depot_name: string | null;
+  depot_code: string | null;
+  dm_name: string | null;
+  dm_contact: string | null;
+  awb_number: string | null;
+  item_name: string | null;
 }
 
 function stagesFor(item: TrackItem): string[] {
@@ -233,6 +250,12 @@ function ItemUpdateForm({
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dispatchType, setDispatchType] = useState<'single' | 'multi' | ''>('');
+  const [shipments, setShipments] = useState<LogisticsShipment[]>([]);
+  const [syncedLrNumbers, setSyncedLrNumbers] = useState<Set<string>>(new Set());
+  const [fetchingShipments, setFetchingShipments] = useState(false);
+  const [syncingShipments, setSyncingShipments] = useState(false);
+  const [showSingleDispatch, setShowSingleDispatch] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const upload = async (fl: FileList | null) => {
@@ -266,6 +289,93 @@ function ItemUpdateForm({
   const isCustom = stage === CUSTOM_STAGE;
   const effectiveStage = isCustom ? normalizedCustom : stage;
 
+  const fetchShipments = async () => {
+    const clientName = po.client_order?.client_name?.trim();
+    if (!clientName) {
+      toast({ title: 'Client name is missing', description: 'A client name is required to fetch logistics shipments.', variant: 'destructive' });
+      return;
+    }
+    setFetchingShipments(true);
+    try {
+      const response = await fetch(
+        `https://n8n.srv1141999.hstgr.cloud/webhook/fetch-logistics-shipments?client_name=${encodeURIComponent(clientName)}`,
+      );
+      const result = await response.json();
+      if (!response.ok || result?.success !== true || !Array.isArray(result?.shipments)) {
+        throw new Error(result?.error || `Logistics request failed (${response.status})`);
+      }
+      setShipments(result.shipments);
+      setSyncedLrNumbers(new Set());
+      toast({ title: `Fetched ${result.shipments.length} shipments` });
+    } catch (e: any) {
+      toast({ title: 'Could not fetch shipments', description: e?.message, variant: 'destructive' });
+    } finally {
+      setFetchingShipments(false);
+    }
+  };
+
+  const syncShipments = async () => {
+    if (shipments.length === 0) return;
+    setSyncingShipments(true);
+    try {
+      const lrNumbers = shipments.map((shipment) => shipment.lr_number).filter((lr): lr is string => Boolean(lr));
+      let existingLrs = new Set<string>();
+      if (lrNumbers.length > 0) {
+        const { data: existing, error: existingError } = await supabase
+          .from('po_dispatch')
+          .select('lr_number')
+          .eq('po_id', po.id)
+          .in('lr_number', lrNumbers);
+        if (existingError) throw existingError;
+        existingLrs = new Set((existing || []).map((row) => row.lr_number).filter((lr): lr is string => Boolean(lr)));
+      }
+
+      const pending = shipments.filter((shipment) => !shipment.lr_number || !existingLrs.has(shipment.lr_number));
+      if (pending.length > 0) {
+        const { error: insertError } = await supabase.from('po_dispatch').insert(
+          pending.map((shipment) => ({
+            po_id: po.id,
+            client_order_id: po.client_order?.id ?? null,
+            item_id: item.id,
+            lr_number: shipment.lr_number,
+            courier_name: shipment.courier || '',
+            dispatch_date: shipment.dispatch_date || shipment.pickup_date || null,
+            delivery_status: 'dispatched',
+            dispatch_quantity: parseInt(String(shipment.qty ?? ''), 10) || 0,
+            receiver_name: shipment.dm_name || '',
+            receiver_phone: shipment.dm_contact || '',
+            awb_number: shipment.awb_number || '',
+            notes: `City: ${shipment.depot_name || 'Unknown'}${shipment.depot_code ? ` (${shipment.depot_code})` : ''}${shipment.item_name ? ` | Item: ${shipment.item_name}` : ''}`,
+          })),
+        );
+        if (insertError) throw insertError;
+      }
+
+      const data = await poTrackerRpc({
+        action: 'update_production',
+        client_order_id: po.client_order?.id ?? null,
+        po_id: po.id,
+        item_id: item.id,
+        stage: 'dispatched',
+        status,
+        note: `Multi-location dispatch: ${pending.length} shipments synced from logistics`,
+        media_urls: media,
+        updated_by: updatedBy,
+      });
+      if (data?.ok === false) throw new Error(data?.error || 'Production update failed');
+
+      setSyncedLrNumbers(new Set(shipments.map((shipment) => shipment.lr_number).filter((lr): lr is string => Boolean(lr))));
+      toast({ title: `Synced ${pending.length} shipments to PO Tracker` });
+      setNote('');
+      setMedia([]);
+      await onDone();
+    } catch (e: any) {
+      toast({ title: 'Shipment sync failed', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSyncingShipments(false);
+    }
+  };
+
   const submit = async () => {
     if (!effectiveStage) {
       toast({ title: 'Select or type a stage', variant: 'destructive' });
@@ -288,6 +398,7 @@ function ItemUpdateForm({
       toast({ title: 'Production update posted' });
       setNote('');
       setMedia([]);
+      if (effectiveStage === 'dispatched' && dispatchType === 'single') setShowSingleDispatch(true);
       await onDone();
     } catch (e: any) {
       toast({ title: 'Update failed', description: e?.message, variant: 'destructive' });
@@ -347,6 +458,67 @@ function ItemUpdateForm({
         </div>
       </div>
 
+      {stage === 'dispatched' && (
+        <div className="space-y-3 rounded-md border bg-background p-3">
+          <Label>Dispatch type</Label>
+          <RadioGroup
+            value={dispatchType}
+            onValueChange={(value) => {
+              setDispatchType(value as 'single' | 'multi');
+              setShowSingleDispatch(false);
+              if (value === 'single') setShipments([]);
+            }}
+            className="grid gap-3 sm:grid-cols-2"
+          >
+            <Label htmlFor={`${item.id}-single`} className="flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal">
+              <RadioGroupItem id={`${item.id}-single`} value="single" className="mt-0.5" />
+              <MapPin className="mt-0.5 h-4 w-4 text-primary" />
+              <span><span className="block font-medium">Single Location Dispatch</span><span className="text-xs text-muted-foreground">Manual entry for one destination</span></span>
+            </Label>
+            <Label htmlFor={`${item.id}-multi`} className="flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal">
+              <RadioGroupItem id={`${item.id}-multi`} value="multi" className="mt-0.5" />
+              <Route className="mt-0.5 h-4 w-4 text-primary" />
+              <span><span className="block font-medium">Multi Location Dispatch</span><span className="text-xs text-muted-foreground">Sync shipments from Logistics system</span></span>
+            </Label>
+          </RadioGroup>
+
+          {dispatchType === 'multi' && (
+            <div className="space-y-3 border-t pt-3">
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={fetchShipments} disabled={fetchingShipments || syncingShipments}>
+                  {fetchingShipments ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Fetch Shipments from Logistics
+                </Button>
+                {shipments.length > 0 && (
+                  <Button type="button" onClick={syncShipments} disabled={syncingShipments}>
+                    {syncingShipments ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-4 w-4" />}
+                    Sync All to PO Tracker
+                  </Button>
+                )}
+              </div>
+              {shipments.length > 0 && (
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader><TableRow><TableHead>LR Number</TableHead><TableHead>Courier</TableHead><TableHead>Status</TableHead><TableHead>Dispatch Date</TableHead><TableHead>Qty</TableHead><TableHead>City/Depot</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {shipments.map((shipment, index) => {
+                        const synced = Boolean(shipment.lr_number && syncedLrNumbers.has(shipment.lr_number));
+                        return (
+                          <TableRow key={`${shipment.lr_number || 'shipment'}-${index}`}>
+                            <TableCell className="font-medium"><span className="flex items-center gap-2">{shipment.lr_number || '—'}{synced && <Badge variant="outline" className="gap-1 border-primary/30 text-primary"><CheckCircle2 className="h-3 w-3" /> Synced</Badge>}</span></TableCell>
+                            <TableCell>{shipment.courier || '—'}</TableCell><TableCell>{shipment.current_status || '—'}</TableCell><TableCell>{shipment.dispatch_date || '—'}</TableCell><TableCell>{shipment.qty ?? '—'}</TableCell><TableCell>{shipment.depot_name || '—'}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="space-y-1.5">
         <Label>Notes</Label>
         <Textarea
@@ -404,10 +576,16 @@ function ItemUpdateForm({
         />
       </div>
 
-      <Button onClick={submit} disabled={saving || uploading || !effectiveStage} className="w-full sm:w-auto">
+      {dispatchType !== 'multi' && (
+      <Button onClick={submit} disabled={saving || uploading || !effectiveStage || (stage === 'dispatched' && !dispatchType)} className="w-full sm:w-auto">
         {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
         Post update
       </Button>
+      )}
+
+      {showSingleDispatch && (
+        <AdminDispatchForm po={po} item={item} updatedBy={updatedBy} onDone={onDone} />
+      )}
     </div>
   );
 }
