@@ -30,7 +30,7 @@ const InvoiceSchema = z.object({
         amount: z.number().nullable(),
       }),
     )
-    .default([]),
+    .nullable(),
 });
 
 Deno.serve(async (req) => {
