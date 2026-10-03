@@ -330,7 +330,13 @@ function ItemUpdateForm({
         existingLrs = new Set((existing || []).map((row) => row.lr_number).filter((lr): lr is string => Boolean(lr)));
       }
 
-      const pending = shipments.filter((shipment) => !shipment.lr_number || !existingLrs.has(shipment.lr_number));
+      const seenLrs = new Set(existingLrs);
+      const pending = shipments.filter((shipment) => {
+        if (!shipment.lr_number) return true;
+        if (seenLrs.has(shipment.lr_number)) return false;
+        seenLrs.add(shipment.lr_number);
+        return true;
+      });
       if (pending.length > 0) {
         const { error: insertError } = await supabase.from('po_dispatch').insert(
           pending.map((shipment) => ({
@@ -422,7 +428,14 @@ function ItemUpdateForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Stage</Label>
-          <Select value={stage} onValueChange={setStage}>
+          <Select value={stage} onValueChange={(value) => {
+            setStage(value);
+            if (value !== 'dispatched') {
+              setDispatchType('');
+              setShipments([]);
+              setShowSingleDispatch(false);
+            }
+          }}>
             <SelectTrigger><SelectValue placeholder="Select stage" /></SelectTrigger>
             <SelectContent className="bg-popover">
               {stages.map((s) => (
@@ -932,21 +945,11 @@ function POCard({
             {po.items.length === 0 ? (
               <p className="text-sm text-muted-foreground">No line items on this PO.</p>
             ) : (
-              po.items.map((it) => {
-                const itStages = stagesFor(it);
-                const itCompleted = it.completed_stages || [];
-                const readyForDispatch =
-                  it.current_stage === 'ready_for_dispatch' ||
-                  (itStages.length > 0 && itCompleted.length >= itStages.length);
-                return (
-                  <div key={it.id} className="space-y-3">
-                    <ItemUpdateForm po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
-                    {readyForDispatch && (
-                      <AdminDispatchForm po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
-                    )}
-                  </div>
-                );
-              })
+              po.items.map((it) => (
+                <div key={it.id} className="space-y-3">
+                  <ItemUpdateForm po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
+                </div>
+              ))
             )}
           </div>
         )}
