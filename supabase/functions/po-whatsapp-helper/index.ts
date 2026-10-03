@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
           supplier_id!inner(id, name, whatsapp_number, phone, email)
         `)
         .in('status', ['open', 'approved', 'partial'])
-        .eq('delivery_confirmed_via_wa', false)
+        .or('delivery_confirmed_via_wa.is.null,delivery_confirmed_via_wa.eq.false')
       if (error) throw error
       const rows = (data || []).map((po: Record<string, unknown>) => {
         const supplier = po.supplier_id as Record<string, unknown> | null
