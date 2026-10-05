@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 const allowedStatuses = [
   "dispatched",
+  "picked_up",
   "in_transit",
   "out_for_delivery",
   "delivered",
@@ -23,6 +24,7 @@ const nullableDate = z
 
 const DispatchRecordSchema = z.object({
   po_id: z.string().uuid(),
+  client_order_id: z.string().uuid().nullable().optional(),
   lr_number: z.string().trim().min(1).max(255),
   awb_number: nullableText,
   courier_name: nullableText,
