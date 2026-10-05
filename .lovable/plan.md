@@ -1,17 +1,16 @@
-# Dispatch Sync Endpoint
+# Multi-Shipment Order Tracking
 
 ## Build
-- Add a `sync-dispatch` Edge Function accepting POST requests and cross-origin preflight requests.
-- Validate the `x-sync-key` header and every dispatch record before any database write.
-- Classify each valid record as new or existing using `po_id` plus `lr_number`, then upsert the batch.
-- Return inserted and updated counts plus validation or database errors in the requested JSON shape.
-- Store the supplied sync key as a backend secret rather than exposing it in source code.
-
-## Database
-- Confirm `po_dispatch` has no duplicate `po_id` and `lr_number` pairs.
-- Add the unique database constraint required for conflict-based upserts if it is missing.
+- Extend dispatch records with quantity, delivery status, notes, dispatch date, courier, and AWB fields.
+- Replace the existing dispatch cards with a responsive shipment summary: a full table on larger screens and stacked shipment cards on mobile.
+- Parse pipe-separated dispatch notes into city/consignee, item, and location values for clear shipment labels.
+- Add the requested status badges for dispatched, in transit, picked up, out for delivery, and delivered shipments.
+- Replace the single tracking panel with one accordion row per dispatch that has an LR or AWB number.
+- Fetch courier tracking only when its accordion opens; preserve loaded results when users switch between shipments.
+- Aggregate database delivery statuses and loaded courier tracking results so any in-transit shipment advances the main stepper, while Delivered appears only when every shipment is delivered.
 
 ## Technical details
-- Use the backend service-role environment binding so external n8n calls can write through RLS safely.
-- Keep CORS headers on success and every error response.
-- Deploy the function and verify unauthorized access, invalid input handling, and a safe empty-record request.
+- Keep all changes in `src/pages/TrackOrder.tsx`; no database or webhook changes are needed.
+- Key loaded tracking results by dispatch ID or LR/AWB number, and update the parent through an identified callback rather than replacing one shared tracking value.
+- Reuse the existing shipment journey UI inside each expanded panel and retain the current teal, rounded-card visual language.
+- Verify type checking and inspect both desktop and mobile layouts in the running preview.
