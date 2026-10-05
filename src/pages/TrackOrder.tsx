@@ -300,24 +300,15 @@ export default function TrackOrder() {
 
   useEffect(() => {
     if (!data) return;
-    let cancelled = false;
 
     trackableDispatches.forEach(({ dispatch, key }) => {
       if (requestedShipments.current.has(key)) return;
       requestedShipments.current.add(key);
 
       fetchShipmentTracking(dispatch)
-        .then((info) => {
-          if (!cancelled) updateTrackingInfo(key, info);
-        })
-        .catch(() => {
-          if (!cancelled) updateTrackingInfo(key, { trackingUnavailable: true });
-        });
+        .then((info) => updateTrackingInfo(key, info))
+        .catch(() => updateTrackingInfo(key, { trackingUnavailable: true }));
     });
-
-    return () => {
-      cancelled = true;
-    };
   }, [data, updateTrackingInfo]);
 
 
