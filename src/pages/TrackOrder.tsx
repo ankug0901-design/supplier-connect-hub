@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { prettyStage } from "@/lib/stageTemplates";
-import { Check, Loader2, Package, Truck, CheckCircle2, Play, X, Copy, RefreshCw, ChevronDown, MapPin } from "lucide-react";
+import { Check, Loader2, Package, CheckCircle2, Play, X, Copy, RefreshCw, ChevronDown, MapPin } from "lucide-react";
 
 const TEAL = "#0d7377";
 const GREEN = "#22c55e";
@@ -606,7 +606,9 @@ export default function TrackOrder() {
                         >
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-bold text-slate-900">LR# {dispatch.lr_number || dispatch.awb_number}</span>
+                              <span className="font-bold text-slate-900">
+                                {dispatch.lr_number ? `LR# ${dispatch.lr_number}` : `AWB# ${dispatch.awb_number}`}
+                              </span>
                               <DispatchStatusBadge status={shipmentStatus(dispatch, index)} />
                             </div>
                             <div className="mt-1 truncate text-xs text-slate-500">
@@ -984,7 +986,6 @@ function ShipmentTracking({
           )}
         </div>
       </div>
-    </section>
   );
 }
 
