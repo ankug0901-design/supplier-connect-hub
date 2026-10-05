@@ -371,6 +371,36 @@ function ItemUpdateForm({
       if (data?.ok === false) throw new Error(data?.error || 'Production update failed');
 
       setSyncedLrNumbers(new Set(shipments.map((shipment) => shipment.lr_number).filter((lr): lr is string => Boolean(lr))));
+
+      // Auto-send multi-location dispatch email to client
+      const clientEmail = po.client_order?.client_email;
+      if (clientEmail && pending.length > 0) {
+        try {
+          const cities = [...new Set(shipments.map(s => s.depot_name).filter(Boolean))];
+          const multiHtml = `<p>Your order has been dispatched to ${pending.length} locations!</p>` +
+            `<table style="border-collapse:collapse;width:100%;margin:16px 0">` +
+            `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Shipments</td><td style="padding:8px;border:1px solid #ddd">${pending.length}</td></tr>` +
+            `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Cities</td><td style="padding:8px;border:1px solid #ddd">${cities.join(', ') || 'Multiple locations'}</td></tr>` +
+            `</table>`;
+
+          await fetch('https://n8n.srv1141999.hstgr.cloud/webhook/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: clientEmail,
+              subject: `Dispatch Update — Order ${po.client_order?.order_number || po.po_number} — ${pending.length} shipments`,
+              html: wrapEmailHtml(multiHtml, {
+                orderNumber: po.client_order?.order_number,
+                clientName: po.client_order?.client_name,
+                trackingToken: po.client_order?.tracking_token,
+              }, [{ name: item.item_name || item.description || 'Item', stage: 'Dispatched' }]),
+            }),
+          });
+        } catch (_) {
+          // Email failure should not block the sync flow
+        }
+      }
+
       toast({ title: `Synced ${pending.length} shipments to PO Tracker` });
       setNote('');
       setMedia([]);
@@ -685,6 +715,38 @@ function AdminDispatchForm({
         notify_client: true,
       });
       if (data?.ok === false) throw new Error(data?.error || 'Dispatch failed');
+
+      // Auto-send dispatch email to client
+      const clientEmail = po.client_order?.client_email;
+      if (clientEmail) {
+        try {
+          const dispatchHtml = `<p>Your order has been dispatched!</p>` +
+            `<table style="border-collapse:collapse;width:100%;margin:16px 0">` +
+            (form.transporter_name ? `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Transporter</td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(form.transporter_name)}</td></tr>` : '') +
+            (form.vehicle_number ? `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Vehicle</td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(form.vehicle_number)}</td></tr>` : '') +
+            (form.lr_number ? `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">LR / Docket</td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(form.lr_number)}</td></tr>` : '') +
+            (form.dispatch_quantity ? `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Quantity</td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(form.dispatch_quantity)}</td></tr>` : '') +
+            (form.expected_arrival ? `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Expected Arrival</td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(form.expected_arrival)}</td></tr>` : '') +
+            `</table>`;
+
+          await fetch('https://n8n.srv1141999.hstgr.cloud/webhook/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: clientEmail,
+              subject: `Dispatch Update — Order ${po.client_order?.order_number || po.po_number}`,
+              html: wrapEmailHtml(dispatchHtml, {
+                orderNumber: po.client_order?.order_number,
+                clientName: po.client_order?.client_name,
+                trackingToken: po.client_order?.tracking_token,
+              }, [{ name: item.item_name || item.description || 'Item', stage: 'Dispatched' }]),
+            }),
+          });
+        } catch (_) {
+          // Email failure should not block the dispatch flow
+        }
+      }
+
       toast({ title: 'Dispatch details submitted' });
       setOpen(false);
       await onDone();
