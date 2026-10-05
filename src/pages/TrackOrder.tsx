@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { prettyStage } from "@/lib/stageTemplates";
-import { Check, Loader2, Package, Truck, CheckCircle2, Play, X, Copy, RefreshCw } from "lucide-react";
+import { Check, Loader2, Package, CheckCircle2, Play, X, Copy, RefreshCw, ChevronDown, MapPin } from "lucide-react";
 
 const TEAL = "#0d7377";
 const GREEN = "#22c55e";
@@ -63,8 +63,14 @@ type TrackData = {
     vehicle_photo_url?: string;
     courier_name?: string;
     awb_number?: string;
+    dispatch_quantity?: number | string;
+    delivery_status?: string;
+    notes?: string;
+    dispatch_date?: string;
   }>;
 };
+
+type DispatchRecord = NonNullable<TrackData["dispatch"]>[number];
 
 type Milestone = {
   status?: string;
@@ -130,6 +136,47 @@ function fmtDateTime(v?: string) {
   return d.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+function dispatchKey(dispatch: DispatchRecord, index: number) {
+  return dispatch.id || dispatch.lr_number || dispatch.awb_number || `dispatch-${index}`;
+}
+
+function parseDispatchNotes(notes?: string) {
+  const metadata: Record<string, string> = {};
+  (notes || "").split("|").forEach((part) => {
+    const separator = part.indexOf(":");
+    if (separator < 0) return;
+    const key = part.slice(0, separator).trim().toLowerCase();
+    const value = part.slice(separator + 1).trim();
+    if (key && value) metadata[key] = value;
+  });
+  return {
+    city: metadata.city || "",
+    location: metadata.location || "",
+    item: metadata.item || "",
+  };
+}
+
+function normalizedDispatchStatus(status?: string) {
+  return (status || "dispatched").toLowerCase().replace(/\s+/g, "_");
+}
+
+const DISPATCH_STATUS_COLORS: Record<string, string> = {
+  dispatched: "border-purple-200 bg-purple-50 text-purple-700",
+  in_transit: "border-cyan-200 bg-cyan-50 text-cyan-700",
+  picked_up: "border-amber-200 bg-amber-50 text-amber-700",
+  delivered: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  out_for_delivery: "border-teal-200 bg-teal-50 text-teal-700",
+};
+
+function DispatchStatusBadge({ status }: { status?: string }) {
+  const normalized = normalizedDispatchStatus(status);
+  return (
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${DISPATCH_STATUS_COLORS[normalized] || "border-slate-200 bg-slate-50 text-slate-700"}`}>
+      {friendlyStatus(normalized)}
+    </span>
+  );
+}
+
 function relative(v?: string) {
   if (!v) return "";
   const d = new Date(v);
@@ -178,7 +225,8 @@ export default function TrackOrder() {
   const [error, setError] = useState(false);
   const [lightbox, setLightbox] = useState<MediaItem | null>(null);
   const [copied, setCopied] = useState(false);
-  const [trackingInfo, setTrackingInfo] = useState<any>(null);
+  const [trackingInfo, setTrackingInfo] = useState<Record<string, any>>({});
+  const [expandedShipment, setExpandedShipment] = useState<string | null>(null);
 
   const load = useCallback(
     async (initial = false) => {
@@ -221,7 +269,11 @@ export default function TrackOrder() {
   const status = (order?.overall_status || "order_received").toLowerCase();
   let currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === status));
 
-  const trackingMilestones: Milestone[] = Array.isArray(trackingInfo?.milestones) ? trackingInfo.milestones : [];
+  const dispatchList = data?.dispatch || [];
+  const loadedTracking = Object.values(trackingInfo);
+  const trackingMilestones: Milestone[] = loadedTracking.flatMap((info) =>
+    Array.isArray(info?.milestones) ? info.milestones : []
+  );
   const transitKeywords = [
     "in transit",
     "vehicle departed",
@@ -235,24 +287,37 @@ export default function TrackOrder() {
     const text = `${m.status || ""} ${m.description || ""}`.toLowerCase();
     return transitKeywords.some((k) => text.includes(k));
   });
-  const hasCurrentLocation = !!trackingInfo?.current_location;
-  const isDelivered =
-    (trackingInfo?.current_status || "").toLowerCase() === "delivered" || status === "delivered";
+  const hasCurrentLocation = loadedTracking.some((info) => !!info?.current_location);
+  const shipmentStatus = (dispatch: DispatchRecord, index: number) =>
+    normalizedDispatchStatus(trackingInfo[dispatchKey(dispatch, index)]?.current_status || dispatch.delivery_status);
+  const hasInTransitDispatch = dispatchList.some((dispatch, index) => {
+    const shipmentState = shipmentStatus(dispatch, index);
+    return shipmentState === "in_transit" || shipmentState === "out_for_delivery";
+  });
+  const allShipmentsDelivered = dispatchList.length > 0 && dispatchList.every(
+    (dispatch, index) => shipmentStatus(dispatch, index) === "delivered"
+  );
+  const isDelivered = dispatchList.length > 0 ? allShipmentsDelivered : status === "delivered";
 
   const inTransitIdx = STEPS.findIndex((s) => s.key === "in_transit");
   const deliveredIdx = STEPS.findIndex((s) => s.key === "delivered");
-  if ((hasCurrentLocation || hasTransitMilestone) && inTransitIdx >= 0) {
+  if ((hasCurrentLocation || hasTransitMilestone || hasInTransitDispatch) && inTransitIdx >= 0) {
     currentIdx = Math.max(currentIdx, inTransitIdx);
   }
   if (isDelivered && deliveredIdx >= 0) {
     currentIdx = Math.max(currentIdx, deliveredIdx);
   }
-  const dispatchList = data?.dispatch || [];
   const updates = [...(data?.production_updates || [])].sort(
     (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
   );
   const proofs = normalizeMedia(order?.delivery_proof_urls);
-  const shipmentDispatch = dispatchList.find((d) => d.lr_number || d.awb_number);
+  const trackableDispatches = dispatchList
+    .map((dispatch, index) => ({ dispatch, index, key: dispatchKey(dispatch, index) }))
+    .filter(({ dispatch }) => dispatch.lr_number || dispatch.awb_number);
+
+  const updateTrackingInfo = useCallback((key: string, info: any) => {
+    setTrackingInfo((current) => ({ ...current, [key]: info }));
+  }, []);
 
 
   const copyLink = () => {
@@ -450,35 +515,121 @@ export default function TrackOrder() {
             {/* Dispatch */}
             {dispatchList.length > 0 && (
               <section>
-                <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Dispatch Details</h2>
-                <div className="space-y-3">
-                  {dispatchList.map((d, idx) => (
-                    <div key={d.id || idx} className="rounded-2xl border border-slate-100 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                      <div className="mb-3 flex items-center gap-2 font-semibold text-slate-900">
-                        <Truck className="h-4 w-4" style={{ color: TEAL }} /> In Transit
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Shipment Summary</h2>
+                  <span className="text-xs font-semibold text-slate-500">{dispatchList.length} shipment{dispatchList.length === 1 ? "" : "s"}</span>
+                </div>
+                <div className="hidden overflow-hidden rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:block">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[720px] text-left text-xs">
+                      <thead style={{ backgroundColor: TEAL }} className="text-white">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">LR / AWB</th>
+                          <th className="px-4 py-3 font-semibold">Courier</th>
+                          <th className="px-4 py-3 font-semibold">Status</th>
+                          <th className="px-4 py-3 text-right font-semibold">Qty</th>
+                          <th className="px-4 py-3 font-semibold">Destination</th>
+                          <th className="px-4 py-3 font-semibold">Dispatch Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {dispatchList.map((dispatch, index) => {
+                          const meta = parseDispatchNotes(dispatch.notes);
+                          return (
+                            <tr key={dispatchKey(dispatch, index)} className="bg-white align-top">
+                              <td className="px-4 py-3 font-semibold text-slate-900">{dispatch.lr_number || dispatch.awb_number || "—"}</td>
+                              <td className="px-4 py-3 text-slate-600">{dispatch.courier_name || dispatch.transporter_name || "—"}</td>
+                              <td className="px-4 py-3"><DispatchStatusBadge status={shipmentStatus(dispatch, index)} /></td>
+                              <td className="px-4 py-3 text-right font-semibold text-slate-800">{dispatch.dispatch_quantity ?? "—"}</td>
+                              <td className="max-w-[220px] px-4 py-3">
+                                <div className="font-medium text-slate-800">{meta.city || meta.location || "—"}</div>
+                                {meta.city && meta.location && <div className="mt-0.5 text-slate-500">{meta.location}</div>}
+                                {meta.item && <div className="mt-0.5 text-[11px] text-slate-400">{meta.item}</div>}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-slate-600">{fmtDate(dispatch.dispatch_date)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="space-y-3 sm:hidden">
+                  {dispatchList.map((dispatch, index) => {
+                    const meta = parseDispatchNotes(dispatch.notes);
+                    return (
+                      <div key={dispatchKey(dispatch, index)} className="rounded-2xl border border-slate-100 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">LR / AWB</div>
+                            <div className="mt-0.5 font-bold text-slate-900">{dispatch.lr_number || dispatch.awb_number || "—"}</div>
+                          </div>
+                          <DispatchStatusBadge status={shipmentStatus(dispatch, index)} />
+                        </div>
+                        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                          <Field label="Courier" value={dispatch.courier_name || dispatch.transporter_name} />
+                          <Field label="Quantity" value={dispatch.dispatch_quantity != null ? String(dispatch.dispatch_quantity) : undefined} />
+                          <Field label="Dispatch Date" value={fmtDate(dispatch.dispatch_date)} />
+                          <Field label="City / Consignee" value={meta.city || undefined} />
+                        </dl>
+                        {(meta.location || meta.item) && (
+                          <div className="mt-3 flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: TEAL }} />
+                            <span>{[meta.location, meta.item].filter(Boolean).join(" · ")}</span>
+                          </div>
+                        )}
                       </div>
-                      <dl className="grid grid-cols-2 gap-3 text-sm">
-                        <Field label="Vehicle Number" value={d.vehicle_number} />
-                        <Field label="Transporter" value={d.transporter_name} />
-                        <Field label="LR Number" value={d.lr_number} />
-                        <Field label="Expected Arrival" value={fmtDate(d.expected_arrival)} />
-                      </dl>
-                      {d.vehicle_photo_url && (
-                        <MediaGrid
-                          items={[{ url: d.vehicle_photo_url, type: "photo" }]}
-                          onOpen={setLightbox}
-                          className="mt-4"
-                        />
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             )}
 
             {/* Shipment Tracking */}
-            {shipmentDispatch && (
-              <ShipmentTracking dispatch={shipmentDispatch} order={order} onTrackingLoad={setTrackingInfo} />
+            {trackableDispatches.length > 0 && (
+              <section>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">📦 Shipment Tracking</h2>
+                  <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">Powered by LogiFlow Pro</span>
+                </div>
+                <div className="space-y-3">
+                  {trackableDispatches.map(({ dispatch, index, key }) => {
+                    const expanded = expandedShipment === key;
+                    const meta = parseDispatchNotes(dispatch.notes);
+                    return (
+                      <div key={key} className="overflow-hidden rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedShipment(expanded ? null : key)}
+                          className="flex w-full items-center justify-between gap-3 bg-white px-4 py-4 text-left transition hover:bg-slate-50 sm:px-5"
+                          aria-expanded={expanded}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-slate-900">
+                                {dispatch.lr_number ? `LR# ${dispatch.lr_number}` : `AWB# ${dispatch.awb_number}`}
+                              </span>
+                              <DispatchStatusBadge status={shipmentStatus(dispatch, index)} />
+                            </div>
+                            <div className="mt-1 truncate text-xs text-slate-500">
+                              {[dispatch.courier_name, meta.city, meta.location].filter(Boolean).join(" · ") || "Shipment details"}
+                            </div>
+                          </div>
+                          <ChevronDown className={`h-5 w-5 shrink-0 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                        </button>
+                        {expanded && (
+                          <ShipmentTracking
+                            dispatch={dispatch}
+                            order={order}
+                            initialInfo={trackingInfo[key]}
+                            onTrackingLoad={(info) => updateTrackingInfo(key, info)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             )}
 
           </div>
@@ -565,18 +716,20 @@ function friendlyStatus(status?: string) {
 function ShipmentTracking({
   dispatch,
   order,
+  initialInfo,
   onTrackingLoad,
 }: {
-  dispatch: { courier_name?: string; lr_number?: string; awb_number?: string };
+  dispatch: DispatchRecord;
   order?: {
     client_name?: string;
     shipping_address?: string;
   };
+  initialInfo?: any;
   onTrackingLoad?: (info: any) => void;
 }) {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialInfo);
   const [failed, setFailed] = useState(false);
-  const [info, setInfo] = useState<any>(null);
+  const [info, setInfo] = useState<any>(initialInfo || null);
 
   const fetchTracking = useCallback(async () => {
     setLoading(true);
@@ -603,8 +756,8 @@ function ShipmentTracking({
   }, [dispatch.lr_number, dispatch.awb_number, dispatch.courier_name]);
 
   useEffect(() => {
-    fetchTracking();
-  }, [fetchTracking]);
+    if (!initialInfo) fetchTracking();
+  }, [fetchTracking, initialInfo]);
 
   const milestones: Milestone[] = Array.isArray(info?.milestones) ? info.milestones : [];
 
@@ -690,15 +843,7 @@ function ShipmentTracking({
   const pickupMs = milestones.find((m) => milestoneText(m).includes("picked"));
 
   return (
-    <section>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">📦 Shipment Tracking</h2>
-        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">
-          Powered by LogiFlow Pro
-        </span>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className="border-t border-slate-100">
         {/* Header bar */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-4 pt-3 pb-2 text-xs text-white" style={{ backgroundColor: TEAL }}>
           {dispatch.courier_name && <span className="font-semibold">{dispatch.courier_name}</span>}
@@ -841,7 +986,6 @@ function ShipmentTracking({
           )}
         </div>
       </div>
-    </section>
   );
 }
 
