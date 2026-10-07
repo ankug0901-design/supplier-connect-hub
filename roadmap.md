@@ -4,3 +4,5 @@
 - [x] Enforce unique dispatch identity using `po_id` and `lr_number`.
 - [x] Verify authentication, validation, and successful no-op synchronization.
 - [x] Auto-load and show full tracking details for every shipment with aggregate delivery progress.
+- [x] Configure both Zoho sync cron jobs to read protected service-role authorization without embedding credentials.
+- [ ] Verify successful scheduled Zoho sync responses — blocked: the existing protected service-role credential is rejected even after refreshing the backend binding and redeploying; a supported refresh of the stored credential is required.
