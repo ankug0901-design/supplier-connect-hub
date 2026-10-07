@@ -64,13 +64,6 @@ Deno.serve(async (req) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 
-  // Bootstrap the scheduled credential using only the live server-side binding.
-  const runtimeClient = createClient(supabaseUrl, serviceRoleKey);
-  const { error: bootstrapError } = await runtimeClient.rpc("refresh_zoho_cron_credential", {
-    runtime_key: serviceRoleKey,
-  });
-  console.info("Scheduled credential bootstrap", bootstrapError ? "failed" : "completed");
-
   let authorized = false;
   // Allow scheduled cron triggers (identified by apikey=anon key, no user JWT).
   // The function only proxies vendor data into our DB using a fixed access code,
