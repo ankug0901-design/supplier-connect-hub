@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { syncFullPass, type SyncPage } from "./full-pass.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,6 +114,29 @@ Deno.serve(async (req) => {
   };
 
   try {
+    if (requestBody?.full_pass === true) {
+      // Scheduled full passes are service-role-only; manual supplier paging stays unchanged.
+      if (token !== serviceRoleKey) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const fullSummary = await syncFullPass(async (offset, batchSize) => {
+        const response = await fetch(`${supabaseUrl}/functions/v1/zoho-sync`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${serviceRoleKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ offset, batch_size: batchSize }),
+          signal: AbortSignal.timeout(120_000),
+        });
+        if (!response.ok) throw new Error(`Zoho sync batch at offset ${offset} returned HTTP ${response.status}`);
+        return await response.json() as SyncPage;
+      });
+      return new Response(JSON.stringify(fullSummary), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     let supplierQuery = supabase
       .from("suppliers")
       .select("id, zoho_vendor_id")
