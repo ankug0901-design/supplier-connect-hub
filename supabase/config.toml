@@ -16,7 +16,7 @@ project_id = "agrhkarauqxkgyvfthvc"
   [functions.rfq-portal-request-update]
     verify_jwt = false
   [functions.zoho-sync]
-    verify_jwt = true
+    verify_jwt = false
   [functions.zoho-webhook]
     verify_jwt = false
   [functions.process-email-queue]
