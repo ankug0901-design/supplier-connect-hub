@@ -6,3 +6,4 @@
 - [x] Auto-load and show full tracking details for every shipment with aggregate delivery progress.
 - [x] Configure both Zoho sync cron jobs to read protected service-role authorization without embedding credentials.
 - [x] Refresh scheduled authorization from the live function runtime binding and verify a real scheduled HTTP 200 summary.
+- [ ] Make both scheduled Zoho runs cover every linked supplier and verify successful responses beyond the first batch.
