@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791387008986,
+      "tag": "0000_zoho_cron_runtime_credential_refresh",
+      "breakpoints": true
+    }
+  ]
+}

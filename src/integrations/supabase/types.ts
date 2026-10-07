@@ -1699,6 +1699,10 @@ export type Database = {
         }
         Returns: number
       }
+      refresh_zoho_cron_credential: {
+        Args: { runtime_key: string }
+        Returns: undefined
+      }
       request_po_exception: {
         Args: { _po_id: string; _reason: string }
         Returns: string
