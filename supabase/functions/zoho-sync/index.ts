@@ -97,6 +97,13 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // Keep scheduled authorization aligned with this function's live runtime binding.
+  // The service-role-only RPC writes through Vault's API and never returns the key.
+  const { error: credentialRefreshError } = await supabase.rpc("refresh_zoho_cron_credential", {
+    runtime_key: serviceRoleKey,
+  });
+  if (credentialRefreshError) console.warn("Scheduled Zoho credential refresh failed");
+
   const summary = {
     suppliers: 0,
     pos_upserted: 0,
