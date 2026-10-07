@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { nextCursorOffset } from "./cursor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
 
   const requestBody = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const requestedSupplierId = typeof requestBody?.supplier_id === "string" ? requestBody.supplier_id : null;
-  const requestedOffset = Number.isFinite(Number(requestBody?.offset))
+  let requestedOffset = Number.isFinite(Number(requestBody?.offset))
     ? Math.max(0, Math.floor(Number(requestBody.offset)))
     : 0;
   const requestedBatchSize = Number.isFinite(Number(requestBody?.batch_size))
@@ -96,6 +97,13 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const useCursor = requestBody?.use_cursor === true && !requestedSupplierId;
+  if (useCursor && token !== serviceRoleKey) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  let cursorLease: string | null = null;
 
   // Keep scheduled authorization aligned with this function's live runtime binding.
   // The service-role-only RPC writes through Vault's API and never returns the key.
@@ -113,6 +121,15 @@ Deno.serve(async (req) => {
   };
 
   try {
+    if (useCursor) {
+      const { data: claim, error } = await supabase.rpc("claim_zoho_sync_cursor");
+      if (error) throw error;
+      if (!claim) return new Response(JSON.stringify({ success: true, skipped: true, reason: "Cursor batch already running" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+      requestedOffset = claim.offset;
+      cursorLease = claim.lease_token;
+    }
     let supplierQuery = supabase
       .from("suppliers")
       .select("id, zoho_vendor_id")
@@ -389,15 +406,26 @@ Deno.serve(async (req) => {
 
     const processedCount = (suppliers || []).length;
     const hasMore = !requestedSupplierId && processedCount === requestedBatchSize;
+    const cursorNext = nextCursorOffset(requestedOffset, processedCount, requestedBatchSize);
+    if (cursorLease) {
+      const { data: completed, error } = await supabase.rpc("complete_zoho_sync_cursor", {
+        p_token: cursorLease, p_next_offset: cursorNext,
+      });
+      if (error || !completed) throw error || new Error("Cursor lease expired before completion");
+    }
     return new Response(JSON.stringify({
       success: true,
       ...summary,
       has_more: hasMore,
-      next_offset: hasMore ? requestedOffset + processedCount : null,
+      offset: requestedOffset,
+      next_offset: useCursor ? cursorNext : hasMore ? requestedOffset + processedCount : null,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
+    if (cursorLease) {
+      await supabase.rpc("complete_zoho_sync_cursor", { p_token: cursorLease, p_next_offset: requestedOffset });
+    }
     console.error("zoho-sync fatal", {
       message: e?.message, code: e?.code, details: e?.details, hint: e?.hint, stack: e?.stack,
     });
