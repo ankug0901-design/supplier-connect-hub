@@ -25,7 +25,7 @@ BEGIN
     IF job.command NOT LIKE '%generate_series%' OR job.command NOT LIKE '%zoho_vendor_id IS NOT NULL AND zoho_vendor_id <> ''''%' OR job.command NOT LIKE '%''offset'', supplier_offset, ''batch_size'', 4%' THEN
       RAISE EXCEPTION 'Job % must page every eligible supplier', job.jobname;
     END IF;
-    IF job.schedule <> CASE WHEN job.jobname = 'zoho-sync-hourly' THEN '0 * * * *' ELSE '*/2 * * * *' END THEN
+    IF job.schedule <> (CASE WHEN job.jobname = 'zoho-sync-hourly' THEN '0 * * * *' ELSE '*/2 * * * *' END) THEN
       RAISE EXCEPTION 'Keep the existing schedule for %', job.jobname;
     END IF;
   END LOOP;
