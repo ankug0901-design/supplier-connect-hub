@@ -1420,6 +1420,30 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_cursor: {
+        Row: {
+          id: number
+          lease_token: string | null
+          lease_until: string | null
+          next_offset: number
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          lease_token?: string | null
+          lease_until?: string | null
+          next_offset?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          lease_token?: string | null
+          lease_until?: string | null
+          next_offset?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       three_way_matches: {
         Row: {
           amount_match: boolean | null
@@ -1620,6 +1644,11 @@ export type Database = {
       }
       _supplier_dash_auth: { Args: { _supplier_id: string }; Returns: boolean }
       can_write_po_media: { Args: { _object_name: string }; Returns: boolean }
+      claim_zoho_sync_cursor: { Args: never; Returns: Json }
+      complete_zoho_sync_cursor: {
+        Args: { p_next_offset: number; p_token: string }
+        Returns: boolean
+      }
       confirm_po_delivery_dates: {
         Args: { _items: Json; _po_id: string }
         Returns: Json
