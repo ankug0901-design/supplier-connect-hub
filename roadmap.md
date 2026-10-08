@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Restore dispatch information for all customer shipments and verify delivered-order progress on desktop/mobile.
+- [x] Restore dispatch information for all customer shipments and verify delivered-order progress on desktop/mobile; road/courier fixtures and delivery regression tests pass.
 
 - [x] Add per-item Define Stages dialog with templates, reordering, confirmation and stage saving; slug/reorder tests pass and app compiles cleanly.
 - [ ] Verify stage editing and saving in the signed-in admin page — blocked by unavailable requesting-user session; requires preview sign-in.
