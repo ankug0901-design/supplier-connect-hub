@@ -450,12 +450,13 @@ export default function InvoiceUpload() {
               const poQty = Number(row.po_quantity || 0);
               const invoicedQty = Number(row.invoiced_quantity || 0);
               const remaining = Math.max(poQty - invoicedQty, 0);
-              const desiredQty = ocr.quantity > 0 ? ocr.quantity : Number(row.quantity) || remaining;
+              const rateMismatch = poQty > 0 && row.rate > 0 && ocr.rate > 0 && Math.abs(ocr.rate - row.rate) / row.rate > 0.2;
+              const desiredQty = !rateMismatch && ocr.quantity > 0 ? ocr.quantity : Number(row.quantity) || remaining;
               const cappedQty = poQty > 0 ? Math.min(desiredQty, remaining) : desiredQty;
               return {
                 ...row,
                 quantity: cappedQty,
-                rate: ocr.rate || row.rate,
+                rate: poQty > 0 ? row.rate : (ocr.rate || row.rate),
                 selected: cappedQty > 0,
               };
             });
