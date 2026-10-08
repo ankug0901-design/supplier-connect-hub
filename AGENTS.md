@@ -1,5 +1,7 @@
 # Project Architecture Rules
 
+- Render dispatch details independently of courier tracking availability; centralize and test order-delivery completion so authoritative overall delivery and all-shipment delivery both complete the stepper.
+
 - Keep per-item stage editing in the production updates page and persist through `poTrackerRpc`'s `set_stages` action; pure slug/reorder helpers are independently tested to preserve the existing update workflows.
 
 - Route general frontend n8n calls through `n8nPost`; the PO Tracker's logistics shipment fetch and email send are explicit direct-webhook exceptions required by their unauthenticated workflows.
