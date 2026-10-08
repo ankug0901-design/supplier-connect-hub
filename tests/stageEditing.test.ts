@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { moveStage, stageSlug } from './stageEditing';
+import { moveStage, stageSlug } from '../src/lib/stageEditing';
 
 describe('custom production stages', () => {
   test('stores Powder Coating as powder_coating', () => {
