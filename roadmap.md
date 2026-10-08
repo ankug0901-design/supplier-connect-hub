@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] Add per-item Define Stages dialog with templates, reordering, confirmation and stage saving; slug/reorder tests pass and app compiles cleanly.
+- [ ] Verify stage editing and saving in the signed-in admin page — blocked by unavailable requesting-user session; requires preview sign-in.
+
 - [x] Add and deploy the `sync-dispatch` endpoint with the approved hardcoded sync key.
 - [x] Enforce unique dispatch identity using `po_id` and `lr_number`.
 - [x] Verify authentication, validation, and successful no-op synchronization.
