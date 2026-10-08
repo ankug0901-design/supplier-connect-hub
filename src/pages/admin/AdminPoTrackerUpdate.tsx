@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown, Play, Mail, Truck, Trash2, MapPin, Route,
+  Search, Loader2, RefreshCw, Factory, Images, X, CheckCircle2, Clock, Send, ChevronDown, ChevronUp, Settings2, Plus, Play, Mail, Truck, Trash2, MapPin, Route,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { poTrackerRpc } from '@/lib/poTracker';
 import { STAGE_TEMPLATES, prettyStage } from '@/lib/stageTemplates';
+import { moveStage, stageSlug } from '@/lib/stageEditing';
 import { n8nPost } from '@/lib/n8n';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -230,6 +231,94 @@ function StageBar({ item }: { item: TrackItem }) {
   );
 }
 
+function EditStagesDialog({ item, open, onOpenChange, onDone }: {
+  item: TrackItem;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDone: () => Promise<void> | void;
+}) {
+  const { toast } = useToast();
+  const [names, setNames] = useState<string[]>([]);
+  const [template, setTemplate] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setNames((item.production_stages ?? stagesFor(item)).map(prettyStage));
+    setTemplate('');
+  }, [open, item.id, item.production_stages]);
+
+  const selectTemplate = (value: string) => {
+    if (names.length > 0 && !window.confirm('Replace all current stages? Unsaved stage changes will be lost.')) return;
+    setTemplate(value);
+    setNames(value === CUSTOM_STAGE ? [] : (STAGE_TEMPLATES[value]?.stages ?? []).map(prettyStage));
+  };
+
+  const save = async () => {
+    const slugs = names.map(stageSlug);
+    if (slugs.some((slug) => !slug)) {
+      toast({ title: 'Enter a name for each stage', variant: 'destructive' });
+      return;
+    }
+    if (new Set(slugs).size !== slugs.length) {
+      toast({ title: 'Each stage must have a unique name', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await poTrackerRpc({ action: 'set_stages', item_id: item.id, stages: slugs });
+      if (result?.ok === false) throw new Error(result.error || 'Unable to save stages');
+      await onDone();
+      toast({ title: 'Production stages saved' });
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({ title: 'Unable to save stages', description: error?.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => { if (!saving) onOpenChange(value); }}>
+      <DialogContent className="flex max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg flex-col overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>Define Stages</DialogTitle>
+          <p className="break-words text-sm text-muted-foreground">{item.item_name || item.description || 'Item'}</p>
+        </DialogHeader>
+        <div className="min-h-0 space-y-4 overflow-y-auto p-1">
+          <div className="space-y-1.5">
+            <Label htmlFor={`${item.id}-stage-template`}>Template</Label>
+            <Select value={template} onValueChange={selectTemplate} disabled={saving}>
+              <SelectTrigger id={`${item.id}-stage-template`}><SelectValue placeholder="Choose a template" /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(STAGE_TEMPLATES).map(([key, value]) => (
+                  <SelectItem key={key} value={key}>{value.label.split(' (')[0]}</SelectItem>
+                ))}
+                <SelectItem value={CUSTOM_STAGE}>Custom (start blank)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            {names.map((name, index) => (
+              <div key={index} className="flex items-center gap-1.5">
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={`Move stage ${index + 1} up`} title="Move up" disabled={saving || index === 0} onClick={() => setNames((current) => moveStage(current, index, -1))}><ChevronUp className="h-4 w-4" /></Button>
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={`Move stage ${index + 1} down`} title="Move down" disabled={saving || index === names.length - 1} onClick={() => setNames((current) => moveStage(current, index, 1))}><ChevronDown className="h-4 w-4" /></Button>
+                <Input className="min-w-0 flex-1" aria-label={`Stage ${index + 1} name`} value={name} disabled={saving} placeholder="Stage name" onChange={(event) => setNames((current) => current.map((value, position) => position === index ? event.target.value : value))} />
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground" aria-label={`Delete stage ${index + 1}`} title="Delete stage" disabled={saving} onClick={() => setNames((current) => current.filter((_, position) => position !== index))}><X className="h-4 w-4" /></Button>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => setNames((current) => [...current, ''])}><Plus className="mr-2 h-4 w-4" />Add Stage</Button>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button type="button" disabled={saving} onClick={save}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Stages</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ItemUpdateForm({
   po,
   item,
@@ -256,6 +345,7 @@ function ItemUpdateForm({
   const [fetchingShipments, setFetchingShipments] = useState(false);
   const [syncingShipments, setSyncingShipments] = useState(false);
   const [showSingleDispatch, setShowSingleDispatch] = useState(false);
+  const [editStagesOpen, setEditStagesOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const upload = async (fl: FileList | null) => {
@@ -446,7 +536,10 @@ function ItemUpdateForm({
   return (
     <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold">{item.item_name || item.description}</p>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <p className="break-words text-sm font-semibold">{item.item_name || item.description}</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => setEditStagesOpen(true)}><Settings2 className="mr-2 h-3.5 w-3.5" />Define Stages</Button>
+        </div>
         <Badge variant="outline" className="gap-1">
           <Factory className="h-3 w-3" />
           {prettyStage(item.current_stage)}
@@ -454,6 +547,7 @@ function ItemUpdateForm({
       </div>
 
       <StageBar item={item} />
+      <EditStagesDialog item={item} open={editStagesOpen} onOpenChange={setEditStagesOpen} onDone={onDone} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
