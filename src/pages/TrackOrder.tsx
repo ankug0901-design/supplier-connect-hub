@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { prettyStage } from "@/lib/stageTemplates";
+import { isOrderDelivered } from "@/lib/trackingDelivery";
 import { Check, Loader2, Package, CheckCircle2, Play, X, Copy, RefreshCw } from "lucide-react";
 
 const TEAL = "#0d7377";
@@ -273,10 +274,7 @@ export default function TrackOrder() {
     const shipmentState = shipmentStatus(dispatch, index);
     return shipmentState === "in_transit" || shipmentState === "out_for_delivery";
   });
-  const allShipmentsDelivered = dispatchList.length > 0 && dispatchList.every(
-    (dispatch, index) => shipmentStatus(dispatch, index) === "delivered"
-  );
-  const isDelivered = dispatchList.length > 0 ? allShipmentsDelivered : status === "delivered";
+  const isDelivered = isOrderDelivered(status, dispatchList.map(shipmentStatus));
 
   const inTransitIdx = STEPS.findIndex((s) => s.key === "in_transit");
   const deliveredIdx = STEPS.findIndex((s) => s.key === "delivered");
@@ -500,6 +498,39 @@ export default function TrackOrder() {
                       );
                     })}
                   </div>
+                </div>
+              </section>
+            )}
+
+            {/* Dispatch details remain visible even without a courier waybill. */}
+            {dispatchList.length > 0 && (
+              <section aria-label="Dispatch Details">
+                <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-muted-foreground">Dispatch Details</h2>
+                <div className="space-y-3">
+                  {dispatchList.map((dispatch, index) => (
+                    <div key={dispatchKey(dispatch, index)} className="rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+                      <h3 className="mb-3 text-sm font-semibold">Dispatch {index + 1}</h3>
+                      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {[
+                          ['Vehicle Number', dispatch.vehicle_number],
+                          ['Transporter', dispatch.transporter_name || dispatch.courier_name],
+                          ['LR / AWB Number', dispatch.lr_number || dispatch.awb_number],
+                          ['Expected Arrival', dispatch.expected_arrival ? fmtDate(dispatch.expected_arrival) : undefined],
+                        ].map(([label, value]) => (
+                          <div key={label} className="min-w-0">
+                            <dt className="text-xs text-muted-foreground">{label}</dt>
+                            <dd className="mt-1 break-words text-sm font-semibold">{value || '—'}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                      {dispatch.vehicle_photo_url && (
+                        <div className="mt-4">
+                          <p className="mb-2 text-xs text-muted-foreground">Loaded Vehicle Photo</p>
+                          <MediaGrid items={[{ url: dispatch.vehicle_photo_url, type: 'image' }]} onOpen={setLightbox} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </section>
             )}
