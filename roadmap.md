@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Add the supplied tracking-email logo, optional Client PO reference, and professional default body; preserve all email sends and validate existing regression tests.
+- [x] Add the supplied tracking-email logo, optional Client PO reference, and professional default body; seven regression tests pass and build is clean. Supplied PNG has a broken image stream and appears blank in the email preview; replacement artwork is needed for a visible logo.
 
 - [x] Redesign client tracking emails with order summary/status and optional product thumbnails in all three callers; 15 targeted tests pass, desktop/mobile email previews verified, build clean, sending unchanged, unpublished.
 
