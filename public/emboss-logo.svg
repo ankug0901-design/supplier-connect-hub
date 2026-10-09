@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 90" width="150" height="67">
+  <defs>
+    <linearGradient id="arrow" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#f87171"/>
+    </linearGradient>
+  </defs>
+  <!-- "e" letter -->
+  <path d="M12,52 C12,32 28,18 48,18 C68,18 78,32 78,48 L28,48 C30,60 40,68 54,68 C64,68 72,64 76,58"
+        fill="none" stroke="#4CB050" stroke-width="12" stroke-linecap="round"/>
+  <!-- connecting stroke from e to m -->
+  <path d="M76,58 C80,50 85,42 95,42 C108,42 108,58 108,58 L108,82"
+        fill="none" stroke="#4CB050" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- m second hump -->
+  <path d="M108,48 C108,42 118,32 130,32 C142,32 148,42 148,52 L148,82"
+        fill="none" stroke="#4CB050" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- m third part going up -->
+  <path d="M148,48 C148,38 155,28 165,22 C172,18 178,16 182,14"
+        fill="none" stroke="#4CB050" stroke-width="12" stroke-linecap="round"/>
+  <!-- Red arrow/triangle -->
+  <polygon points="172,4 192,18 176,22" fill="url(#arrow)"/>
+</svg>
