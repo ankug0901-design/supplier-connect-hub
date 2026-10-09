@@ -46,11 +46,11 @@ test('videos and unsafe URLs are skipped while legacy image strings remain suppo
 });
 
 test('current order status and order date refresh after dispatch without changing the tracking token', async () => {
-  const helpers = setup({ data: { overall_status: 'dispatched', order_date: '2026-10-01' }, error: null });
+  const helpers = setup({ data: { overall_status: 'dispatched', order_date: '2026-10-01', client_po_ref: 'CLIENT-PO-42' }, error: null });
   expect(await helpers.trackingEmailMeta({ po_number: 'PO-1', client_order: { id: 'order-1', order_number: 'ORD-1', client_name: 'Client', order_date: '2026-09-30', overall_status: 'in_production', tracking_token: 'token-1' } })).toEqual({
-    orderNumber: 'ORD-1', clientName: 'Client', orderDate: '2026-10-01', overallStatus: 'dispatched', trackingToken: 'token-1',
+    orderNumber: 'ORD-1', clientName: 'Client', orderDate: '2026-10-01', overallStatus: 'dispatched', trackingToken: 'token-1', clientPoRef: 'CLIENT-PO-42',
   });
-  expect(helpers.calls).toEqual([['from', 'client_orders'], ['select', 'order_date, overall_status'], ['eq', 'id', 'order-1']]);
+  expect(helpers.calls).toEqual([['from', 'client_orders'], ['select', 'order_date, overall_status, client_po_ref'], ['eq', 'id', 'order-1']]);
 });
 
 test('order summary refresh failure keeps existing order data and allows sending', async () => {
@@ -58,5 +58,14 @@ test('order summary refresh failure keeps existing order data and allows sending
   const meta = await helpers.trackingEmailMeta({ po_number: 'PO-1', client_order: { id: 'order-1', order_date: '2026-10-01', overall_status: 'in_production', tracking_token: 'token-1' } });
   expect(meta.orderDate).toBe('2026-10-01');
   expect(meta.overallStatus).toBe('in_production');
+  expect(meta.trackingToken).toBe('token-1');
+  expect(meta.clientPoRef).toBeNull();
+});
+
+test('missing client PO reference refreshes to null without affecting order details', async () => {
+  const helpers = setup({ data: { overall_status: 'in_production', order_date: '2026-10-09', client_po_ref: '' }, error: null });
+  const meta = await helpers.trackingEmailMeta({ po_number: 'PO-1', client_order: { id: 'order-1', tracking_token: 'token-1' } });
+  expect(meta.clientPoRef).toBeNull();
+  expect(meta.orderNumber).toBe('PO-1');
   expect(meta.trackingToken).toBe('token-1');
 });
