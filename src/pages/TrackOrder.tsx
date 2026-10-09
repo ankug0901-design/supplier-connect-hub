@@ -102,7 +102,7 @@ function fmtMilestoneTime(v?: string) {
 
 const STEPS = [
   { key: "order_received", label: "Order Received" },
-  { key: "material_sourced", label: "Material Sourced" },
+  { key: "material_sourced", label: "Material Ordered" },
   { key: "in_production", label: "In Production" },
   { key: "dispatched", label: "Dispatched" },
   { key: "in_transit", label: "In Transit" },
