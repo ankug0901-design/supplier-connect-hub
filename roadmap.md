@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Prepare email update: preserve existing sends and audit history, replace email transport, verify replacements, remove legacy source files, and leave unpublished.
+- [x] Prepare email update: preserve existing sends and audit history, validate and deploy replacements, remove legacy source files only, and leave unpublished; 30 regression tests pass.
 
 - [x] Add collapsed per-item production history including unassigned PO updates and a PO-header update count; query regression tests pass and build is clean.
 
