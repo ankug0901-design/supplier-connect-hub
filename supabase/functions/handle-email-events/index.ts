@@ -1,18 +1,25 @@
 import { createEmailWebhookHandler } from 'npm:@lovable.dev/email-js@0.3.1'
+import { createClient } from 'npm:@supabase/supabase-js@2'
+import { recordEmailOutcome } from './record-outcome.ts'
+
+function client() {
+  const url = Deno.env.get('SUPABASE_URL')
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!url || !key) throw new Error('Email outcome storage is not configured')
+  return createClient(url, key)
+}
 
 const handler = createEmailWebhookHandler({
   apiKey: Deno.env.get('LOVABLE_API_KEY')!,
   on: {
-    // Placeholder handlers — replace each log with the feature's reaction.
-    // Throw on failure so the delivery is retried.
     'email.bounced': async (event) => {
-      console.log('Email bounced', { event_id: event.event_id })
+      await recordEmailOutcome(client(), event, 'bounce')
     },
     'email.complaint': async (event) => {
-      console.log('Email complaint', { event_id: event.event_id })
+      await recordEmailOutcome(client(), event, 'complaint')
     },
     'email.unsubscribed': async (event) => {
-      console.log('Email unsubscribed', { event_id: event.event_id })
+      await recordEmailOutcome(client(), event, 'unsubscribe')
     },
   },
 })

@@ -28,3 +28,9 @@ project_id = "agrhkarauqxkgyvfthvc"
   [functions.rfq-documents-manage]
     verify_jwt = false
 
+[functions.preview-transactional-email]
+verify_jwt = false
+
+[functions.handle-email-events]
+verify_jwt = false
+
