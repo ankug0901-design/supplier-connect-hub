@@ -1,5 +1,7 @@
 # Project Architecture Rules
 
+- Keep `po_tracker_manage(jsonb)` and `_po_recalc_status(uuid)` on an empty search path with schema-qualified application references so caller-controlled objects cannot replace their dependencies.
+
 - Client tracking emails share the inline table-based wrapper in the production updates page; optional PO/item-scoped thumbnail lookups and current order-summary refreshes fail open to preserve all three existing webhook sends.
 
 - Admin email outcomes read the existing RLS-protected audit log using exact server-side counts and stable pagination; distinguish accepted sends from confirmed delivery and never alter sending or suppression workflows for reporting.
