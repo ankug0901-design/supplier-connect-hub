@@ -204,7 +204,7 @@ function wrapEmailHtml(
 <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;">
 <tr>
   <td style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); padding: 28px 32px; text-align: center;">
-    <img src="https://supplierconnect.embossmarketing.in/emboss-logo.svg" alt="Emboss Marketing" width="150" height="67" style="display:block;margin:0 auto 8px auto;max-width:150px;" />
+    <img src="https://supplierconnect.embossmarketing.in/emboss-logo.png" alt="Emboss Marketing" width="150" height="67" style="display:block;margin:0 auto 8px auto;max-width:150px;" />
     <div style="font-family:Georgia,serif;font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.7);text-transform:uppercase;">Supplier Connect Portal</div>
   </td>
 </tr>
