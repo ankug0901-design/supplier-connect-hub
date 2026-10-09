@@ -202,12 +202,7 @@ function wrapEmailHtml(
 <body style="margin:0;padding:0;background-color:#f9fafb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f9fafb"><tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;">
-<tr>
-  <td style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); padding: 28px 32px; text-align: center;">
-    <img src="https://supplierconnect.embossmarketing.in/emboss-logo.png" alt="Emboss Marketing" width="150" height="67" style="display:block;margin:0 auto 8px auto;max-width:150px;" />
-    <div style="font-family:Georgia,serif;font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.7);text-transform:uppercase;">Supplier Connect Portal</div>
-  </td>
-</tr>
+<tr><td style="background-color:#0d7377;padding:32px 28px 24px 28px;border-radius:12px 12px 0 0;"><div style="font-family:Arial,Helvetica,sans-serif;font-size:28px;line-height:34px;font-weight:900;color:#ffffff;letter-spacing:0.5px;">EMBOSS MARKETING</div><div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;font-weight:600;color:rgba(255,255,255,0.55);letter-spacing:3px;text-transform:uppercase;padding-top:6px;">PRINTING &middot; PACKAGING &middot; POS MATERIALS</div></td></tr>
 <tr><td bgcolor="#f9fafb" style="padding:0 16px;border-bottom:1px solid #e5e7eb;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="table-layout:fixed;"><tr>${summary}</tr></table></td></tr>
 <tr><td style="padding:24px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td style="padding-bottom:8px;font-size:12px;line-height:18px;color:#6b7280;">ORDER STATUS</td></tr><tr><td style="padding-bottom:24px;">${badge(meta.overallStatus || 'Status unavailable')}</td></tr>${(() => {
   const body = contentHtml.trim();
