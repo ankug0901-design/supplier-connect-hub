@@ -86,6 +86,7 @@ import AdminPagePermissions from "./pages/admin/AdminPagePermissions";
 import AdminUserRoles from "./pages/admin/AdminUserRoles";
 import AdminUserAccessReport from "./pages/admin/AdminUserAccessReport";
 import AdminExceptionRequests from "./pages/admin/AdminExceptionRequests";
+import AdminEmailOutcomes from "./pages/admin/AdminEmailOutcomes";
 import AdminLiveDashboard from "./pages/admin/AdminLiveDashboard";
 import AdminPoTracker from "./pages/admin/AdminPoTracker";
 import AdminPoTrackerUpdate from "./pages/admin/AdminPoTrackerUpdate";
@@ -189,6 +190,7 @@ function AppRoutes() {
       <Route path="/shipments" element={<ProtectedRoute><SupplierSectionGuard sectionKey="shipments"><Shipments /></SupplierSectionGuard></ProtectedRoute>} />
       <Route path="/awb" element={<Navigate to="/shipments" replace />} />
       <Route path="/admin" element={<AdminRoute><AdminLanding /></AdminRoute>} />
+      <Route path="/admin/email-outcomes" element={<AdminRoute><AdminEmailOutcomes /></AdminRoute>} />
       <Route path="/admin/po-tracker-update" element={<AdminRoute><AdminPoTrackerUpdate /></AdminRoute>} />
       <Route path="/admin/suppliers" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-suppliers"><AdminSuppliers /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/admin/registrations" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-registrations"><AdminRegistrations /></SupplierSectionGuard></AdminRoute>} />

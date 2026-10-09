@@ -1,5 +1,7 @@
 # Project Architecture Rules
 
+- Admin email outcomes read the existing RLS-protected audit log using exact server-side counts and stable pagination; distinguish accepted sends from confirmed delivery and never alter sending or suppression workflows for reporting.
+
 - Existing email features send synchronously through the managed email SDK (registered templates for account invitations, direct sends for runtime-composed HTML); retain checked audit writes and notification-only outcome mirrors, never local send-gating or queue mechanics, to preserve workflows and history.
 
 - Keep item production history scoped to its PO and matching-or-null item ID, with PO-wide activity counts; reuse existing media and stage helpers to preserve update workflows.
