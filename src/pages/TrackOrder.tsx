@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { supabase } from '@/integrations/supabase/client';
 import { prettyStage } from "@/lib/stageTemplates";
 import { isOrderDelivered } from "@/lib/trackingDelivery";
 import { Check, Loader2, Package, CheckCircle2, Play, X, Copy, RefreshCw } from "lucide-react";
@@ -23,7 +24,6 @@ function fmtFetchedAt(v?: string) {
     })
     .replace(/AM|PM/, (m) => m.toLowerCase());
 }
-const ENDPOINT = "https://n8n.srv1141999.hstgr.cloud/webhook/po-track";
 
 type MediaItem = { url: string; type?: string };
 
@@ -217,10 +217,12 @@ export default function TrackOrder() {
       }
       if (initial) setLoading(true);
       try {
-        const res = await fetch(`${ENDPOINT}?t=${encodeURIComponent(token)}`);
-        const raw = await res.json();
+        const { data: raw, error: rpcError } = await (supabase as any).rpc('po_tracker_manage', {
+          payload: { action: 'track_by_token', tracking_token: token },
+        });
+        if (rpcError) throw rpcError;
         const json: TrackData = Array.isArray(raw) ? raw[0] : raw;
-        if (!res.ok || !json || json.ok === false || !json.order) {
+        if (!json || json.ok === false || !json.order) {
           setError(true);
         } else {
           setData(json);

@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Switch public tracking to direct token RPC and update email branding/confidentiality; 13 regression tests pass, browser verified with a mocked RPC response, build clean, unpublished.
+
 - [x] Add optional Client PO reference and professional default body; seven regression tests pass and build is clean.
 
 - [x] Redesign client tracking emails with order summary/status and optional product thumbnails in all three callers; 15 targeted tests pass, desktop/mobile email previews verified, build clean, sending unchanged, unpublished.
