@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Add an admin email outcomes dashboard with exact totals, status/recipient/template/date filters, timestamps, and existing admin-only data access; 14 tests pass, signed-in pagination/status/recipient checks pass, build clean, unpublished.
+
 - [x] Prepare email update: preserve existing sends and audit history, validate and deploy replacements, remove legacy source files only, and leave unpublished; 30 regression tests pass.
 
 - [x] Add collapsed per-item production history including unassigned PO updates and a PO-header update count; query regression tests pass and build is clean.

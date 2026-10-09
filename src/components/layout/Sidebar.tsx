@@ -21,6 +21,7 @@ import {
   Activity,
   PackageCheck,
   Factory,
+  Mail,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -50,6 +51,7 @@ const supplierNavigation: NavItem[] = [
 const adminNavigation: NavItem[] = [
   { name: 'Admin Dashboard', href: '/admin', icon: LayoutDashboard, sectionKey: 'admin-dashboard' },
   { name: 'Live Dashboard', href: '/admin/live-dashboard', icon: Activity, sectionKey: 'admin-live-dashboard' },
+  { name: 'Email Outcomes', href: '/admin/email-outcomes', icon: Mail },
   { name: 'PO Tracker', href: '/admin/po-tracker', icon: PackageCheck, sectionKey: 'admin-po-tracker' },
   { name: 'PO Tracker Updates', href: '/admin/po-tracker-update', icon: Factory, sectionKey: 'admin-po-tracker-update' },
   { name: 'All Suppliers', href: '/admin/suppliers', icon: Users, sectionKey: 'admin-suppliers' },
