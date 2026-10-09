@@ -962,6 +962,72 @@ function AdminDispatchForm({
   );
 }
 
+function ItemUpdateHistory({ po_id, item_id }: { po_id: string; item_id: string }) {
+  const [updates, setUpdates] = useState<Omit<RecentUpdate, 'po'>[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const loadHistory = async () => {
+      setLoading(true);
+      setError(false);
+      try {
+        const { data, error: queryError } = await supabase
+          .from('po_production_updates')
+          .select('id, stage, status, note, media_urls, updated_by, created_at')
+          .eq('po_id', po_id)
+          .or(`item_id.eq.${item_id},item_id.is.null`)
+          .order('created_at', { ascending: false });
+        if (queryError) throw queryError;
+        if (active) setUpdates(data || []);
+      } catch {
+        if (active) setError(true);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadHistory();
+    return () => { active = false; };
+  }, [po_id, item_id]);
+
+  return (
+    <section className="min-w-0 space-y-2 border-t pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Production History</h3>
+        <Button type="button" variant="ghost" size="sm" aria-expanded={open} aria-controls={`history-${item_id}`} onClick={() => setOpen((value) => !value)} className="gap-1.5">
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          {open ? 'Hide History' : 'Show History'}{!loading && !error ? ` (${updates.length})` : ''}
+        </Button>
+      </div>
+      {open && (
+        <div id={`history-${item_id}`} className="space-y-2">
+          {loading ? <p className="text-xs text-muted-foreground">Loading history…</p> : error ? <p role="alert" className="text-xs text-destructive">Unable to load production history.</p> : updates.length === 0 ? <p className="text-xs text-muted-foreground">No production updates yet.</p> : updates.map((update) => (
+            <article key={update.id} className="space-y-2 rounded-md border bg-background p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">{prettyStage(update.stage)}</span>
+                <Badge variant={update.status === 'completed' ? 'secondary' : 'outline'}>{prettyStage(update.status)}</Badge>
+              </div>
+              {update.note && <p className="whitespace-pre-wrap break-words text-sm">{update.note}</p>}
+              {mediaList(update.media_urls).length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {mediaList(update.media_urls).map((media, index) => (
+                    <a key={`${media.url}-${index}`} href={media.url} target="_blank" rel="noreferrer" aria-label={media.filename || (isVideoItem(media) ? 'Open update video' : 'Open update photo')} className="relative block h-16 w-16 overflow-hidden rounded border bg-muted">
+                      {isVideoItem(media) ? <><video src={media.url} muted playsInline preload="metadata" className="h-full w-full object-cover" /><span className="pointer-events-none absolute inset-0 flex items-center justify-center"><Play className="h-4 w-4 text-primary" /></span></> : <img src={media.url} alt={media.filename || 'Update photo'} loading="lazy" className="h-full w-full object-cover" />}
+                    </a>
+                  ))}
+                </div>
+              )}
+              <p className="break-words text-xs text-muted-foreground">{fmt(update.created_at)} · {update.updated_by || 'Unknown'}</p>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function POCard({
   po,
   expanded,
@@ -983,6 +1049,24 @@ function POCard({
   const [emailCc, setEmailCc] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
+  const [updateCount, setUpdateCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('po_production_updates')
+          .select('id', { count: 'exact', head: true })
+          .eq('po_id', po.id);
+        if (active) setUpdateCount(error ? null : count);
+      } catch {
+        if (active) setUpdateCount(null);
+      }
+    };
+    void loadCount();
+    return () => { active = false; };
+  }, [po.id]);
 
   const openEmail = () => {
     setEmailTo(po.client_order?.client_email || '');
@@ -1031,7 +1115,10 @@ function POCard({
         <div role="button" tabIndex={0} onClick={onToggle} className="w-full cursor-pointer text-left">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="font-semibold">PO {po.po_number}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold">PO {po.po_number}</p>
+                {updateCount !== null && <Badge variant="secondary">{updateCount} {updateCount === 1 ? 'update' : 'updates'}</Badge>}
+              </div>
               <p className="text-sm text-muted-foreground">
                 {po.client_order?.client_name || 'Unlinked client'}
                 {po.client_order?.order_number ? ` · Order ${po.client_order.order_number}` : ''}
@@ -1104,6 +1191,7 @@ function POCard({
               po.items.map((it) => (
                 <div key={it.id} className="space-y-3">
                   <ItemUpdateForm po={po} item={it} updatedBy={updatedBy} onDone={onDone} />
+                  <ItemUpdateHistory po_id={po.id} item_id={it.id} />
                 </div>
               ))
             )}
