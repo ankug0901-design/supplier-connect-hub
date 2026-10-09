@@ -752,7 +752,7 @@ function AdminDispatchForm({
   onDone: () => Promise<void> | void;
 }) {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [form, setForm] = useState({
     vehicle_number: '', dispatch_quantity: '', transporter_name: '', lr_number: '', driver_name: '',
     driver_phone: '', eway_bill_number: '', expected_arrival: '', notes: '',
