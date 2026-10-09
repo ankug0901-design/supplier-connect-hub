@@ -1,5 +1,7 @@
 # Project Architecture Rules
 
+- Existing email features send synchronously through the managed email SDK (registered templates for account invitations, direct sends for runtime-composed HTML); retain checked audit writes and notification-only outcome mirrors, never local send-gating or queue mechanics, to preserve workflows and history.
+
 - Keep item production history scoped to its PO and matching-or-null item ID, with PO-wide activity counts; reuse existing media and stage helpers to preserve update workflows.
 
 - Render dispatch details independently of courier tracking availability; centralize and test order-delivery completion so authoritative overall delivery and all-shipment delivery both complete the stepper.
