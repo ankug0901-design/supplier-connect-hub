@@ -10,25 +10,21 @@ async function runQuery(component: 'ItemUpdateHistory' | 'POCard', props: Record
   const componentSource = source.slice(start, end < 0 ? source.indexOf('\nexport default', start) : end);
   const calls: unknown[][] = [];
   const states: unknown[] = [];
-  const pending: Promise<unknown>[] = [];
   const query: Record<string, unknown> = {};
   for (const method of ['from', 'select', 'eq', 'or', 'order']) {
     query[method] = (...args: unknown[]) => { calls.push([method, ...args]); return query; };
   }
   query.then = (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: [], count: 3, error: null }));
-  const output = ts.transpileModule(componentSource, { compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const render = new Function('useState', 'useEffect', 'supabase', 'useToast', 'React', 'Card', 'CardContent', 'Badge', 'Button', 'Mail', 'ChevronDown', 'Clock', 'Dialog', 'DialogContent', 'DialogHeader', 'DialogTitle', 'DialogFooter', 'Label', 'Input', 'Textarea', 'Send', 'fmt', 'cn', `${output}; return ${component};`);
+  const querySource = componentSource.slice(0, componentSource.indexOf('\n  return (')) + '\n}';
+  const output = ts.transpileModule(querySource, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const render = new Function('useState', 'useEffect', 'supabase', 'useToast', `${output}; return ${component};`);
   const componentFn = render(
     (initial: unknown) => [initial, (value: unknown) => states.push(value)],
     (effect: () => unknown) => { effect(); },
     { from: query.from }, () => ({ toast: () => {} }),
-    { createElement: () => null },
-    ...Array(17).fill('element'), () => 'date', () => '',
   );
   componentFn(props);
-  // Flush asynchronous query completion without rendering or asserting markup.
-  pending.push(Promise.resolve());
-  await Promise.all(pending);
+  // Execute the actual query effects without rendering or asserting markup.
   await new Promise((resolve) => setTimeout(resolve, 0));
   return { calls, states };
 }
