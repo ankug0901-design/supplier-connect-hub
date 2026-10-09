@@ -1,6 +1,8 @@
 // Reopen or extend an RFQ. Updates rfq_portal_requests rows for the given
-// rfq_id and notifies all suppliers by enqueueing transactional emails.
+// rfq_id and notifies all suppliers with app emails.
 // Replaces the flaky n8n `rfq-manage` webhook for these two actions.
+import { EmailAPIError, sendLovableEmail } from 'npm:@lovable.dev/email-js@0.3.1';
+import { recordEmailSendOutcome } from '../_shared/email-send-outcome.ts';
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -14,7 +16,7 @@ const FROM_ADDRESS = `Emboss Procurement <noreply@${SENDER_DOMAIN}>`;
 const SITE_URL = "https://supplierconnect.embossmarketing.in";
 
 function esc(s: string): string {
-  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] ?? c));
 }
 
 function buildHtml(opts: { subject: string; intro: string; details: Array<[string, string]>; reason: string; cta: string }): string {
@@ -35,20 +37,6 @@ function buildHtml(opts: { subject: string; intro: string; details: Array<[strin
     <p style="margin-top:32px;color:#6b7280;font-size:12px;">This is an automated notification from the Emboss Marketing supplier portal.</p>
   </div>
 </body></html>`;
-}
-
-async function getOrCreateUnsubToken(admin: any, email: string): Promise<string> {
-  const lower = String(email).toLowerCase();
-  const { data: existing } = await admin.from("email_unsubscribe_tokens").select("token").eq("email", lower).maybeSingle();
-  if (existing?.token) return existing.token;
-  const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
-  const { error } = await admin.from("email_unsubscribe_tokens").insert({ email: lower, token });
-  if (error) {
-    const { data: again } = await admin.from("email_unsubscribe_tokens").select("token").eq("email", lower).maybeSingle();
-    if (again?.token) return again.token;
-    throw error;
-  }
-  return token;
 }
 
 Deno.serve(async (req) => {
@@ -154,7 +142,7 @@ Deno.serve(async (req) => {
 
     const html = buildHtml({ subject, intro, details, reason: String(reason).trim(), cta: "Open Supplier Portal" });
 
-    // Enqueue emails per unique supplier email
+    // Send emails per unique supplier email
     const seen = new Set<string>();
     const targets = rows
       .map((r) => (r.supplier_email || "").toString().trim().toLowerCase())
@@ -165,10 +153,6 @@ Deno.serve(async (req) => {
     const errors: string[] = [];
     for (const email of targets) {
       try {
-        const { data: suppressed } = await admin.from("suppressed_emails").select("email").eq("email", email).maybeSingle();
-        if (suppressed) { skipped++; continue; }
-
-        const unsubscribeToken = await getOrCreateUnsubToken(admin, email);
         const messageId = `rfq-${action}-${rfq_id}-${email}-${Date.now()}`;
 
         const payload = {
@@ -178,37 +162,29 @@ Deno.serve(async (req) => {
           subject,
           html,
           text: `${intro}\n\nRFQ: ${rfq_id}\nProduct: ${productName}\nNew closing: ${deadlineDisplay}\n\nReason: ${reason}\n\nPortal: ${SITE_URL}`,
-          purpose: "transactional",
+          purpose: "transactional" as const,
           label: `rfq-${action}`,
           idempotency_key: messageId,
-          message_id: messageId,
-          unsubscribe_token: unsubscribeToken,
-          queued_at: new Date().toISOString(),
         };
 
-        const { error: enqErr } = await admin.rpc("enqueue_email", { queue_name: "transactional_emails", payload });
-        if (enqErr) { errors.push(`${email}: ${enqErr.message}`); continue; }
+        try {
+          const apiKey = Deno.env.get('LOVABLE_API_KEY');
+          if (!apiKey) throw new Error('Email sending is not configured');
+          // This legacy feature composes its HTML at send time; preserve its content.
+          await sendLovableEmail(payload, { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') });
+          await recordEmailSendOutcome(admin, { message_id: messageId, template_name: `rfq-${action}`, recipient_email: email, status: 'sent' });
+        } catch (error) {
+          const suppressed = error instanceof EmailAPIError && error.code === 'recipient_suppressed';
+          await recordEmailSendOutcome(admin, { message_id: messageId, template_name: `rfq-${action}`, recipient_email: email, status: suppressed ? 'suppressed' : 'failed', error_message: error instanceof Error ? error.message : String(error) });
+          if (suppressed) { skipped++; continue; }
+          else { throw error; }
+        }
 
-        await admin.from("email_send_log").insert({
-          message_id: messageId,
-          template_name: `rfq-${action}`,
-          recipient_email: email,
-          status: "pending",
-        });
         queued++;
       } catch (e: any) {
         errors.push(`${email}: ${e?.message || String(e)}`);
       }
     }
-
-    // Kick the queue processor
-    try {
-      await fetch(`${SUPABASE_URL}/functions/v1/process-email-queue`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-        body: "{}",
-      });
-    } catch (e) { console.warn("process-email-queue kick failed", e); }
 
     return json({ ok: true, action, rfq_id, updated: rows.length, emails_queued: queued, emails_skipped: skipped, errors });
   } catch (e: any) {

@@ -4,6 +4,8 @@
 // - CC: all admin + super_user suppliers.
 //
 // Auth: accepts service role token OR anon apikey (cron) OR admin user.
+import { EmailAPIError, sendLovableEmail } from 'npm:@lovable.dev/email-js@0.3.1';
+import { recordEmailSendOutcome } from '../_shared/email-send-outcome.ts';
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -18,7 +20,7 @@ const FROM_ADDRESS = `Emboss Procurement <noreply@${FROM_DOMAIN}>`;
 const SITE_URL = "https://supplierconnect.embossmarketing.in";
 
 const escapeHtml = (s: string) =>
-  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] ?? c));
 
 function buildHtml(opts: {
   supplierName: string;
@@ -87,28 +89,6 @@ function buildHtml(opts: {
     <p style="margin-top:32px;color:#6b7280;font-size:12px;">This is an automated message from the Emboss Marketing supplier portal. Daily reminders will continue until delivery dates are confirmed.</p>
   </div>
 </body></html>`;
-}
-
-async function getOrCreateUnsubscribeToken(admin: any, email: string): Promise<string> {
-  const lower = String(email).toLowerCase();
-  const { data: existing } = await admin
-    .from("email_unsubscribe_tokens")
-    .select("token")
-    .eq("email", lower)
-    .maybeSingle();
-  if (existing?.token) return existing.token as string;
-  const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
-  const { error } = await admin.from("email_unsubscribe_tokens").insert({ email: lower, token });
-  if (error) {
-    const { data: again } = await admin
-      .from("email_unsubscribe_tokens")
-      .select("token")
-      .eq("email", lower)
-      .maybeSingle();
-    if (again?.token) return again.token as string;
-    throw error;
-  }
-  return token;
 }
 
 Deno.serve(async (req) => {
@@ -236,17 +216,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Suppression check
-      const { data: suppressed } = await admin
-        .from("suppressed_emails")
-        .select("email")
-        .eq("email", String(sup.email).toLowerCase())
-        .maybeSingle();
-      if (suppressed) {
-        skipped++;
-        continue;
-      }
-
       const reminderCount = po.delivery_reminder_count || 0;
       const poUrl = `${SITE_URL}/purchase-orders/${po.id}`;
       const html = buildHtml({
@@ -271,8 +240,6 @@ Deno.serve(async (req) => {
         reminderCount === 0
           ? `New PO ${po.po_number}${itemHint} – confirm delivery dates`
           : `Reminder: confirm delivery dates for PO ${po.po_number}${itemHint}`;
-
-      const unsubscribeToken = await getOrCreateUnsubscribeToken(admin, sup.email);
       const messageId = `po-delivery-${po.id}-${new Date().toISOString().slice(0, 10)}`;
 
       const payload = {
@@ -283,26 +250,23 @@ Deno.serve(async (req) => {
         subject,
         html,
         text: `Please confirm delivery dates for PO ${po.po_number} at ${poUrl}`,
-        purpose: "transactional",
+        purpose: "transactional" as const,
         label: "po-delivery-reminder",
         idempotency_key: messageId,
-        message_id: messageId,
-        unsubscribe_token: unsubscribeToken,
-        queued_at: new Date().toISOString(),
       };
 
-      const { error: enqErr } = await admin.rpc("enqueue_email", {
-        queue_name: "transactional_emails",
-        payload,
-      });
-      if (enqErr) throw enqErr;
-
-      await admin.from("email_send_log").insert({
-        message_id: messageId,
-        template_name: "po-delivery-reminder",
-        recipient_email: sup.email,
-        status: "pending",
-      });
+      try {
+        const apiKey = Deno.env.get('LOVABLE_API_KEY');
+        if (!apiKey) throw new Error('Email sending is not configured');
+        // This legacy feature composes its HTML at send time; preserve its content.
+        await sendLovableEmail(payload, { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') });
+        await recordEmailSendOutcome(admin, { message_id: messageId, template_name: "po-delivery-reminder", recipient_email: sup.email, status: 'sent' });
+      } catch (error) {
+        const suppressed = error instanceof EmailAPIError && error.code === 'recipient_suppressed';
+        await recordEmailSendOutcome(admin, { message_id: messageId, template_name: "po-delivery-reminder", recipient_email: sup.email, status: suppressed ? 'suppressed' : 'failed', error_message: error instanceof Error ? error.message : String(error) });
+        if (suppressed) { skipped++; continue; }
+        else { throw error; }
+      }
 
       await admin
         .from("purchase_orders")
@@ -318,15 +282,6 @@ Deno.serve(async (req) => {
       errors.push(`PO ${po.po_number}: ${e?.message || e}`);
     }
   }
-
-  // Kick the queue processor
-  try {
-    await fetch(`${SUPABASE_URL}/functions/v1/process-email-queue`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-      body: "{}",
-    });
-  } catch (_) { /* ignore */ }
 
   return new Response(JSON.stringify({ sent, skipped, total: (pos || []).length, errors }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },

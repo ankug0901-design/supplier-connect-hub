@@ -2,6 +2,8 @@
 // confirmed within 3 days of release. Emails admins, super_users and the fixed
 // internal CC list. Records the request via the SECURITY DEFINER RPC
 // `request_po_exception`.
+import { EmailAPIError, sendLovableEmail } from 'npm:@lovable.dev/email-js@0.3.1';
+import { recordEmailSendOutcome } from '../_shared/email-send-outcome.ts';
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -17,7 +19,7 @@ const SITE_URL = "https://supplierconnect.embossmarketing.in";
 const FIXED_CC = ["info@embossmarketing.in", "pooja.rathee@embossmarketing.in"];
 
 const escapeHtml = (s: string) =>
-  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] ?? c));
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -154,34 +156,24 @@ Deno.serve(async (req) => {
         subject,
         html,
         text: `Supplier ${supplierLabel} requested an exception for PO ${po?.po_number}. Reason: ${reason}. Review at ${SITE_URL}/admin/exception-requests`,
-        purpose: "transactional",
+        purpose: "transactional" as const,
         label: "po-exception-request",
         idempotency_key: messageId,
-        message_id: messageId,
-        queued_at: new Date().toISOString(),
       };
-      const { error: enqErr } = await admin.rpc("enqueue_email", {
-        queue_name: "transactional_emails",
-        payload,
-      });
-      if (enqErr) console.warn("enqueue_email failed", enqErr);
-
-      await admin.from("email_send_log").insert({
-        message_id: messageId,
-        template_name: "po-exception-request",
-        recipient_email: primary,
-        status: "pending",
-      });
-
       try {
-        await fetch(`${SUPABASE_URL}/functions/v1/process-email-queue`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-          body: "{}",
-        });
-      } catch (_) {
-        /* ignore */
+        const apiKey = Deno.env.get('LOVABLE_API_KEY');
+        if (!apiKey) throw new Error('Email sending is not configured');
+        // This legacy feature composes its HTML at send time; preserve its content.
+        await sendLovableEmail(payload, { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') });
+        await recordEmailSendOutcome(admin, { message_id: messageId, template_name: "po-exception-request", recipient_email: primary, status: 'sent' });
+      } catch (error) {
+        const suppressed = error instanceof EmailAPIError && error.code === 'recipient_suppressed';
+        await recordEmailSendOutcome(admin, { message_id: messageId, template_name: "po-exception-request", recipient_email: primary, status: suppressed ? 'suppressed' : 'failed', error_message: error instanceof Error ? error.message : String(error) });
+        if (suppressed) { /* Request remains recorded even when notification is suppressed. */ }
+        else { console.warn("Exception notification failed"); }
       }
+
+
     }
 
     return new Response(JSON.stringify({ request_id: requestId, notified: recipients.length }), {

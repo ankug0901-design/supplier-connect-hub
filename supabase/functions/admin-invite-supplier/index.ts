@@ -1,79 +1,22 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import * as React from 'npm:react@18.3.1';
-import { renderAsync } from 'npm:@react-email/components@0.0.22';
-import { RecoveryEmail } from '../_shared/email-templates/recovery.tsx';
-import { InviteEmail } from '../_shared/email-templates/invite.tsx';
+import { sendTemplateEmail } from '../_shared/transactional-email-templates/send-email.ts';
+import { recordEmailSendOutcome } from '../_shared/email-send-outcome.ts';
 
-const SITE_NAME = 'embosssupplierportal';
-const SENDER_DOMAIN = 'notify.embossmarketing.in';
-const FROM_DOMAIN = 'notify.embossmarketing.in';
-
-async function getOrCreateUnsubscribeToken(admin: any, email: string): Promise<string> {
-  const lower = String(email).toLowerCase();
-  const { data: existing } = await admin
-    .from('email_unsubscribe_tokens')
-    .select('token')
-    .eq('email', lower)
-    .maybeSingle();
-  if (existing?.token) return existing.token as string;
-
-  const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
-  const { error } = await admin.from('email_unsubscribe_tokens').insert({ email: lower, token });
-  if (error) {
-    const { data: again } = await admin
-      .from('email_unsubscribe_tokens')
-      .select('token')
-      .eq('email', lower)
-      .maybeSingle();
-    if (again?.token) return again.token as string;
+async function sendAuthEmail(admin: any, opts: {
+  type: 'recovery' | 'invite'; email: string; url: string;
+}) {
+  const messageId = crypto.randomUUID();
+  try {
+    const result = await sendTemplateEmail(opts.type, opts.email, {
+      templateData: { confirmationUrl: opts.url },
+      idempotencyKey: `${opts.type}-${messageId}`,
+    });
+    await recordEmailSendOutcome(admin, { message_id: messageId, template_name: opts.type, recipient_email: opts.email, status: result.sent ? 'sent' : 'suppressed' });
+    return result;
+  } catch (error) {
+    await recordEmailSendOutcome(admin, { message_id: messageId, template_name: opts.type, recipient_email: opts.email, status: 'failed', error_message: error instanceof Error ? error.message : String(error) });
     throw error;
   }
-  return token;
-}
-
-async function enqueueAuthEmail(admin: any, opts: {
-  type: 'recovery' | 'invite';
-  email: string;
-  url: string;
-}) {
-  const Template = opts.type === 'invite' ? InviteEmail : RecoveryEmail;
-  const props: any = {
-    siteName: SITE_NAME,
-    siteUrl: 'https://supplierconnect.embossmarketing.in',
-    recipient: opts.email,
-    confirmationUrl: opts.url,
-  };
-  const html = await renderAsync(React.createElement(Template, props));
-  const text = await renderAsync(React.createElement(Template, props), { plainText: true });
-  const messageId = crypto.randomUUID();
-  const subject = opts.type === 'invite' ? "You've been invited" : 'Reset your password';
-  const unsubscribeToken = await getOrCreateUnsubscribeToken(admin, opts.email);
-
-  await admin.from('email_send_log').insert({
-    message_id: messageId,
-    template_name: opts.type,
-    recipient_email: opts.email,
-    status: 'pending',
-  });
-
-  const { error } = await admin.rpc('enqueue_email', {
-    queue_name: 'auth_emails',
-    payload: {
-      message_id: messageId,
-      idempotency_key: `${opts.type}-${opts.email.toLowerCase()}-${messageId}`,
-      to: opts.email,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-      sender_domain: SENDER_DOMAIN,
-      subject,
-      html,
-      text,
-      purpose: 'transactional',
-      label: opts.type,
-      unsubscribe_token: unsubscribeToken,
-      queued_at: new Date().toISOString(),
-    },
-  });
-  if (error) throw error;
 }
 
 const corsHeaders = {
@@ -125,7 +68,7 @@ Deno.serve(async (req) => {
     let userId: string | undefined;
 
     if (!existingUserId) {
-      // Create user with no auto email — we send our own via the queue (avoids rate limits)
+      // Create user with no auto email — we send our own through the email service
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
         email,
         email_confirm: true,
@@ -151,7 +94,7 @@ Deno.serve(async (req) => {
       await admin.auth.admin.updateUserById(existingUserId, { user_metadata: mergedMeta });
     }
 
-    // Generate link via admin API (NOT rate-limited), then enqueue our own email.
+    // Generate link via admin API (NOT rate-limited), then send our own email.
     const linkType: 'invite' | 'recovery' = existingUserId ? 'recovery' : 'invite';
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
       type: linkType,
@@ -162,7 +105,7 @@ Deno.serve(async (req) => {
     const actionLink = linkData?.properties?.action_link;
     if (!actionLink) throw new Error('Failed to generate action link');
 
-    await enqueueAuthEmail(admin, { type: linkType, email, url: actionLink });
+    const emailResult = await sendAuthEmail(admin, { type: linkType, email, url: actionLink });
 
     userId = userId || existingUserId;
 
@@ -183,7 +126,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    return new Response(JSON.stringify({ success: true, user_id: userId }), {
+    return new Response(JSON.stringify({ success: true, user_id: userId, email_sent: emailResult.sent }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e: any) {
