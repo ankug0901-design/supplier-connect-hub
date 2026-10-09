@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Add collapsed per-item production history including unassigned PO updates and a PO-header update count; verify filtering and display.
+- [x] Add collapsed per-item production history including unassigned PO updates and a PO-header update count; query regression tests pass and build is clean.
 
 - [x] Restore dispatch information for all customer shipments and verify delivered-order progress on desktop/mobile; road/courier fixtures and delivery regression tests pass.
 
