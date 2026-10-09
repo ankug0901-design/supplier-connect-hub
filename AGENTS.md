@@ -1,5 +1,7 @@
 # Project Architecture Rules
 
+- Keep item production history scoped to its PO and matching-or-null item ID, with PO-wide activity counts; reuse existing media and stage helpers to preserve update workflows.
+
 - Render dispatch details independently of courier tracking availability; centralize and test order-delivery completion so authoritative overall delivery and all-shipment delivery both complete the stepper.
 
 - Keep per-item stage editing in the production updates page and persist through `poTrackerRpc`'s `set_stages` action; pure slug/reorder helpers are independently tested to preserve the existing update workflows.
