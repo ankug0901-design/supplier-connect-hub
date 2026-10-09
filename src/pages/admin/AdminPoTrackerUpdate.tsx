@@ -202,7 +202,12 @@ function wrapEmailHtml(
 <body style="margin:0;padding:0;background-color:#f9fafb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f9fafb"><tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;">
-<tr><td bgcolor="#0d7377" style="padding:28px 24px;color:#ffffff;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="text-align:center;"><table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td style="font-size:32px;line-height:38px;font-weight:800;color:#ffffff;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;text-align:center;">EMBOSS</td></tr><tr><td style="font-size:14px;line-height:20px;color:#ffffff;letter-spacing:6px;font-family:Arial,Helvetica,sans-serif;text-align:center;padding-top:4px;font-weight:600;">MARKETING</td></tr></table></td></tr><tr><td align="center" style="padding-top:12px;font-size:11px;line-height:18px;color:rgba(255,255,255,0.8);letter-spacing:1.5px;font-family:Arial,Helvetica,sans-serif;">PRINTING &middot; PACKAGING &middot; POS MATERIALS</td></tr></table></td></tr>
+<tr>
+  <td style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); padding: 28px 32px; text-align: center;">
+    <img src="https://supplierconnect.embossmarketing.in/emboss-logo.svg" alt="Emboss Marketing" width="150" height="67" style="display:block;margin:0 auto 8px auto;max-width:150px;" />
+    <div style="font-family:Georgia,serif;font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.7);text-transform:uppercase;">Supplier Connect Portal</div>
+  </td>
+</tr>
 <tr><td bgcolor="#f9fafb" style="padding:0 16px;border-bottom:1px solid #e5e7eb;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="table-layout:fixed;"><tr>${summary}</tr></table></td></tr>
 <tr><td style="padding:24px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td style="padding-bottom:8px;font-size:12px;line-height:18px;color:#6b7280;">ORDER STATUS</td></tr><tr><td style="padding-bottom:24px;">${badge(meta.overallStatus || 'Status unavailable')}</td></tr>${(() => {
   const body = contentHtml.trim();
