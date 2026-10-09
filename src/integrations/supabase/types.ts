@@ -1665,15 +1665,6 @@ export type Database = {
       dashboard_top_items: { Args: { p_limit?: number }; Returns: Json }
       dashboard_top_suppliers: { Args: { p_limit?: number }; Returns: Json }
       dashboard_velocity: { Args: never; Returns: Json }
-      delete_email: {
-        Args: { message_id: number; queue_name: string }
-        Returns: boolean
-      }
-      email_queue_dispatch: { Args: never; Returns: undefined }
-      enqueue_email: {
-        Args: { payload: Json; queue_name: string }
-        Returns: number
-      }
       get_invoiced_quantities_for_po: {
         Args: { _po_number: string; _supplier_id: string }
         Returns: {
@@ -1699,26 +1690,9 @@ export type Database = {
         }
         Returns: Json
       }
-      move_to_dlq: {
-        Args: {
-          dlq_name: string
-          message_id: number
-          payload: Json
-          source_queue: string
-        }
-        Returns: number
-      }
       pct_change: { Args: { curr: number; prev: number }; Returns: number }
       po_tracker_manage: { Args: { payload: Json }; Returns: Json }
       po_tracker_zoho_so: { Args: { payload: Json }; Returns: Json }
-      read_email_batch: {
-        Args: { batch_size: number; queue_name: string; vt: number }
-        Returns: {
-          message: Json
-          msg_id: number
-          read_ct: number
-        }[]
-      }
       record_invoice_line_items: {
         Args: {
           _invoice_number: string
