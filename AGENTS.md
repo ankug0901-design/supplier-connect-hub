@@ -12,3 +12,4 @@
 - Scheduled Zoho sync requests resolve authorization from Vault at execution time; authorized syncs refresh that credential from the live runtime binding through a service-role-only RPC, without exposing credentials or embedding them in cron commands.
 - Rolling Zoho syncs process one four-supplier page using a service-role-only leased cursor; hourly syncs always use offset zero, and manual syncs never modify the cursor, preserving bounded requests independently of schedule frequency.
 - Zoho credential refresh uses a dedicated Vault secret and never overwrites the email queue credential, preventing cross-function authorization conflicts.
+- Zoho item sync matches stored line IDs and upserts on the existing primary key because the partial Zoho unique index cannot be inferred by PostgREST; omit production fields and prune only stale identified items with an explicitly zero history count.

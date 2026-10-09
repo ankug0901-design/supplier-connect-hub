@@ -217,19 +217,77 @@ Deno.serve(async (req) => {
             });
           });
 
-          // Only replace items for POs that actually returned line items from Zoho.
-          // The Zoho list endpoint (or a rate-limited detail fetch) can come back
-          // without line items — wiping our stored items in that case makes
-          // previously visible items disappear from the portal.
+          // Preserve item UUIDs and production tracking during commercial-data sync.
+          // The Zoho unique index is partial, so PostgREST cannot infer it from
+          // onConflict alone. Match existing line IDs first and upsert on the PK.
           const poIdsWithItems = [...new Set(itemRows.map((r: any) => r.po_id))];
+          const withZohoId = itemRows.filter((r: any) => r.zoho_line_item_id);
+          const withoutZohoId = itemRows.filter((r: any) => !r.zoho_line_item_id);
           if (poIdsWithItems.length) {
-            const { error: deleteItemsError } = await supabase
+            const { data: storedItems, error: lookupItemsError } = await supabase
               .from("po_items")
-              .delete()
+              .select("id, po_id, zoho_line_item_id")
               .in("po_id", poIdsWithItems);
-            if (deleteItemsError) throw deleteItemsError;
-            const { error: itemError } = await supabase.from("po_items").insert(itemRows);
-            if (itemError) throw itemError;
+            if (lookupItemsError) throw lookupItemsError;
+
+            if (withZohoId.length) {
+              const rows = withZohoId.map((row: any) => {
+                const existing = storedItems?.find((item: any) =>
+                  item.po_id === row.po_id && item.zoho_line_item_id === row.zoho_line_item_id
+                );
+                return existing ? { ...row, id: existing.id } : row;
+              });
+              const { error: upsertError } = await supabase
+                .from("po_items")
+                .upsert(rows, { onConflict: "id", ignoreDuplicates: false, defaultToNull: false });
+              if (upsertError) throw upsertError;
+            }
+
+            for (const row of withoutZohoId) {
+              let lookup = supabase.from("po_items").select("id").eq("po_id", row.po_id);
+              lookup = row.item_name === null
+                ? lookup.is("item_name", null)
+                : lookup.eq("item_name", row.item_name);
+              const { data: existing, error: lookupError } = await lookup.maybeSingle();
+              if (lookupError) throw lookupError;
+              if (existing) {
+                const { error: updateError } = await supabase.from("po_items").update({
+                  description: row.description,
+                  quantity: row.quantity,
+                  unit_price: row.unit_price,
+                  total: row.total,
+                  hsn: row.hsn,
+                  tax_percentage: row.tax_percentage,
+                  tax_name: row.tax_name,
+                }).eq("id", existing.id);
+                if (updateError) throw updateError;
+              } else {
+                const { error: insertError } = await supabase.from("po_items").insert(row);
+                if (insertError) throw insertError;
+              }
+            }
+
+            // Missing/empty Zoho responses never wipe stored items. Only prune
+            // obsolete identified lines after confirming they have no history.
+            for (const poId of poIdsWithItems) {
+              const idsForPo = new Set(withZohoId.filter((r: any) => r.po_id === poId)
+                .map((r: any) => r.zoho_line_item_id));
+              if (!idsForPo.size) continue;
+              const staleItems = (storedItems || []).filter((item: any) =>
+                item.po_id === poId && item.zoho_line_item_id && !idsForPo.has(item.zoho_line_item_id)
+              );
+              for (const staleItem of staleItems) {
+                const { count, error: historyError } = await supabase
+                  .from("po_production_updates")
+                  .select("id", { count: "exact", head: true })
+                  .eq("item_id", staleItem.id);
+                if (historyError) throw historyError;
+                if (count === 0) {
+                  const { error: deleteError } = await supabase.from("po_items").delete().eq("id", staleItem.id);
+                  if (deleteError) throw deleteError;
+                }
+              }
+            }
           }
 
         }
