@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Switch public tracking to direct token RPC and update email branding/confidentiality; validate tracking and email regressions.
+- [x] Switch public tracking to direct token RPC and update email branding/confidentiality; 13 regression tests pass, browser verified with a mocked RPC response, build clean, unpublished.
 
 - [x] Add optional Client PO reference and professional default body; seven regression tests pass and build is clean.
 
