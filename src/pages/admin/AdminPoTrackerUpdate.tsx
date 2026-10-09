@@ -60,6 +60,7 @@ interface TrackPO {
     client_email: string | null;
     tracking_token: string | null;
     overall_status: string | null;
+    order_date: string | null;
   } | null;
   items: TrackItem[];
 }
@@ -106,87 +107,100 @@ function mediaList(raw: any): MediaItem[] {
 }
 
 function escapeHtml(s: string): string {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
+}
+
+function emailStageLabel(stage?: string | null): string {
+  const key = (stage || '').trim().toLowerCase().replace(/\s+/g, '_');
+  return key === 'material_sourced' ? 'Material Ordered' : stage ? prettyStage(stage) : 'Not started';
+}
+
+async function latestItemThumbnail(poId: string, itemId: string): Promise<string | undefined> {
+  try {
+    const { data, error } = await supabase
+      .from('po_production_updates')
+      .select('media_urls')
+      .eq('po_id', poId)
+      .eq('item_id', itemId)
+      .not('media_urls', 'is', null)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return undefined;
+    return mediaList(data?.media_urls).find((media) => !isVideoItem(media) && /^https?:\/\//i.test(media.url))?.url;
+  } catch {
+    // Optional imagery must never prevent the notification from being sent.
+    return undefined;
+  }
+}
+
+async function trackingEmailMeta(po: TrackPO) {
+  const meta = {
+    orderNumber: po.client_order?.order_number || po.po_number,
+    clientName: po.client_order?.client_name,
+    orderDate: po.client_order?.order_date,
+    overallStatus: po.client_order?.overall_status,
+    trackingToken: po.client_order?.tracking_token,
+  };
+  if (!po.client_order?.id) return meta;
+  try {
+    // Dispatch can update the overall order status; do not use stale page state.
+    const { data, error } = await supabase.from('client_orders')
+      .select('order_date, overall_status').eq('id', po.client_order.id).maybeSingle();
+    if (!error && data) return { ...meta, orderDate: data.order_date, overallStatus: data.overall_status };
+  } catch {
+    // Keep the existing order details if refreshing the summary fails.
+  }
+  return meta;
 }
 
 function wrapEmailHtml(
   contentHtml: string,
-  meta: { orderNumber?: string | null; clientName?: string | null; trackingToken?: string | null },
-  items?: { name: string; stage: string }[],
+  meta: { orderNumber?: string | null; clientName?: string | null; orderDate?: string | null; overallStatus?: string | null; trackingToken?: string | null },
+  items?: Array<{ name: string; stage: string; thumbnailUrl?: string }>,
 ): string {
-  const detailRows = [
-    ...(meta.orderNumber ? [{ label: 'Order Number', value: meta.orderNumber }] : []),
-    ...(meta.clientName ? [{ label: 'Client', value: meta.clientName }] : []),
-  ];
-  const rowsHtml = detailRows
-    .map(
-      (r) =>
-        `<tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;width:140px;vertical-align:top;">${r.label}</td>` +
-        `<td style="padding:8px 0;border-bottom:1px solid #e5e7eb;font-weight:600;color:#111827;">${escapeHtml(String(r.value))}</td></tr>`,
-    )
-    .join('');
-  const noteBlock = contentHtml.trim()
-    ? `<div style="margin-bottom:24px;font-size:14px;line-height:1.6;color:#374151;">${contentHtml}</div>`
-    : '';
-  const itemsTable = (items || []).length
-    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;font-size:14px;color:#374151;margin-bottom:24px;">` +
-      `<thead><tr>` +
-      `<th align="left" style="padding:8px 0;border-bottom:1px solid #d1d5db;color:#6b7280;font-weight:600;width:70%;">Item</th>` +
-      `<th align="left" style="padding:8px 0;border-bottom:1px solid #d1d5db;color:#6b7280;font-weight:600;">Status</th>` +
-      `</tr></thead>` +
-      `<tbody>` +
-      items
-        .map(
-          (it) =>
-            `<tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#111827;vertical-align:middle;">${escapeHtml(it.name)}</td>` +
-            `<td style="padding:10px 0;border-bottom:1px solid #e5e7eb;vertical-align:middle;">` +
-            `<span style="display:inline-block;background-color:#e0f2f2;color:#0d7377;font-size:12px;font-weight:600;padding:4px 10px;border-radius:9999px;">${escapeHtml(it.stage)}</span>` +
-            `</td></tr>`,
-        )
-        .join('') +
-      `</tbody></table>`
-    : '';
+  const badge = (stage: string) => {
+    const key = stage.toLowerCase().replace(/\s+/g, '_');
+    const colors = key === 'delivered' || key === 'completed'
+      ? { background: '#dcfce7', text: '#166534' }
+      : key === 'dispatched' || key === 'in_transit'
+        ? { background: '#dbeafe', text: '#1d4ed8' }
+        : key === 'cancelled' || key === 'failed'
+          ? { background: '#fee2e2', text: '#991b1b' }
+          : key === 'pending' || key === 'not_started'
+            ? { background: '#f3f4f6', text: '#4b5563' }
+            : { background: '#e0f2f2', text: '#0d7377' };
+    return `<span style="display:inline-block;background-color:${colors.background};color:${colors.text};font-size:12px;line-height:18px;font-weight:700;padding:6px 12px;border-radius:999px;">${escapeHtml(emailStageLabel(stage))}</span>`;
+  };
+  const date = meta.orderDate ? new Date(meta.orderDate) : null;
+  const orderDate = date && !isNaN(date.getTime())
+    ? date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—';
+  const summary = [
+    { label: 'Order Number', value: meta.orderNumber || '—' },
+    { label: 'Client Name', value: meta.clientName || '—' },
+    { label: 'Order Date', value: orderDate },
+  ].map(({ label, value }) => `<td width="33%" valign="top" style="padding:16px 8px;font-size:12px;line-height:18px;word-break:break-word;"><span style="color:#6b7280;">${label}</span><br><strong style="color:#1f2937;font-size:13px;">${escapeHtml(value)}</strong></td>`).join('');
+  const itemsTable = items?.length
+    ? `<table width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;font-size:14px;line-height:20px;color:#1f2937;">
+      <thead><tr><th align="left" scope="col" style="padding:12px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:12px;">PRODUCT</th><th align="left" scope="col" style="padding:12px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:12px;">STAGE</th></tr></thead>
+      <tbody>${items.map((item, index) => {
+        const thumbnail = item.thumbnailUrl && /^https?:\/\//i.test(item.thumbnailUrl)
+          ? `<td width="72" valign="middle" style="padding-right:12px;"><img src="${escapeHtml(item.thumbnailUrl)}" alt="${escapeHtml(item.name)}" width="60" height="60" style="border-radius:8px;object-fit:cover;"></td>` : '';
+        return `<tr style="background-color:${index % 2 === 0 ? '#f9fafb' : '#ffffff'};"><td width="65%" valign="middle" style="padding:16px 12px;border-bottom:1px solid #e5e7eb;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${thumbnail}<td valign="middle" style="font-size:14px;line-height:20px;font-weight:600;color:#1f2937;word-break:break-word;">${escapeHtml(item.name)}</td></tr></table></td><td valign="middle" style="padding:16px 12px;border-bottom:1px solid #e5e7eb;">${badge(item.stage)}</td></tr>`;
+      }).join('')}</tbody></table>` : '';
   const trackButton = meta.trackingToken
-    ? `<div style="margin-top:24px;text-align:center;">` +
-      `<a href="https://supplierconnect.embossmarketing.in/track?t=${encodeURIComponent(meta.trackingToken)}" ` +
-      `style="display:inline-block;background-color:#0d7377;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Track Your Order</a>` +
-      `</div>`
-    : '';
+    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="padding:32px 0 8px;"><table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" bgcolor="#0d7377" style="border-radius:6px;box-shadow:0 3px 8px rgba(13,115,119,0.18);"><a href="https://supplierconnect.embossmarketing.in/track?t=${encodeURIComponent(meta.trackingToken)}" style="display:inline-block;background-color:#0d7377;color:#ffffff;font-size:15px;line-height:22px;font-weight:700;padding:16px 36px;border-radius:6px;text-decoration:none;">Track Your Order</a></td></tr></table></td></tr></table>` : '';
   return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Emboss Marketing</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f3f4f6">
-    <tr><td align="center" style="padding:24px 0;">
-      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-        <tr>
-          <td style="background-color:#0d7377;padding:24px 32px;">
-            <div style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:0.5px;">EMBOSS MARKETING</div>
-            <div style="color:#a5f3f3;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-top:4px;">PRINTING · PACKAGING · POS MATERIALS</div>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:32px;font-size:14px;line-height:1.6;color:#374151;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;color:#374151;line-height:1.5;margin-bottom:24px;">${rowsHtml}</table>
-            ${noteBlock}
-            ${itemsTable}
-            ${trackButton}
-          </td>
-        </tr>
-        <tr>
-          <td style="background-color:#f9fafb;padding:16px 32px;text-align:center;color:#6b7280;font-size:12px;line-height:1.5;">
-            Emboss Marketing LLP · Gurugram, Haryana
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Emboss Marketing — Order Update</title></head>
+<body style="margin:0;padding:0;background-color:#f9fafb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f9fafb"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;">
+<tr><td bgcolor="#0d7377" style="padding:32px 24px;color:#ffffff;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td style="font-size:24px;line-height:30px;font-weight:700;color:#ffffff;">EMBOSS MARKETING</td></tr><tr><td style="padding-top:8px;font-size:11px;line-height:18px;color:#ffffff;">PRINTING · PACKAGING · POS MATERIALS</td></tr></table></td></tr>
+<tr><td bgcolor="#f9fafb" style="padding:0 16px;border-bottom:1px solid #e5e7eb;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="table-layout:fixed;"><tr>${summary}</tr></table></td></tr>
+<tr><td style="padding:24px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td style="padding-bottom:8px;font-size:12px;line-height:18px;color:#6b7280;">ORDER STATUS</td></tr><tr><td style="padding-bottom:24px;">${badge(meta.overallStatus || 'Status unavailable')}</td></tr>${contentHtml.trim() ? `<tr><td style="padding-bottom:24px;font-size:14px;line-height:24px;color:#1f2937;word-break:break-word;">${contentHtml}</td></tr>` : ''}<tr><td>${itemsTable}</td></tr><tr><td>${trackButton}</td></tr></table></td></tr>
+<tr><td bgcolor="#f9fafb" align="center" style="padding:24px;border-top:1px solid #e5e7eb;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="font-size:13px;line-height:20px;font-weight:700;color:#1f2937;">Emboss Marketing LLP</td></tr><tr><td align="center" style="padding-top:4px;font-size:12px;line-height:18px;color:#6b7280;">Gurugram, Haryana</td></tr><tr><td align="center" style="padding-top:16px;font-size:11px;line-height:18px;color:#6b7280;">This is an automated notification. For queries, contact your Emboss Marketing representative.</td></tr><tr><td align="center" style="padding-top:16px;font-size:11px;line-height:18px;color:#6b7280;">Powered by Emboss Marketing</td></tr></table></td></tr>
+</table></td></tr></table></body></html>`;
 }
 
 function fmt(ts?: string | null) {
@@ -470,8 +484,11 @@ function ItemUpdateForm({
           const multiHtml = `<p>Your order has been dispatched to ${pending.length} locations!</p>` +
             `<table style="border-collapse:collapse;width:100%;margin:16px 0">` +
             `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Shipments</td><td style="padding:8px;border:1px solid #ddd">${pending.length}</td></tr>` +
-            `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Cities</td><td style="padding:8px;border:1px solid #ddd">${cities.join(', ') || 'Multiple locations'}</td></tr>` +
+            `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Cities</td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(cities.join(', ') || 'Multiple locations')}</td></tr>` +
             `</table>`;
+
+          const thumbnailUrl = await latestItemThumbnail(po.id, item.id);
+          const emailMeta = await trackingEmailMeta(po);
 
           await fetch('https://n8n.srv1141999.hstgr.cloud/webhook/send-email', {
             method: 'POST',
@@ -479,11 +496,7 @@ function ItemUpdateForm({
             body: JSON.stringify({
               to: clientEmail,
               subject: `Dispatch Update — Order ${po.client_order?.order_number || po.po_number} — ${pending.length} shipments`,
-              html: wrapEmailHtml(multiHtml, {
-                orderNumber: po.client_order?.order_number,
-                clientName: po.client_order?.client_name,
-                trackingToken: po.client_order?.tracking_token,
-              }, [{ name: item.item_name || item.description || 'Item', stage: 'Dispatched' }]),
+              html: wrapEmailHtml(multiHtml, emailMeta, [{ name: item.item_name || item.description || 'Item', stage: 'Dispatched', thumbnailUrl }]),
             }),
           });
         } catch (_) {
@@ -823,17 +836,16 @@ function AdminDispatchForm({
             (form.expected_arrival ? `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Expected Arrival</td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(form.expected_arrival)}</td></tr>` : '') +
             `</table>`;
 
+          const thumbnailUrl = await latestItemThumbnail(po.id, item.id);
+          const emailMeta = await trackingEmailMeta(po);
+
           await fetch('https://n8n.srv1141999.hstgr.cloud/webhook/send-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               to: clientEmail,
               subject: `Dispatch Update — Order ${po.client_order?.order_number || po.po_number}`,
-              html: wrapEmailHtml(dispatchHtml, {
-                orderNumber: po.client_order?.order_number,
-                clientName: po.client_order?.client_name,
-                trackingToken: po.client_order?.tracking_token,
-              }, [{ name: item.item_name || item.description || 'Item', stage: 'Dispatched' }]),
+              html: wrapEmailHtml(dispatchHtml, emailMeta, [{ name: item.item_name || item.description || 'Item', stage: 'Dispatched', thumbnailUrl }]),
             }),
           });
         } catch (_) {
@@ -1080,11 +1092,12 @@ function POCard({
     if (!emailTo.trim()) { toast({ title: 'Recipient is required', variant: 'destructive' }); return; }
     setSending(true);
     try {
-      const mappedItems = (po.items || [])
-        .map((it) => ({
-          name: it.item_name || it.description || 'Item',
-          stage: prettyStage(it.current_stage || '') || 'Not started',
-        }));
+      const mappedItems = await Promise.all((po.items || []).map(async (it) => ({
+        name: it.item_name || it.description || 'Item',
+        stage: emailStageLabel(it.current_stage),
+        thumbnailUrl: await latestItemThumbnail(po.id, it.id),
+      })));
+      const emailMeta = await trackingEmailMeta(po);
       const emailRes = await fetch('https://n8n.srv1141999.hstgr.cloud/webhook/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1092,11 +1105,7 @@ function POCard({
           to: emailTo.trim(),
           cc: emailCc.trim(),
           subject: emailSubject,
-          html: wrapEmailHtml(emailBody.replace(/\n/g, '<br/>'), {
-            orderNumber: po.client_order?.order_number,
-            clientName: po.client_order?.client_name,
-            trackingToken: po.client_order?.tracking_token,
-          }, mappedItems),
+          html: wrapEmailHtml(emailBody.replace(/\n/g, '<br/>'), emailMeta, mappedItems),
         }),
       });
       if (!emailRes.ok) throw new Error(`Email send failed (${emailRes.status})`);
@@ -1235,7 +1244,7 @@ export default function AdminPoTrackerUpdate() {
       supabase
         .from('purchase_orders')
         .select(
-          'id, po_number, status, date, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, client_email, tracking_token, overall_status), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
+          'id, po_number, status, date, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, client_email, tracking_token, overall_status, order_date), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
         )
         .not('status', 'in', '(cancelled,rejected,void)')
         .order('date', { ascending: false })
