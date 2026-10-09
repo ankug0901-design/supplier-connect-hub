@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
               });
               const { error: upsertError } = await supabase
                 .from("po_items")
-                .upsert(rows, { onConflict: "id", ignoreDuplicates: false });
+                .upsert(rows, { onConflict: "id", ignoreDuplicates: false, defaultToNull: false });
               if (upsertError) throw upsertError;
             }
 
