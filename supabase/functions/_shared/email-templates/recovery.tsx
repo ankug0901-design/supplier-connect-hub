@@ -19,17 +19,17 @@ interface RecoveryEmailProps {
 }
 
 export const RecoveryEmail = ({
-  siteName,
+  siteName = 'embosssupplierportal',
   confirmationUrl,
 }: RecoveryEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Reset your password for {siteName}</Preview>
+    <Preview>Reset your password for {siteName === 'Supplier Connect Hub' ? 'embosssupplierportal' : siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>Reset your password</Heading>
         <Text style={text}>
-          We received a request to reset your password for {siteName}. Click
+          We received a request to reset your password for {siteName === 'Supplier Connect Hub' ? 'embosssupplierportal' : siteName}. Click
           the button below to choose a new password.
         </Text>
         <Button style={button} href={confirmationUrl}>

@@ -21,20 +21,20 @@ interface InviteEmailProps {
 }
 
 export const InviteEmail = ({
-  siteName,
+  siteName = 'embosssupplierportal',
   siteUrl,
   confirmationUrl,
 }: InviteEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>You've been invited to join {siteName}</Preview>
+    <Preview>You've been invited to join {siteName === 'Supplier Connect Hub' ? 'embosssupplierportal' : siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>You've been invited</Heading>
         <Text style={text}>
           You've been invited to join{' '}
           <Link href={siteUrl} style={link}>
-            <strong>{siteName}</strong>
+            <strong>{siteName === 'Supplier Connect Hub' ? 'embosssupplierportal' : siteName}</strong>
           </Link>
           . Click the button below to accept the invitation and create your
           account.

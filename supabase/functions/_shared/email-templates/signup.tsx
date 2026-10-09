@@ -22,21 +22,21 @@ interface SignupEmailProps {
 }
 
 export const SignupEmail = ({
-  siteName,
+  siteName = 'embosssupplierportal',
   siteUrl,
   recipient,
   confirmationUrl,
 }: SignupEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Confirm your email for {siteName}</Preview>
+    <Preview>Confirm your email for {siteName === 'Supplier Connect Hub' ? 'embosssupplierportal' : siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>Confirm your email</Heading>
         <Text style={text}>
           Thanks for signing up for{' '}
           <Link href={siteUrl} style={link}>
-            <strong>{siteName}</strong>
+            <strong>{siteName === 'Supplier Connect Hub' ? 'embosssupplierportal' : siteName}</strong>
           </Link>
           !
         </Text>
