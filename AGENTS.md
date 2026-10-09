@@ -1,5 +1,7 @@
 # Project Architecture Rules
 
+- Public order tracking reads `po_tracker_manage` directly with the token-scoped `track_by_token` action, avoiding the unreliable n8n lookup while retaining existing RPC security.
+
 - Keep `po_tracker_manage(jsonb)` and `_po_recalc_status(uuid)` on an empty search path with schema-qualified application references so caller-controlled objects cannot replace their dependencies.
 
 - Client tracking emails share the inline table-based wrapper in the production updates page; optional PO/item-scoped thumbnail lookups and current order-summary refreshes fail open to preserve all three existing webhook sends.
