@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Redesign client tracking emails with order summary/status and optional product thumbnails in all three callers; 15 targeted tests pass, desktop/mobile email previews verified, build clean, sending unchanged, unpublished.
+
 - [x] Add an admin email outcomes dashboard with exact totals, status/recipient/template/date filters, timestamps, and existing admin-only data access; 14 tests pass, signed-in pagination/status/recipient checks pass, build clean, unpublished.
 
 - [x] Prepare email update: preserve existing sends and audit history, validate and deploy replacements, remove legacy source files only, and leave unpublished; 30 regression tests pass.
