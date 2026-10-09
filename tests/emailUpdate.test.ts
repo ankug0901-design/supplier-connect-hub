@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { recordEmailOutcome } from '../supabase/functions/handle-email-events/record-outcome';
 import { recordEmailSendOutcome } from '../supabase/functions/_shared/email-send-outcome';
+import { retryRateLimitedEmail } from '../supabase/functions/_shared/email-rate-limit';
 
 function fixture(failTable?: string) {
   const logs: any[] = [];
@@ -50,4 +51,32 @@ for (const table of ['email_send_log', 'suppressed_emails']) {
 test('audit failure never changes a send outcome', async () => {
   const f = fixture('email_send_log');
   await expect(recordEmailSendOutcome(f.client, { message_id: 'send-1', template_name: 'invite', recipient_email: 'supplier@example.test', status: 'sent' })).resolves.toBeUndefined();
+});
+
+test('rate-limited sends wait the specified time before retrying', async () => {
+  const order: string[] = [];
+  let calls = 0;
+  await retryRateLimitedEmail(async () => {
+    order.push('send');
+    if (calls++ === 0) throw { status: 429, retryAfterSeconds: 7 };
+  }, async ms => { order.push(`wait:${ms}`); });
+  expect(order).toEqual(['send', 'wait:7000', 'send']);
+});
+
+test('rate limit without a retry interval waits 60 seconds', async () => {
+  let calls = 0;
+  let waited = 0;
+  await retryRateLimitedEmail(async () => {
+    if (calls++ === 0) throw { status: 429, retryAfterSeconds: null };
+  }, async ms => { waited = ms; });
+  expect(waited).toBe(60000);
+});
+
+test('suppression is not retried', async () => {
+  let calls = 0;
+  await expect(retryRateLimitedEmail(async () => {
+    calls++;
+    throw { status: 403, code: 'recipient_suppressed' };
+  })).rejects.toMatchObject({ code: 'recipient_suppressed' });
+  expect(calls).toBe(1);
 });

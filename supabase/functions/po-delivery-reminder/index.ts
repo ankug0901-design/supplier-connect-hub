@@ -6,6 +6,7 @@
 // Auth: accepts service role token OR anon apikey (cron) OR admin user.
 import { EmailAPIError, sendLovableEmail } from 'npm:@lovable.dev/email-js@0.3.1';
 import { recordEmailSendOutcome } from '../_shared/email-send-outcome.ts';
+import { retryRateLimitedEmail } from '../_shared/email-rate-limit.ts';
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -259,7 +260,7 @@ Deno.serve(async (req) => {
         const apiKey = Deno.env.get('LOVABLE_API_KEY');
         if (!apiKey) throw new Error('Email sending is not configured');
         // This legacy feature composes its HTML at send time; preserve its content.
-        await sendLovableEmail(payload, { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') });
+        await retryRateLimitedEmail(() => sendLovableEmail(payload, { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }));
         await recordEmailSendOutcome(admin, { message_id: messageId, template_name: "po-delivery-reminder", recipient_email: sup.email, status: 'sent' });
       } catch (error) {
         const suppressed = error instanceof EmailAPIError && error.code === 'recipient_suppressed';
