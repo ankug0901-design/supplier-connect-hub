@@ -250,13 +250,14 @@ async function sendProofEmail(po: TrackPO, proof: Proof, recipient: string) {
 }
 
 /** Horizontal stage progress bar, same visual language as the tracking page. */
-async function sendDocumentEmail(po: TrackPO, doc: OrderDocument, recipient: string) {
+async function sendDocumentEmail(po: TrackPO, doc: OrderDocument, recipient: string, cc?: string, subject?: string, message?: string) {
   const meta = await trackingEmailMeta(po);
   const content = `<p style="margin:0 0 16px;">Dear ${escapeHtml(meta.clientName || 'Client')},</p><p style="margin:0 0 20px;">A new document has been shared with you for your order ${escapeHtml(meta.orderNumber || po.po_number)}.</p>` +
     `<p style="margin:0 0 8px;font-size:18px;font-weight:700;">${escapeHtml(doc.title)}</p><p style="margin:0 0 16px;color:#6b7280;">${escapeHtml(documentTypeLabel(doc.document_type))}</p>` +
     (doc.description ? `<p style="margin:0 0 16px;">${escapeHtml(doc.description).replace(/\n/g, '<br>')}</p>` : '') +
+    (message?.trim() ? `<p style="margin:0 0 16px;">${escapeHtml(message.trim()).replace(/\n/g, '<br>')}</p>` : '') +
     `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="padding:28px 0 8px;"><a href="${escapeHtml(documentLink(doc.access_token))}" style="display:inline-block;background-color:#0d7377;color:#ffffff;font-size:15px;line-height:22px;font-weight:700;padding:16px 36px;border-radius:6px;text-decoration:none;">View Document</a></td></tr></table>`;
-  const response = await n8nPost('send-email', { to: recipient.trim(), subject: `Document Available — ${doc.title}`, html: wrapEmailHtml(content, { ...meta, trackingToken: null }) });
+  const response = await n8nPost('send-email', { to: recipient.trim(), cc: cc?.trim() || '', subject: subject ?? `Document Shared — ${doc.title}`, html: wrapEmailHtml(content, { ...meta, trackingToken: null }) });
   const result = Array.isArray(response.data) ? response.data[0] : response.data;
   if (!response.ok || result?.ok === false || result?.success === false || result?.error) throw new Error(result?.error || `Email send failed (${response.status})`);
 }
@@ -1271,7 +1272,7 @@ function POCard({
               items={po.items}
               updatedBy={updatedBy}
               mediaBucket={MEDIA_BUCKET}
-              sendEmail={(doc, recipient) => sendDocumentEmail(po, doc, recipient)}
+              sendEmail={(doc, recipient, cc, subject, message) => sendDocumentEmail(po, doc, recipient, cc, subject, message)}
             />}
           </div>
         )}
