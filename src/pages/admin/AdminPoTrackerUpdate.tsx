@@ -230,7 +230,7 @@ function fmt(ts?: string | null) {
     : d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-async function sendProofEmail(po: TrackPO, proof: Proof, recipient: string) {
+async function sendProofEmail(po: TrackPO, proof: Proof, recipient: string, cc?: string, subject?: string, message?: string) {
   const meta = await trackingEmailMeta(po);
   const thumbnails = proofMedia(proof.media_urls).filter(media => !isProofVideo(media)).slice(0, 3)
     .map(media => `<td style="padding:8px;"><img src="${escapeHtml(media.url)}" alt="${escapeHtml(media.filename || proof.title)}" width="60" height="60" style="border-radius:8px;object-fit:cover;"></td>`).join('');
@@ -238,9 +238,10 @@ async function sendProofEmail(po: TrackPO, proof: Proof, recipient: string) {
     `<p style="margin:0 0 8px;font-size:18px;font-weight:700;">${escapeHtml(proof.title)}</p><p style="margin:0 0 16px;color:#6b7280;">${escapeHtml(proofTypeLabel(proof.proof_type))} · Revision ${proof.revision_number}</p>` +
     (proof.description ? `<p style="margin:0 0 16px;">${escapeHtml(proof.description).replace(/\n/g, '<br>')}</p>` : '') +
     (thumbnails ? `<table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>${thumbnails}</tr></table>` : '') +
+    (message?.trim() ? `<p style="margin:16px 0;">${escapeHtml(message.trim()).replace(/\n/g, '<br>')}</p>` : '') +
     `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="padding:28px 0 8px;"><a href="${escapeHtml(proofLink(proof.approval_token))}" style="display:inline-block;background-color:#0d7377;color:#ffffff;font-size:15px;line-height:22px;font-weight:700;padding:16px 36px;border-radius:6px;text-decoration:none;box-shadow:0 3px 8px rgba(13,115,119,0.18);">Review Proof</a></td></tr></table>`;
   const response = await n8nPost('send-email', {
-    to: recipient.trim(), subject: `Proof Ready for Your Review — ${meta.orderNumber || po.po_number}`,
+    to: recipient.trim(), cc: cc?.trim() || undefined, subject: subject?.trim() || `Proof for Review — ${proof.title}`,
     html: wrapEmailHtml(content, { ...meta, trackingToken: null }),
   });
   const result = Array.isArray(response.data) ? response.data[0] : response.data;
@@ -1262,7 +1263,7 @@ function POCard({
               items={po.items}
               updatedBy={updatedBy}
               mediaBucket={MEDIA_BUCKET}
-              sendEmail={(proof, recipient) => sendProofEmail(po, proof, recipient)}
+              sendEmail={(proof, recipient, cc, subject, message) => sendProofEmail(po, proof, recipient, cc, subject, message)}
             />}
             {po.client_order && <AdminDocumentSection
               key={`documents-${po.client_order.id}`}

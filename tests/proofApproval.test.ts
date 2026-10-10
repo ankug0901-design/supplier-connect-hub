@@ -60,7 +60,7 @@ test('proof email uses the authenticated email helper and marks the proof only a
   const api = emailSetup({ ok: true, data: [{ ok: true }], status: 200 });
   await api.send({ po_number: 'PO-1' }, proof, ' client@example.test ');
   expect(api.calls[1][1]).toBe('send-email');
-  expect(api.calls[1][2].subject).toBe('Proof Ready for Your Review — EM/SO/26-27/188');
+  expect(api.calls[1][2].subject).toBe('Proof for Review — Artwork');
   expect(api.calls[1][2].to).toBe('client@example.test');
   expect(api.calls[0][1].trackingToken).toBeNull();
   expect(api.calls[2]).toEqual(['mark', { action: 'mark_email_sent', proof_id: 'proof-1', email_recipient: 'client@example.test' }]);
@@ -71,4 +71,61 @@ test('failed proof notification never marks the email as sent', async () => {
     await expect(api.send({ po_number: 'PO-1' }, proof, 'client@example.test')).rejects.toThrow();
     expect(api.calls.filter(call => call[0] === 'mark')).toEqual([]);
   }
+});
+
+test('proof email forwards cc and custom subject and escapes the note before the review link', async () => {
+  const api = emailSetup();
+  await api.send({ po_number: 'PO-1' }, proof, 'client@example.test', ' copy@example.test, other@example.test ', ' Custom review ', ' <script>note</script>\nSecond line ');
+  const payload = api.calls[1][2];
+  expect(payload.cc).toBe('copy@example.test, other@example.test');
+  expect(payload.subject).toBe('Custom review');
+  expect(payload.html).toContain('&lt;script>note&lt;/script><br>Second line');
+  expect(payload.html).not.toContain('<script>');
+  expect(payload.html.indexOf('&lt;script>')).toBeLessThan(payload.html.indexOf('Review Proof'));
+});
+
+const sectionSource = readFileSync(new URL('../src/components/proofs/AdminProofSection.tsx', import.meta.url), 'utf8');
+const handlers = sectionSource.slice(sectionSource.indexOf('  const openEmailDialog ='), sectionSource.indexOf('  const remove ='));
+const handlersOutput = ts.transpileModule(handlers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+function dialogSetup(fail = false) {
+  const state: any = { emailProof: null, emailTo: '', emailCc: '', emailSubject: '', emailBody: '', busy: null };
+  const calls: any[] = [];
+  const setters = ['emailProof', 'emailTo', 'emailCc', 'emailSubject', 'emailBody', 'busy'];
+  const factory = new Function('state', 'sendEmail', 'toast', 'load', 'clientEmail', ...setters.map(key => `set${key[0].toUpperCase()}${key.slice(1)}`), `with(state) { ${handlersOutput}; return { openEmailDialog, sendProofEmail }; }`);
+  const api = factory(state, async (...args: any[]) => { calls.push(['send', ...args]); if (fail) throw new Error('Rejected'); }, (value: any) => calls.push(['toast', value]), async () => calls.push(['load']), 'fallback@example.test', ...setters.map(key => (value: any) => { state[key] = value; }));
+  return { api, state, calls };
+}
+test('opening proof confirmation does not send and resets the editable fields', () => {
+  const { api, state, calls } = dialogSetup();
+  state.emailCc = 'old@example.test'; state.emailBody = 'Old note';
+  api.openEmailDialog({ ...proof, email_recipient: 'saved@example.test' });
+  expect(state.emailTo).toBe('saved@example.test');
+  expect(state.emailCc).toBe(''); expect(state.emailBody).toBe('');
+  expect(state.emailSubject).toBe('Proof for Review — Artwork');
+  expect(state.emailProof.id).toBe('proof-1');
+  expect(calls).toEqual([]);
+  api.openEmailDialog(proof);
+  expect(state.emailTo).toBe('fallback@example.test');
+});
+test('confirmation sends edited fields then closes and reloads', async () => {
+  const { api, state, calls } = dialogSetup();
+  api.openEmailDialog(proof);
+  Object.assign(state, { emailTo: ' edited@example.test ', emailCc: ' copy@example.test ', emailSubject: 'Edited subject', emailBody: 'Edited note' });
+  await api.sendProofEmail();
+  expect(calls[0]).toEqual(['send', proof, 'edited@example.test', 'copy@example.test', 'Edited subject', 'Edited note']);
+  expect(state.emailProof).toBeNull(); expect(state.busy).toBeNull();
+  expect(calls.at(-1)).toEqual(['load']);
+});
+test('blank recipients and busy sends do not send, and failures keep the dialog open', async () => {
+  const { api, state, calls } = dialogSetup(true);
+  api.openEmailDialog(proof); state.emailTo = ' ';
+  await api.sendProofEmail();
+  expect(calls.filter(call => call[0] === 'send')).toEqual([]);
+  state.emailTo = 'client@example.test'; state.busy = 'proof-1';
+  await api.sendProofEmail();
+  expect(calls.filter(call => call[0] === 'send')).toEqual([]);
+  state.busy = null;
+  await api.sendProofEmail();
+  expect(state.emailProof).toEqual(proof); expect(state.busy).toBeNull();
+  expect(calls.filter(call => call[0] === 'load')).toEqual([]);
 });
