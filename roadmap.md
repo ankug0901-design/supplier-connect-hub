@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Add client Digital Proofs to order tracking with secure token-scoped fetching and non-blocking proof failures; 17 tests pass, database isolation verified with rolled-back fixtures, desktop/mobile checks pass, unpublished.
+
 - [x] Build public token-based proof approval, order-scoped admin proof management, uploads, revisions, and proof notification emails; 20 regression tests pass, access guards and simulated browser workflows verified, build clean, no real client emails sent, unpublished.
 
 - [x] Switch public tracking to direct token RPC and update email branding/confidentiality; 13 regression tests pass, browser verified with a mocked RPC response, build clean, unpublished.

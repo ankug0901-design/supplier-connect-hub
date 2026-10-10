@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from '@/integrations/supabase/client';
 import { prettyStage } from "@/lib/stageTemplates";
 import { isOrderDelivered } from "@/lib/trackingDelivery";
+import { proofRpc, type Proof } from '@/lib/proofApproval';
+import { TrackingProofSection } from '@/components/proofs/TrackingProofSection';
 import { Check, Loader2, Package, CheckCircle2, Play, X, Copy, RefreshCw } from "lucide-react";
 
 const TEAL = "#0d7377";
@@ -29,7 +31,9 @@ type MediaItem = { url: string; type?: string };
 
 type TrackData = {
   ok?: boolean;
+  digital_proofs?: Proof[];
   order?: {
+    id?: string;
     order_number?: string;
     client_name?: string;
     shipping_address?: string;
@@ -225,6 +229,13 @@ export default function TrackOrder() {
         if (!json || json.ok === false || !json.order) {
           setError(true);
         } else {
+          json.digital_proofs = [];
+          if (json.order.id) {
+            try {
+              const proofData = await proofRpc({ action: 'list_proofs_by_tracking_token', tracking_token: token });
+              json.digital_proofs = proofData.proofs || [];
+            } catch { /* Proof availability must not interrupt order tracking. */ }
+          }
           setData(json);
           setError(false);
         }
@@ -503,6 +514,8 @@ export default function TrackOrder() {
                 </div>
               </section>
             )}
+
+            <TrackingProofSection proofs={data?.digital_proofs || []} />
 
             {/* Dispatch details remain visible even without a courier waybill. */}
             {dispatchList.length > 0 && (
