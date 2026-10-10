@@ -444,6 +444,75 @@ export type Database = {
           },
         ]
       }
+      order_documents: {
+        Row: {
+          access_token: string
+          client_order_id: string
+          created_at: string
+          description: string | null
+          document_type: string
+          email_recipient: string | null
+          email_sent_at: string | null
+          file_name: string | null
+          file_size_bytes: number | null
+          file_url: string
+          id: string
+          item_id: string | null
+          title: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          access_token?: string
+          client_order_id: string
+          created_at?: string
+          description?: string | null
+          document_type?: string
+          email_recipient?: string | null
+          email_sent_at?: string | null
+          file_name?: string | null
+          file_size_bytes?: number | null
+          file_url: string
+          id?: string
+          item_id?: string | null
+          title: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          access_token?: string
+          client_order_id?: string
+          created_at?: string
+          description?: string | null
+          document_type?: string
+          email_recipient?: string | null
+          email_sent_at?: string | null
+          file_name?: string | null
+          file_size_bytes?: number | null
+          file_url?: string
+          id?: string
+          item_id?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_documents_client_order_id_fkey"
+            columns: ["client_order_id"]
+            isOneToOne: false
+            referencedRelation: "client_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_documents_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "po_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           account: string | null
@@ -1753,6 +1822,7 @@ export type Database = {
       dashboard_top_items: { Args: { p_limit?: number }; Returns: Json }
       dashboard_top_suppliers: { Args: { p_limit?: number }; Returns: Json }
       dashboard_velocity: { Args: never; Returns: Json }
+      document_manage: { Args: { payload: Json }; Returns: Json }
       get_invoiced_quantities_for_po: {
         Args: { _po_number: string; _supplier_id: string }
         Returns: {

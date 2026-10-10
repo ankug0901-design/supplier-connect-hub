@@ -1,5 +1,8 @@
 # Project Architecture Rules
 
+- Document Hub uses the existing `document_manage` RPC through a checked helper; public lists use tracking tokens, and document fetch failures never block order tracking.
+- Document notification emails use the existing production email wrapper and authenticated `n8nPost`; admin UI marks the record only after successful sends so saved documents remain recoverable on notification failure.
+
 - Proof review uses the existing token-scoped `proof_manage` actions through a checked `proofRpc`; admin proof controls are order-scoped and share one media preview component so review and revision behavior stays consistent.
 - Tracking proof lists use `proof_manage`'s tracking-token-scoped read action, never public order-ID-only listing; failures leave order tracking available and responses omit admin email fields.
 - Proof emails use the production page's unchanged email wrapper via authenticated `n8nPost('send-email')`; save the proof before sending and mark sent only after success to retain recoverable records on notification failure.

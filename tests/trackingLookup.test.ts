@@ -6,17 +6,18 @@ const source = readFileSync(new URL('../src/pages/TrackOrder.tsx', import.meta.u
 const callback = source.slice(source.indexOf('  const load = useCallback('), source.indexOf('  useEffect(() => {', source.indexOf('  const load = useCallback(')));
 const output = ts.transpileModule(callback, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
 
-async function lookup(token: string, raw: unknown, rpcError: unknown = null, proofResult: unknown = { ok: true, proofs: [] }, proofError = false) {
+async function lookup(token: string, raw: unknown, rpcError: unknown = null, proofResult: unknown = { ok: true, proofs: [] }, proofError = false, documentResult: unknown = { ok: true, documents: [] }, documentError = false) {
   const calls: unknown[] = [];
   const state = { data: null as unknown, error: false, loading: true };
-  const load = new Function('useCallback', 'supabase', 'token', 'setData', 'setError', 'setLoading', 'proofRpc', `${output}; return load;`)(
+  const load = new Function('useCallback', 'supabase', 'token', 'setData', 'setError', 'setLoading', 'proofRpc', 'documentRpc', `${output}; return load;`)(
     (fn: unknown) => fn,
     { rpc: async (...args: unknown[]) => { calls.push(args); return { data: raw, error: rpcError }; } },
     token,
-    (value: unknown) => { state.data = value; },
+    (value: any) => { state.data = typeof value === 'function' ? value(state.data) : value; },
     (value: boolean) => { state.error = value; },
     (value: boolean) => { state.loading = value; },
     async (payload: unknown) => { calls.push(['proof_manage', { payload }]); if (proofError) throw new Error('Unavailable'); return proofResult; },
+    async (payload: unknown) => { calls.push(['document_manage', { payload }]); if (documentError) throw new Error('Unavailable'); return documentResult; },
   );
   await load(true);
   return { calls, state };
@@ -26,8 +27,8 @@ test('public tracking calls the token-scoped RPC and accepts object or array res
   const order = { ok: true, order: { order_number: 'EM/SO/26-27/188' } };
   for (const raw of [order, [order]]) {
     const result = await lookup('tracking-token-188', raw);
-    expect(result.calls).toEqual([['po_tracker_manage', { payload: { action: 'track_by_token', tracking_token: 'tracking-token-188' } }]]);
-    expect(result.state).toEqual({ data: { ...order, digital_proofs: [] }, error: false, loading: false });
+    expect(result.calls).toEqual([['po_tracker_manage', { payload: { action: 'track_by_token', tracking_token: 'tracking-token-188' } }], ['document_manage', { payload: { action: 'list_documents_by_tracking_token', tracking_token: 'tracking-token-188' } }]]);
+    expect(result.state).toEqual({ data: { ...order, digital_proofs: [], documents: [] }, error: false, loading: false });
   }
 });
 
@@ -53,5 +54,19 @@ test('tracking proofs use the tracking token, not an order ID as authorization',
 
 test('proof lookup failure preserves successful order tracking', async () => {
   const result = await lookup('tracking-token-188', { ok: true, order: { id: 'order-188' } }, null, null, true);
-  expect(result.state).toEqual({ data: { ok: true, order: { id: 'order-188' }, digital_proofs: [] }, error: false, loading: false });
+  expect(result.state).toEqual({ data: { ok: true, order: { id: 'order-188' }, digital_proofs: [], documents: [] }, error: false, loading: false });
+});
+
+test('tracking documents are fetched with the tracking token and preserve the order', async () => {
+  const documents = [{ id: 'doc-188', title: 'Invoice' }];
+  const result = await lookup('tracking-token-188', { ok: true, order: { id: 'order-188' } }, null, { proofs: [] }, false, { documents });
+  expect(result.calls[2]).toEqual(['document_manage', { payload: { action: 'list_documents_by_tracking_token', tracking_token: 'tracking-token-188' } }]);
+  expect((result.state.data as any).documents).toEqual(documents);
+  expect(result.state.error).toBe(false);
+});
+test('document fetch failures do not turn successful tracking into an error', async () => {
+  const result = await lookup('tracking-token-188', { ok: true, order: { id: 'order-188' } }, null, { proofs: [] }, false, null, true);
+  expect((result.state.data as any).order.id).toBe('order-188');
+  expect(result.state.error).toBe(false);
+  expect(result.state.loading).toBe(false);
 });

@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] Build Document Hub uploads, order-scoped admin management, public token document views, notifications, and non-blocking tracking documents using the existing database RPC only; regression tests and simulated desktop/mobile client checks pass; unpublished, no database changes.
+- [ ] Verify real document sharing and safe management — blocked by existing document_manage referencing nonexistent co.po_id/co.client_po_number/po.supplier_name and lacking admin management guards; database corrections need authorization because this request forbids function changes.
+
 - [x] Add client Digital Proofs to order tracking with secure token-scoped fetching and non-blocking proof failures; 17 tests pass, database isolation verified with rolled-back fixtures, desktop/mobile checks pass, unpublished.
 
 - [x] Build public token-based proof approval, order-scoped admin proof management, uploads, revisions, and proof notification emails; 20 regression tests pass, access guards and simulated browser workflows verified, build clean, no real client emails sent, unpublished.
