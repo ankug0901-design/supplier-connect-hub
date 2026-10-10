@@ -74,6 +74,31 @@ test('document emails forward cc and edited subject and escape the optional mess
 });
 
 const sectionSource = readFileSync(new URL('../src/components/documents/AdminDocumentSection.tsx', import.meta.url), 'utf8');
+test('document uploads use the cleaned title and original extension in storage and the saved filename', async () => {
+  const saveSource = sectionSource.slice(sectionSource.indexOf('  const save ='), sectionSource.indexOf('  const openEmail ='));
+  const output = ts.transpileModule(saveSource, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  for (const [title, originalName, expected] of [
+    ['Sample Picture', 'WhatsApp Image 2026-09-23 at 18.06.55.jpeg', 'Sample_Picture.jpeg'],
+    ['  Invoice #42 - final_copy!  ', 'camera.scan.pdf', 'Invoice_42_-_final_copy.pdf'],
+    ['Artwork\tFinal', 'photo.png', 'Artwork_Final.png'],
+    ['Report', 'original', 'Report'],
+  ]) {
+    const uploads: string[] = [];
+    const records: any[] = [];
+    const save = new Function('saving', 'file', 'title', 'setSaving', 'orderId', 'supabase', 'mediaBucket', 'documentRpc', 'itemId', 'documentType', 'description', 'updatedBy', 'setOpen', 'setFile', 'load', 'toast', `${output}; return save;`)(
+      false, { name: originalName, type: 'application/octet-stream', size: 123 }, title, () => {}, 'order-1',
+      { storage: { from: () => ({ upload: async (path: string) => { uploads.push(path); return { error: null }; }, getPublicUrl: () => ({ data: { publicUrl: 'https://example.test/document' } }) }) } },
+      'po-tracker-media', async (payload: any) => { records.push(payload); return { id: 'doc-1', access_token: 'token' }; },
+      'all', 'other', '', 'Admin', () => {}, () => {}, async () => {}, () => {},
+    );
+    await save({ preventDefault() {} });
+    expect(uploads).toHaveLength(1);
+    expect(uploads[0]).toStartWith('documents/order-1/');
+    expect(uploads[0]).toEndWith(`_${expected}`);
+    expect(records).toHaveLength(1);
+    expect(records[0].file_name).toBe(expected);
+  }
+});
 const notifySource = sectionSource.slice(sectionSource.indexOf('  const notify ='), sectionSource.indexOf('  const remove ='));
 const notifyOutput = ts.transpileModule(notifySource, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
 test('opening document email only prepares confirmation fields without sending', () => {
