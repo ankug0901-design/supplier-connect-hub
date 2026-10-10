@@ -61,11 +61,13 @@ export function AdminDocumentSection({ orderId, clientEmail, poId, items: poItem
     if (saving || !file || !title.trim()) return;
     setSaving(true);
     try {
-      const path = `documents/${orderId}/${Date.now()}_${crypto.randomUUID()}_${file.name.replace(/[^a-zA-Z0-9._-]+/g, '_')}`;
+      const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
+      const cleanName = title.trim().replace(/[^a-zA-Z0-9\s_-]/g, '').replace(/\s+/g, '_') + ext;
+      const path = `documents/${orderId}/${Date.now()}_${crypto.randomUUID()}_${cleanName}`;
       const { error: uploadError } = await supabase.storage.from(mediaBucket).upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
       if (uploadError) throw uploadError;
       const fileUrl = supabase.storage.from(mediaBucket).getPublicUrl(path).data.publicUrl;
-      const result = await documentRpc({ action: 'upload_document', client_order_id: orderId, item_id: itemId === 'all' ? null : itemId, document_type: documentType, title: title.trim(), description: description.trim(), file_url: fileUrl, file_name: file.name, file_size_bytes: file.size, uploaded_by: updatedBy });
+      const result = await documentRpc({ action: 'upload_document', client_order_id: orderId, item_id: itemId === 'all' ? null : itemId, document_type: documentType, title: title.trim(), description: description.trim(), file_url: fileUrl, file_name: cleanName, file_size_bytes: file.size, uploaded_by: updatedBy });
       if (!result.id || !result.access_token) throw new Error('Document creation could not be confirmed');
       setOpen(false); setFile(null); await load(); toast({ title: 'Document uploaded' });
     } catch (e) { toast({ title: 'Unable to save document', description: e instanceof Error ? e.message : 'Please try again', variant: 'destructive' }); }
