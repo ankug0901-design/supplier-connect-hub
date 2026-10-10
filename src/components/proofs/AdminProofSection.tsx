@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ClipboardCheck, Copy, Loader2, Mail, Plus, RefreshCw, Trash2, Upload, X } from 'lucide-react';
+import { ClipboardCheck, Copy, Loader2, Mail, Plus, RefreshCw, Send, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { ProofMediaGrid } from './ProofMediaGrid';
 type Item = { id: string; item_name: string | null; description: string | null };
 type Props = {
   orderId: string; clientEmail: string | null; poId: string; items: Item[]; updatedBy: string;
-  mediaBucket: string; sendEmail: (proof: Proof, recipient: string) => Promise<void>;
+  mediaBucket: string; sendEmail: (proof: Proof, recipient: string, cc?: string, subject?: string, message?: string) => Promise<void>;
 };
 const formatDate = (date: string) => new Date(date).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -36,6 +36,11 @@ export function AdminProofSection({ orderId, clientEmail, poId, items: poItems, 
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [emailProof, setEmailProof] = useState<Proof | null>(null);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailCc, setEmailCc] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -88,17 +93,26 @@ export function AdminProofSection({ orderId, clientEmail, poId, items: poItems, 
       if (!result.proof) throw new Error('Proof creation could not be confirmed');
       setOpen(false);
       await load();
-      try { await sendEmail(result.proof, recipient.trim()); toast({ title: 'Proof created and email sent' }); }
+      try { await sendEmail(result.proof, recipient.trim(), '', `Proof for Review — ${result.proof.title}`, ''); toast({ title: 'Proof created and email sent' }); }
       catch (e) { toast({ title: 'Proof saved; email not confirmed', description: `${e instanceof Error ? e.message : 'Please retry'}. Use Send Email to retry without creating another proof.`, variant: 'destructive' }); }
       await load();
     } catch (e) { toast({ title: 'Unable to save proof', description: e instanceof Error ? e.message : 'Please try again', variant: 'destructive' }); }
     finally { setSaving(false); }
   };
-  const resend = async (proof: Proof) => {
-    const to = proof.email_recipient || clientEmail;
-    if (!to) { toast({ title: 'No email recipient available', variant: 'destructive' }); return; }
+  const openEmailDialog = (proof: Proof) => {
+    setEmailTo(proof.email_recipient || clientEmail || '');
+    setEmailCc('');
+    setEmailSubject(`Proof for Review — ${proof.title}`);
+    setEmailBody('');
+    setEmailProof(proof);
+  };
+  const sendProofEmail = async () => {
+    const proof = emailProof;
+    if (!proof || busy !== null) return;
+    const to = emailTo.trim();
+    if (!to) { toast({ title: 'Enter an email recipient', variant: 'destructive' }); return; }
     setBusy(proof.id);
-    try { await sendEmail(proof, to); toast({ title: 'Proof email sent' }); await load(); }
+    try { await sendEmail(proof, to, emailCc.trim(), emailSubject, emailBody); toast({ title: 'Proof email sent' }); setEmailProof(null); await load(); }
     catch (e) { toast({ title: 'Email not confirmed', description: e instanceof Error ? e.message : 'Please retry', variant: 'destructive' }); }
     finally { setBusy(null); }
   };
@@ -117,7 +131,7 @@ export function AdminProofSection({ orderId, clientEmail, poId, items: poItems, 
       <ProofMediaGrid media={proof.media_urls} compact />
       {proof.client_response_at && <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">{proof.client_name || 'Client'} · {formatDate(proof.client_response_at)}</p>{proof.client_comment && <p className="mt-1 whitespace-pre-wrap break-words text-sm">{proof.client_comment}</p>}</div>}
       {proof.email_sent_at && <p className="text-xs text-muted-foreground">Email sent {formatDate(proof.email_sent_at)} · {proof.email_recipient}</p>}
-      <div className="flex flex-wrap gap-2">{proof.status === 'pending' && <><Button size="sm" variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(proofLink(proof.approval_token)); toast({ title: 'Review link copied' }); } catch { toast({ title: 'Unable to copy link', variant: 'destructive' }); } }}><Copy />Copy Review Link</Button><Button size="sm" variant="outline" disabled={busy !== null || saving} onClick={() => resend(proof)}>{busy === proof.id ? <Loader2 className="animate-spin" /> : <Mail />}Send Email</Button><Button size="sm" variant="ghost" className="text-destructive" disabled={busy !== null || saving} onClick={() => remove(proof)}><Trash2 />Delete</Button></>}{proof.status === 'revision_requested' && <Button size="sm" variant="outline" disabled={saving} onClick={() => start(proof)}><Upload />Resubmit Revised Proof</Button>}</div>
+      <div className="flex flex-wrap gap-2">{proof.status === 'pending' && <><Button size="sm" variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(proofLink(proof.approval_token)); toast({ title: 'Review link copied' }); } catch { toast({ title: 'Unable to copy link', variant: 'destructive' }); } }}><Copy />Copy Review Link</Button><Button size="sm" variant="outline" disabled={busy !== null || saving} onClick={() => openEmailDialog(proof)}>{busy === proof.id ? <Loader2 className="animate-spin" /> : <Mail />}Send Email</Button><Button size="sm" variant="ghost" className="text-destructive" disabled={busy !== null || saving} onClick={() => remove(proof)}><Trash2 />Delete</Button></>}{proof.status === 'revision_requested' && <Button size="sm" variant="outline" disabled={saving} onClick={() => start(proof)}><Upload />Resubmit Revised Proof</Button>}</div>
     </article>)}</div>}
     <Dialog open={open} onOpenChange={value => { if (!saving && !uploading) setOpen(value); }}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{revised ? `Resubmit Revised Proof · Revision ${revised.revision_number + 1}` : 'Upload New Proof'}</DialogTitle></DialogHeader><form onSubmit={create} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Item (optional)</Label><Select value={itemId} onValueChange={setItemId} disabled={!!revised || uploading || saving}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Whole order</SelectItem>{items.map(item => <SelectItem key={item.id} value={item.id}>{item.item_name || item.description || 'Item'}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Proof type</Label><Select value={proofType} onValueChange={setProofType} disabled={!!revised || saving}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PROOF_TYPES.map(type => <SelectItem key={type} value={type}>{proofTypeLabel(type)}</SelectItem>)}</SelectContent></Select></div></div>
@@ -127,5 +141,20 @@ export function AdminProofSection({ orderId, clientEmail, poId, items: poItems, 
       <div className="space-y-2"><Label htmlFor={`proof-email-${poId}`}>Email recipient</Label><Input id={`proof-email-${poId}`} type="email" required value={recipient} onChange={e => setRecipient(e.target.value)} disabled={saving} /></div>
       <DialogFooter><Button type="button" variant="outline" disabled={saving || uploading} onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={saving || uploading || !title.trim() || !media.length || !recipient.trim()} className="h-auto min-h-10 whitespace-normal">{saving ? <Loader2 className="animate-spin" /> : <Mail />}{revised ? 'Resubmit & Send for Approval' : 'Create & Send for Approval'}</Button></DialogFooter>
     </form></DialogContent></Dialog>
+    <Dialog open={emailProof !== null} onOpenChange={value => { if (!value && busy === null) setEmailProof(null); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Send email — {emailProof?.title}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1"><Label htmlFor={`proof-email-to-${poId}`}>To</Label><Input id={`proof-email-to-${poId}`} type="email" value={emailTo} onChange={e => setEmailTo(e.target.value)} disabled={busy !== null} /></div>
+          <div className="space-y-1"><Label htmlFor={`proof-email-cc-${poId}`}>Cc (comma separated)</Label><Input id={`proof-email-cc-${poId}`} value={emailCc} onChange={e => setEmailCc(e.target.value)} placeholder="optional" disabled={busy !== null} /></div>
+          <div className="space-y-1"><Label htmlFor={`proof-email-subject-${poId}`}>Subject</Label><Input id={`proof-email-subject-${poId}`} value={emailSubject} onChange={e => setEmailSubject(e.target.value)} disabled={busy !== null} /></div>
+          <div className="space-y-1"><Label htmlFor={`proof-email-message-${poId}`}>Message</Label><Textarea id={`proof-email-message-${poId}`} rows={6} value={emailBody} onChange={e => setEmailBody(e.target.value)} placeholder="Optional note to include..." disabled={busy !== null} /></div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setEmailProof(null)} disabled={busy !== null}>Cancel</Button>
+          <Button onClick={sendProofEmail} disabled={busy !== null} className="gap-2">{busy !== null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </section>;
 }
