@@ -55,7 +55,7 @@ test('document emails use authenticated sending and branded formatting with the 
   expect(api.calls[0][1].trackingToken).toBeNull();
   expect(api.calls[1][1]).toBe('send-email');
   expect(api.calls[1][2].to).toBe('client@example.test');
-  expect(api.calls[1][2].subject).toBe('Document Available — Invoice <1>');
+  expect(api.calls[1][2].subject).toBe('Document Shared — Invoice <1>');
   expect(api.calls[1][2].html).toContain('Invoice &lt;1>');
   expect(api.calls[1][2].html).toContain('/documents?t=a%26b');
 });
@@ -64,18 +64,40 @@ test('failed document notifications reject for a recoverable retry', async () =>
     await expect(emailSetup(response).send({ po_number: 'PO-1' }, doc, 'client@example.test')).rejects.toThrow();
   }
 });
+test('document emails forward cc and edited subject and escape the optional message', async () => {
+  const api = emailSetup();
+  await api.send({ po_number: 'PO-1' }, doc, 'client@example.test', ' copy@example.test, team@example.test ', 'Updated invoice', 'Please review <details>\nThank you');
+  const payload = api.calls[1][2];
+  expect(payload.cc).toBe('copy@example.test, team@example.test');
+  expect(payload.subject).toBe('Updated invoice');
+  expect(payload.html).toContain('Please review &lt;details><br>Thank you');
+});
 
 const sectionSource = readFileSync(new URL('../src/components/documents/AdminDocumentSection.tsx', import.meta.url), 'utf8');
 const notifySource = sectionSource.slice(sectionSource.indexOf('  const notify ='), sectionSource.indexOf('  const remove ='));
 const notifyOutput = ts.transpileModule(notifySource, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+test('opening document email only prepares confirmation fields without sending', () => {
+  const openSource = sectionSource.slice(sectionSource.indexOf('  const openEmail ='), sectionSource.indexOf('  const notify ='));
+  const output = ts.transpileModule(openSource, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const values: Record<string, unknown> = {};
+  const openEmail = new Function('recipient', 'clientEmail', 'setEmailTo', 'setEmailCc', 'setEmailSubject', 'setEmailBody', 'setEmailDocument', 'sendEmail', `${output}; return openEmail;`)(
+    ' recipient@example.test ', 'fallback@example.test',
+    (v: unknown) => { values.to = v; }, (v: unknown) => { values.cc = v; },
+    (v: unknown) => { values.subject = v; }, (v: unknown) => { values.message = v; },
+    (v: unknown) => { values.document = v; }, () => { throw new Error('Must not send before confirmation'); },
+  );
+  openEmail(doc);
+  expect(values).toEqual({ to: 'recipient@example.test', cc: '', subject: 'Document Shared — Invoice <1>', message: '', document: doc });
+});
 test('document email timestamps are written only after successful sending', async () => {
   for (const fail of [false, true]) {
     const calls: any[] = [];
-    const notify = new Function('recipient', 'clientEmail', 'setBusy', 'sendEmail', 'documentRpc', 'toast', 'load', `${notifyOutput}; return notify;`)(
-      'client@example.test', '', () => {}, async () => { calls.push('send'); if (fail) throw new Error('Rejected'); },
-      async (payload: any) => { calls.push(payload); }, () => {}, async () => {},
+    const notify = new Function('emailDocument', 'busy', 'emailTo', 'emailCc', 'emailSubject', 'emailBody', 'setBusy', 'sendEmail', 'documentRpc', 'toast', 'load', 'setEmailDocument', `${notifyOutput}; return notify;`)(
+      doc, null, 'client@example.test', ' copy@example.test ', 'Custom subject', 'Custom message', () => {}, async (...args: any[]) => { calls.push(['send', ...args]); if (fail) throw new Error('Rejected'); },
+      async (payload: any) => { calls.push(payload); }, () => {}, async () => { calls.push('reload'); }, () => { calls.push('close'); },
     );
-    await notify(doc);
-    expect(calls).toEqual(fail ? ['send'] : ['send', { action: 'mark_email_sent', id: 'doc-1', email_recipient: 'client@example.test' }]);
+    await notify();
+    const sendCall = ['send', doc, 'client@example.test', 'copy@example.test', 'Custom subject', 'Custom message'];
+    expect(calls).toEqual(fail ? [sendCall] : [sendCall, { action: 'mark_email_sent', id: 'doc-1', email_recipient: 'client@example.test' }, 'close', 'reload']);
   }
 });
