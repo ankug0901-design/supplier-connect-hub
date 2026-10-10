@@ -3,7 +3,9 @@
 - Document Hub uses the existing `document_manage` RPC through a checked helper; public lists use tracking tokens, and document fetch failures never block order tracking.
 - Document notification emails use the existing production email wrapper and authenticated `n8nPost`; admin UI marks the record only after successful sends so saved documents remain recoverable on notification failure.
 
-- Proof review uses the existing token-scoped `proof_manage` actions through a checked `proofRpc`; admin proof controls are order-scoped and share one media preview component so review and revision behavior stays consistent.
+- Proof controls use checked, token-scoped `proof_manage` and shared media previews for consistent review.
+- Certificates use client-side jsPDF and captured approval metadata; no server writes.
+- Recipient helpers retain single creation and adapt groups to RPC email-string arrays; responses read its `responses` field.
 - All proof actions call `proof_manage` directly; the public page sends a separate best-effort notification only after a successful response with `notify_admin` and an order number, so email availability cannot block saving client responses.
 - Proof annotation editing and read-only review use original media indexes and percentage coordinates with shared ten-marker helpers; this preserves image association and scaled positioning across client and admin views.
 - Tracking proof lists use `proof_manage`'s tracking-token-scoped read action, never public order-ID-only listing; failures leave order tracking available and responses omit admin email fields.
