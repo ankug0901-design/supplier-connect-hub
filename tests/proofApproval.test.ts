@@ -42,10 +42,13 @@ test('review links encode tokens and media previews discard unsafe URLs', () => 
   expect(api.proofMedia([{ url: 'javascript:alert(1)' }, { url: 'https://example.test/proof.png' }])).toEqual([{ url: 'https://example.test/proof.png' }]);
   expect(api.isProofVideo({ url: 'https://example.test/proof', type: 'video/mp4' })).toBe(true);
 });
-test('proof response writes use the token validated notification path', async () => {
-  const api = setup();
-  await api.proofRpc({ action: 'approve_proof', approval_token: 'review-token' });
-  expect(api.calls).toEqual([['n8n-proxy', { body: { path: 'proof-response', payload: { action: 'approve_proof', approval_token: 'review-token' } } }]]);
+test('approval and revision responses use proof_manage directly without an edge function', async () => {
+  for (const action of ['approve_proof', 'request_revision']) {
+    const api = setup();
+    const payload = { action, approval_token: 'review-token' };
+    await api.proofRpc(payload);
+    expect(api.calls).toEqual([['proof_manage', { payload }]]);
+  }
 });
 test('annotations stop at ten across all images and preserve percentage coordinates and media index', () => {
   const api = setup();

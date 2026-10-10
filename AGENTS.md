@@ -4,7 +4,7 @@
 - Document notification emails use the existing production email wrapper and authenticated `n8nPost`; admin UI marks the record only after successful sends so saved documents remain recoverable on notification failure.
 
 - Proof review uses the existing token-scoped `proof_manage` actions through a checked `proofRpc`; admin proof controls are order-scoped and share one media preview component so review and revision behavior stays consistent.
-- Proof response writes go through the token-only `proof-response` branch of `n8n-proxy`, which calls the existing anonymous token-scoped RPC and sends a fixed-recipient, server-rendered notification only on its successful response; this prevents forged notification permission and replay without changing other webhook authorization.
+- All proof actions call `proof_manage` directly; the public page sends a separate best-effort notification only after a successful response with `notify_admin` and an order number, so email availability cannot block saving client responses.
 - Proof annotation editing and read-only review use original media indexes and percentage coordinates with shared ten-marker helpers; this preserves image association and scaled positioning across client and admin views.
 - Tracking proof lists use `proof_manage`'s tracking-token-scoped read action, never public order-ID-only listing; failures leave order tracking available and responses omit admin email fields.
 - Proof emails use the production page's unchanged email wrapper via authenticated `n8nPost('send-email')`; save the proof before sending and mark sent only after success to retain recoverable records on notification failure.
@@ -26,7 +26,7 @@
 
 - Keep per-item stage editing in the production updates page and persist through `poTrackerRpc`'s `set_stages` action; pure slug/reorder helpers are independently tested to preserve the existing update workflows.
 
-- Route general frontend n8n calls through `n8nPost`; the PO Tracker's logistics shipment fetch and email send are explicit direct-webhook exceptions required by their unauthenticated workflows.
+- Route general frontend n8n calls through `n8nPost`; public proof-response notifications and the PO Tracker's logistics shipment fetch and email send are explicit direct-webhook exceptions required by their unauthenticated workflows.
 - Keep single-location dispatch entry in `AdminDispatchForm`; multi-location logistics synchronization belongs inside `ItemUpdateForm` and writes authenticated `po_dispatch` records before posting the production update.
 - External dispatch synchronization belongs in the `sync-dispatch` edge function and identifies records by the unique `po_id` plus `lr_number` pair.
 - Scheduled Zoho sync requests resolve authorization from Vault at execution time; authorized syncs refresh that credential from the live runtime binding through a service-role-only RPC, without exposing credentials or embedding them in cron commands.
