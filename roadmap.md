@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Restore direct proof RPC responses, add separate best-effort admin notifications, and verify existing admin annotation previews without database or edge-function changes.
+- [x] Restore direct proof RPC responses and separate best-effort admin notifications; existing admin annotation previews confirmed, 20 targeted tests pass, build clean, no database or edge-function changes, no real emails sent.
 
 - [x] Add blob downloads and test fallback behavior; actual page/lightbox downloads verified in browser.
 - [x] Add mobile proof annotations with a ten-marker limit and read-only admin views; simulated desktop/mobile submission and admin rendering verified.
