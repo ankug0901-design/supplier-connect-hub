@@ -65,7 +65,7 @@ export default function ProofApproval() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              to: 'embossmarketing@gmail.com',
+              to: 'ankur.gupta@embossmarketing.in, hkumar@embossmarketing.in',
               subject: `Proof ${approved ? 'Approved' : 'Revision Requested'} — ${result.order_number}`,
               html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
                 <div style="background-color:#0d7377;padding:32px 28px 24px 28px;border-radius:12px 12px 0 0;">
