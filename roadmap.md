@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Add client-side approval PDF certificates after successful approval only.
+- [ ] Add multiple proof recipients and group response status views while retaining single-recipient behavior.
+
 - [x] Restore direct proof RPC responses and separate best-effort admin notifications; existing admin annotation previews confirmed, 20 targeted tests pass, build clean, no database or edge-function changes, no real emails sent.
 
 - [x] Add blob downloads and test fallback behavior; actual page/lightbox downloads verified in browser.
