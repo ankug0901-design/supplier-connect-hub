@@ -23,6 +23,7 @@ export type ProofResult = {
   order?: { order_number?: string; client_name?: string; client_po_ref?: string };
   item?: { item_name?: string; description?: string; quantity?: number } | null;
   group_responses?: GroupResponse[] | null;
+  responses?: GroupResponse[];
   order_number?: string;
   notify_admin?: boolean;
 };

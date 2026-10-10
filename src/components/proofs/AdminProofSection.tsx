@@ -12,6 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { PROOF_TYPES, proofLink, proofMedia, proofRpc, proofTypeLabel, type Proof, type ProofMedia } from '@/lib/proofApproval';
 import { ProofMediaGrid } from './ProofMediaGrid';
 import { ProofAnnotationView } from './ProofAnnotationView';
+import { ProofGroupResponses } from './ProofGroupResponses';
+import { parseProofRecipients, proofCreationPayload } from '@/lib/proofRecipients';
 
 type Item = { id: string; item_name: string | null; description: string | null };
 type Props = {
@@ -33,6 +35,7 @@ export function AdminProofSection({ orderId, clientEmail, poId, items: poItems, 
   const [itemId, setItemId] = useState('all');
   const [proofType, setProofType] = useState('artwork');
   const [recipient, setRecipient] = useState(clientEmail || '');
+  const [recipientDraft, setRecipientDraft] = useState('');
   const [media, setMedia] = useState<ProofMedia[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,7 +66,12 @@ export function AdminProofSection({ orderId, clientEmail, poId, items: poItems, 
   const start = (proof: Proof | null = null) => {
     setRevised(proof); setTitle(proof?.title || ''); setDescription(proof?.description || '');
     setItemId(proof?.item_id || 'all'); setProofType(proof?.proof_type || 'artwork');
-    setRecipient(proof?.email_recipient || clientEmail || ''); setMedia(proofMedia(proof?.media_urls)); setOpen(true);
+    setRecipient(proof?.email_recipient || clientEmail || ''); setRecipientDraft(''); setMedia(proofMedia(proof?.media_urls)); setOpen(true);
+  };
+  const recipientChips = recipient.split(',').map(email => email.trim()).filter(Boolean);
+  const addRecipients = () => {
+    try { setRecipient(parseProofRecipients([recipient, recipientDraft].filter(Boolean).join(',')).join(', ')); setRecipientDraft(''); }
+    catch (e) { toast({ title: e instanceof Error ? e.message : 'Invalid recipients', variant: 'destructive' }); }
   };
   const upload = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -82,19 +90,25 @@ export function AdminProofSection({ orderId, clientEmail, poId, items: poItems, 
   };
   const create = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (saving || uploading || !title.trim() || !media.length || !recipient.trim()) return;
+    if (saving || uploading || !title.trim() || !media.length || (!recipient.trim() && !recipientDraft.trim())) return;
     setSaving(true);
     try {
+      const emails = parseProofRecipients([recipient, recipientDraft].filter(Boolean).join(','));
       const result = await proofRpc(revised ? {
         action: 'resubmit_proof', proof_id: revised.id, title: title.trim(), description: description.trim(), media_urls: media, created_by: updatedBy,
-      } : {
-        action: 'create_proof', client_order_id: orderId, item_id: itemId === 'all' ? null : itemId,
-        proof_type: proofType, title: title.trim(), description: description.trim(), media_urls: media, email_recipient: recipient.trim(), created_by: updatedBy,
-      });
-      if (!result.proof) throw new Error('Proof creation could not be confirmed');
+      } : proofCreationPayload({
+        client_order_id: orderId, item_id: itemId === 'all' ? null : itemId,
+        proof_type: proofType, title: title.trim(), description: description.trim(), media_urls: media, created_by: updatedBy,
+      }, emails));
+      const created = result.proofs || (result.proof ? [result.proof] : []);
+      if (!created.length) throw new Error('Proof creation could not be confirmed');
       setOpen(false);
       await load();
-      try { await sendEmail(result.proof, recipient.trim(), '', `Proof for Review — ${result.proof.title}`, ''); toast({ title: 'Proof created and email sent' }); }
+      try {
+        const outcomes = await Promise.allSettled(created.map((proof, index) => sendEmail(proof, revised ? emails[0] : proof.email_recipient || emails[index] || emails[0], '', `Proof for Review — ${proof.title}`, '')));
+        if (outcomes.some(outcome => outcome.status === 'rejected')) throw new Error('One or more emails were not confirmed');
+        toast({ title: created.length > 1 ? 'Proofs created and emails sent' : 'Proof created and email sent' });
+      }
       catch (e) { toast({ title: 'Proof saved; email not confirmed', description: `${e instanceof Error ? e.message : 'Please retry'}. Use Send Email to retry without creating another proof.`, variant: 'destructive' }); }
       await load();
     } catch (e) { toast({ title: 'Unable to save proof', description: e instanceof Error ? e.message : 'Please try again', variant: 'destructive' }); }
@@ -131,6 +145,7 @@ export function AdminProofSection({ orderId, clientEmail, poId, items: poItems, 
       {proof.description && <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{proof.description}</p>}
       <ProofMediaGrid media={proof.media_urls} compact />
       {proof.status === 'revision_requested' && !!proof.client_annotations?.length && <ProofAnnotationView media={proofMedia(proof.media_urls)} annotations={proof.client_annotations} />}
+      {proof.proof_group_id && proofs.find(candidate => candidate.proof_group_id === proof.proof_group_id)?.id === proof.id && <ProofGroupResponses groupId={proof.proof_group_id} refreshKey={JSON.stringify(proofs.filter(candidate => candidate.proof_group_id === proof.proof_group_id))} />}
       {proof.client_response_at && <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">{proof.client_name || 'Client'} · {formatDate(proof.client_response_at)}</p>{proof.client_comment && <p className="mt-1 whitespace-pre-wrap break-words text-sm">{proof.client_comment}</p>}</div>}
       {proof.email_sent_at && <p className="text-xs text-muted-foreground">Email sent {formatDate(proof.email_sent_at)} · {proof.email_recipient}</p>}
       <div className="flex flex-wrap gap-2">{proof.status === 'pending' && <><Button size="sm" variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(proofLink(proof.approval_token)); toast({ title: 'Review link copied' }); } catch { toast({ title: 'Unable to copy link', variant: 'destructive' }); } }}><Copy />Copy Review Link</Button><Button size="sm" variant="outline" disabled={busy !== null || saving} onClick={() => openEmailDialog(proof)}>{busy === proof.id ? <Loader2 className="animate-spin" /> : <Mail />}Send Email</Button><Button size="sm" variant="ghost" className="text-destructive" disabled={busy !== null || saving} onClick={() => remove(proof)}><Trash2 />Delete</Button></>}{proof.status === 'revision_requested' && <Button size="sm" variant="outline" disabled={saving} onClick={() => start(proof)}><Upload />Resubmit Revised Proof</Button>}</div>
@@ -140,8 +155,8 @@ export function AdminProofSection({ orderId, clientEmail, poId, items: poItems, 
       <div className="space-y-2"><Label htmlFor={`proof-title-${poId}`}>Title</Label><Input id={`proof-title-${poId}`} value={title} onChange={e => setTitle(e.target.value)} required disabled={saving} /></div>
       <div className="space-y-2"><Label htmlFor={`proof-description-${poId}`}>Description (optional)</Label><Textarea id={`proof-description-${poId}`} value={description} onChange={e => setDescription(e.target.value)} rows={3} disabled={saving} /></div>
       <div className="space-y-2"><Label>Images / Videos</Label><input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={e => upload(e.target.files)} /><Button type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading || saving || media.length >= 10}>{uploading ? <Loader2 className="animate-spin" /> : <Plus />}Add media</Button><ProofMediaGrid media={media} compact /><div className="space-y-1">{media.map((m, i) => <div key={`${m.url}-${i}`} className="flex min-w-0 items-center justify-between gap-2 text-xs"><span className="truncate">{m.filename || 'Proof media'}</span><Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label={`Remove ${m.filename || 'media'}`} disabled={uploading || saving} onClick={() => setMedia(current => current.filter((_, index) => index !== i))}><X /></Button></div>)}</div></div>
-      <div className="space-y-2"><Label htmlFor={`proof-email-${poId}`}>Email recipient</Label><Input id={`proof-email-${poId}`} type="email" required value={recipient} onChange={e => setRecipient(e.target.value)} disabled={saving} /></div>
-      <DialogFooter><Button type="button" variant="outline" disabled={saving || uploading} onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={saving || uploading || !title.trim() || !media.length || !recipient.trim()} className="h-auto min-h-10 whitespace-normal">{saving ? <Loader2 className="animate-spin" /> : <Mail />}{revised ? 'Resubmit & Send for Approval' : 'Create & Send for Approval'}</Button></DialogFooter>
+      {revised ? <div className="space-y-2"><Label htmlFor={`proof-email-${poId}`}>Email recipient</Label><Input id={`proof-email-${poId}`} type="email" required value={recipient} onChange={e => setRecipient(e.target.value)} disabled={saving} /></div> : <div className="space-y-2"><Label htmlFor={`proof-email-${poId}`}>Email recipients</Label><div className="flex gap-2"><Input id={`proof-email-${poId}`} value={recipientDraft} onChange={e => setRecipientDraft(e.target.value)} placeholder="Email addresses, comma separated" disabled={saving} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRecipients(); } }} /><Button type="button" variant="outline" size="icon" aria-label="Add recipients" title="Add recipients" onClick={addRecipients} disabled={saving || !recipientDraft.trim()}><Plus /></Button></div><div className="flex flex-wrap gap-2">{recipientChips.map(email => <Badge key={email} variant="secondary" className="max-w-full gap-1"><span className="min-w-0 break-all">{email}</span><Button type="button" variant="ghost" size="icon" className="h-5 w-5 shrink-0" aria-label={`Remove ${email}`} disabled={saving} onClick={() => setRecipient(recipientChips.filter(value => value !== email).join(', '))}><X /></Button></Badge>)}</div></div>}
+      <DialogFooter><Button type="button" variant="outline" disabled={saving || uploading} onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={saving || uploading || !title.trim() || !media.length || (!recipient.trim() && !recipientDraft.trim())} className="h-auto min-h-10 whitespace-normal">{saving ? <Loader2 className="animate-spin" /> : <Mail />}{revised ? 'Resubmit & Send for Approval' : 'Create & Send for Approval'}</Button></DialogFooter>
     </form></DialogContent></Dialog>
     <Dialog open={emailProof !== null} onOpenChange={value => { if (!value && busy === null) setEmailProof(null); }}>
       <DialogContent className="max-w-lg">
