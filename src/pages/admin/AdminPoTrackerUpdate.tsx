@@ -25,6 +25,8 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { AdminProofSection } from '@/components/proofs/AdminProofSection';
+import { isProofVideo, proofLink, proofMedia, proofRpc, proofTypeLabel, type Proof } from '@/lib/proofApproval';
 
 const MEDIA_BUCKET = 'po-tracker-media';
 const MAX_FILES = 10;
@@ -224,6 +226,25 @@ function fmt(ts?: string | null) {
   return isNaN(d.getTime())
     ? '—'
     : d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+async function sendProofEmail(po: TrackPO, proof: Proof, recipient: string) {
+  const meta = await trackingEmailMeta(po);
+  const thumbnails = proofMedia(proof.media_urls).filter(media => !isProofVideo(media)).slice(0, 3)
+    .map(media => `<td style="padding:8px;"><img src="${escapeHtml(media.url)}" alt="${escapeHtml(media.filename || proof.title)}" width="60" height="60" style="border-radius:8px;object-fit:cover;"></td>`).join('');
+  const content = `<p style="margin:0 0 16px;">Dear ${escapeHtml(meta.clientName || 'Client')},</p><p style="margin:0 0 20px;">A new proof is ready for your review for order ${escapeHtml(meta.orderNumber || po.po_number)}.</p>` +
+    `<p style="margin:0 0 8px;font-size:18px;font-weight:700;">${escapeHtml(proof.title)}</p><p style="margin:0 0 16px;color:#6b7280;">${escapeHtml(proofTypeLabel(proof.proof_type))} · Revision ${proof.revision_number}</p>` +
+    (proof.description ? `<p style="margin:0 0 16px;">${escapeHtml(proof.description).replace(/\n/g, '<br>')}</p>` : '') +
+    (thumbnails ? `<table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>${thumbnails}</tr></table>` : '') +
+    `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="padding:28px 0 8px;"><a href="${escapeHtml(proofLink(proof.approval_token))}" style="display:inline-block;background-color:#0d7377;color:#ffffff;font-size:15px;line-height:22px;font-weight:700;padding:16px 36px;border-radius:6px;text-decoration:none;box-shadow:0 3px 8px rgba(13,115,119,0.18);">Review Proof</a></td></tr></table>`;
+  const response = await n8nPost('send-email', {
+    to: recipient.trim(), subject: `Proof Ready for Your Review — ${meta.orderNumber || po.po_number}`,
+    html: wrapEmailHtml(content, { ...meta, trackingToken: null }),
+  });
+  const result = Array.isArray(response.data) ? response.data[0] : response.data;
+  if (!response.ok || result?.ok === false || result?.success === false || result?.error) throw new Error(result?.error || `Email send failed (${response.status})`);
+  try { await proofRpc({ action: 'mark_email_sent', proof_id: proof.id, email_recipient: recipient.trim() }); }
+  catch { throw new Error('Email sent, but its sent timestamp could not be saved; check before retrying'); }
 }
 
 /** Horizontal stage progress bar, same visual language as the tracking page. */
@@ -1219,6 +1240,16 @@ function POCard({
                 </div>
               ))
             )}
+            {po.client_order && <AdminProofSection
+              key={po.client_order.id}
+              orderId={po.client_order.id}
+              clientEmail={po.client_order.client_email}
+              poId={po.id}
+              items={po.items}
+              updatedBy={updatedBy}
+              mediaBucket={MEDIA_BUCKET}
+              sendEmail={(proof, recipient) => sendProofEmail(po, proof, recipient)}
+            />}
           </div>
         )}
       </CardContent>
