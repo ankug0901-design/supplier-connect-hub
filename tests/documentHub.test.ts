@@ -64,3 +64,18 @@ test('failed document notifications reject for a recoverable retry', async () =>
     await expect(emailSetup(response).send({ po_number: 'PO-1' }, doc, 'client@example.test')).rejects.toThrow();
   }
 });
+
+const sectionSource = readFileSync(new URL('../src/components/documents/AdminDocumentSection.tsx', import.meta.url), 'utf8');
+const notifySource = sectionSource.slice(sectionSource.indexOf('  const notify ='), sectionSource.indexOf('  const remove ='));
+const notifyOutput = ts.transpileModule(notifySource, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+test('document email timestamps are written only after successful sending', async () => {
+  for (const fail of [false, true]) {
+    const calls: any[] = [];
+    const notify = new Function('recipient', 'clientEmail', 'setBusy', 'sendEmail', 'documentRpc', 'toast', 'load', `${notifyOutput}; return notify;`)(
+      'client@example.test', '', () => {}, async () => { calls.push('send'); if (fail) throw new Error('Rejected'); },
+      async (payload: any) => { calls.push(payload); }, () => {}, async () => {},
+    );
+    await notify(doc);
+    expect(calls).toEqual(fail ? ['send'] : ['send', { action: 'mark_email_sent', id: 'doc-1', email_recipient: 'client@example.test' }]);
+  }
+});
