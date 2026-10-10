@@ -22,6 +22,20 @@
       "when": 1791541895686,
       "tag": "0002_pin_selected_po_tracker_function_search_paths",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791611624672,
+      "tag": "0003_secure_proof_review_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791611645984,
+      "tag": "0004_preserve_proof_email_marking",
+      "breakpoints": true
     }
   ]
 }

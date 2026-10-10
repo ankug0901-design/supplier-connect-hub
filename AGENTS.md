@@ -1,5 +1,9 @@
 # Project Architecture Rules
 
+- Proof review uses the existing token-scoped `proof_manage` actions through a checked `proofRpc`; admin proof controls are order-scoped and share one media preview component so review and revision behavior stays consistent.
+- Proof emails use the production page's unchanged email wrapper via authenticated `n8nPost('send-email')`; save the proof before sending and mark sent only after success to retain recoverable records on notification failure.
+- The proof RPC restricts management actions to existing admin/tracker-admin checks and public responses to nonempty tokens; require revision comments server-side because UI checks alone are not authorization or validation.
+
 - Public order tracking reads `po_tracker_manage` directly with the token-scoped `track_by_token` action, avoiding the unreliable n8n lookup while retaining existing RPC security.
 
 - Keep `po_tracker_manage(jsonb)` and `_po_recalc_status(uuid)` on an empty search path with schema-qualified application references so caller-controlled objects cannot replace their dependencies.

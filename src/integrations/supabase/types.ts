@@ -792,6 +792,94 @@ export type Database = {
           },
         ]
       }
+      proof_approvals: {
+        Row: {
+          approval_token: string
+          client_comment: string | null
+          client_name: string | null
+          client_order_id: string
+          client_response_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          email_recipient: string | null
+          email_sent_at: string | null
+          id: string
+          item_id: string | null
+          media_urls: Json
+          parent_proof_id: string | null
+          proof_type: string
+          revision_number: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approval_token?: string
+          client_comment?: string | null
+          client_name?: string | null
+          client_order_id: string
+          client_response_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          email_recipient?: string | null
+          email_sent_at?: string | null
+          id?: string
+          item_id?: string | null
+          media_urls?: Json
+          parent_proof_id?: string | null
+          proof_type?: string
+          revision_number?: number
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approval_token?: string
+          client_comment?: string | null
+          client_name?: string | null
+          client_order_id?: string
+          client_response_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          email_recipient?: string | null
+          email_sent_at?: string | null
+          id?: string
+          item_id?: string | null
+          media_urls?: Json
+          parent_proof_id?: string | null
+          proof_type?: string
+          revision_number?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proof_approvals_client_order_id_fkey"
+            columns: ["client_order_id"]
+            isOneToOne: false
+            referencedRelation: "client_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proof_approvals_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "po_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proof_approvals_parent_proof_id_fkey"
+            columns: ["parent_proof_id"]
+            isOneToOne: false
+            referencedRelation: "proof_approvals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_orders: {
         Row: {
           amount: number
@@ -1693,6 +1781,7 @@ export type Database = {
       pct_change: { Args: { curr: number; prev: number }; Returns: number }
       po_tracker_manage: { Args: { payload: Json }; Returns: Json }
       po_tracker_zoho_so: { Args: { payload: Json }; Returns: Json }
+      proof_manage: { Args: { payload: Json }; Returns: Json }
       record_invoice_line_items: {
         Args: {
           _invoice_number: string
