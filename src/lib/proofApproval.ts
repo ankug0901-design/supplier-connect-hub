@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 export type ProofMedia = { url: string; type?: string; filename?: string };
 export type Proof = {
   id: string; client_order_id: string; item_id: string | null; proof_type: string;
-  title: string; description: string | null; media_urls: ProofMedia[];
+  title: string; description: string | null; media_urls: ProofMedia[]; item_name?: string | null;
   status: 'pending' | 'approved' | 'revision_requested'; approval_token: string;
   revision_number: number; created_at: string; client_response_at: string | null;
   client_comment: string | null; client_name: string | null; email_recipient: string | null;
