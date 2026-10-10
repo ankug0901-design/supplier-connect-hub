@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ProofMediaGrid } from '@/components/proofs/ProofMediaGrid';
-import { proofMedia, proofRpc, proofResponsePayload, proofTypeLabel, type ProofResult } from '@/lib/proofApproval';
+import { ProofAnnotator } from '@/components/proofs/ProofAnnotator';
+import { downloadFile, proofFilename, proofMedia, proofRpc, proofResponsePayload, proofTypeLabel, type ProofAnnotation, type ProofResult } from '@/lib/proofApproval';
 
 function Brand() {
   return <div><div className="text-lg font-extrabold sm:text-xl"><span className="text-primary">EMBOSS</span> MARKETING</div><div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70 sm:text-[11px]">Printing · Packaging · POS Materials</div></div>;
@@ -23,13 +24,14 @@ export default function ProofApproval() {
   const [mode, setMode] = useState<'approve_proof' | 'request_revision' | null>(null);
   const [comment, setComment] = useState('');
   const [name, setName] = useState('');
+  const [annotations, setAnnotations] = useState<ProofAnnotation[]>([]);
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const epoch = useRef(0);
   const load = useCallback(async () => {
     const request = ++epoch.current;
-    setLoading(true); setData(null); setMode(null); setSubmitted(false); setSubmitError(''); setComment(''); setName('');
+    setLoading(true); setData(null); setMode(null); setSubmitted(false); setSubmitError(''); setComment(''); setName(''); setAnnotations([]);
     try {
       if (!token) throw new Error('Missing token');
       const result = await proofRpc({ action: 'get_proof_by_token', approval_token: token });
@@ -47,7 +49,7 @@ export default function ProofApproval() {
     setSaving(true); setSubmitError('');
     const request = epoch.current;
     try {
-      const result = await proofRpc(proofResponsePayload(mode, token, comment, name));
+      const result = await proofRpc(proofResponsePayload(mode, token, comment, name, mode === 'request_revision' ? annotations : []));
       if (!result.proof) throw new Error('Your response could not be confirmed. Please try again.');
       if (request === epoch.current) { setData(current => current ? { ...current, proof: result.proof } : current); setMode(null); setSubmitted(true); }
     } catch (e) { if (request === epoch.current) setSubmitError(e instanceof Error ? e.message : 'Unable to submit your response. Please try again.'); }
@@ -66,10 +68,10 @@ export default function ProofApproval() {
         <dl className="grid grid-cols-1 gap-4 border-y border-border py-4 sm:grid-cols-3">{[['Order Number', order.order_number], ['Client Name', order.client_name], ['Client PO#', order.client_po_ref]].map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-words text-sm font-semibold">{value || '—'}</dd></div>)}</dl>
         {proof.description && <section className="rounded-lg border border-border bg-muted/60 p-4"><h2 className="mb-2 text-xs font-semibold text-muted-foreground">Notes</h2><p className="whitespace-pre-wrap break-words text-sm leading-6">{proof.description}</p></section>}
         <ProofMediaGrid media={proof.media_urls} />
-        {media.length > 0 && <section aria-label="Proof downloads" className="flex flex-col items-start gap-2">{media.map((file, index) => <Button key={`${file.url}-${index}`} type="button" variant="outline" onClick={() => window.open(file.url, '_blank')} className="h-auto max-w-full py-2"><Download className="shrink-0" /><span className="min-w-0 whitespace-normal break-all text-left">{media.length === 1 ? 'Download Proof' : file.filename || `Download Proof ${index + 1}`}</span></Button>)}</section>}
+        {media.length > 0 && <section aria-label="Proof downloads" className="flex flex-col items-start gap-2">{media.map((file, index) => <Button key={`${file.url}-${index}`} type="button" variant="outline" onClick={() => void downloadFile(file.url, proofFilename(file))} className="h-auto max-w-full py-2"><Download className="shrink-0" /><span className="min-w-0 whitespace-normal break-all text-left">{media.length === 1 ? 'Download Proof' : file.filename || `Download Proof ${index + 1}`}</span></Button>)}</section>}
         {proof.status !== 'pending' && <section role="status" className={`rounded-lg border p-5 ${proof.status === 'approved' ? 'border-success/20 bg-success/10 text-success' : 'border-warning/30 bg-warning/10 text-foreground'}`}><div className="flex items-start gap-3">{proof.status === 'approved' ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /> : <Pencil className="mt-0.5 h-5 w-5 shrink-0 text-warning" />}<div><h2 className="font-semibold">{proof.status === 'approved' ? 'Proof Approved' : 'Changes Requested'} on {dateLabel(proof.client_response_at)}</h2>{submitted && <p className="mt-1 text-sm">Thank you. Your response has been recorded.</p>}{proof.client_comment && <p className="mt-3 whitespace-pre-wrap break-words text-sm">{proof.client_comment}</p>}{proof.client_name && <p className="mt-2 text-xs">{proof.client_name}</p>}</div></div></section>}
         {proof.status === 'pending' && <section className="border-t border-border pt-6">
-          {!mode ? <div className="flex flex-col gap-3 sm:flex-row"><Button variant="success" size="lg" onClick={() => { setMode('approve_proof'); setSubmitError(''); }}><CheckCircle2 />Approve Proof</Button><Button variant="warning" size="lg" onClick={() => { setMode('request_revision'); setSubmitError(''); }}><Pencil />Request Changes</Button></div> : <form onSubmit={submit} className="space-y-4"><h2 className="text-lg font-semibold">{mode === 'approve_proof' ? 'Approve Proof' : 'Request Changes'}</h2><div className="space-y-2"><Label htmlFor="proof-comment">{mode === 'request_revision' ? 'Changes needed (required)' : 'Comment (optional)'}</Label><Textarea id="proof-comment" rows={4} value={comment} onChange={e => setComment(e.target.value)} required={mode === 'request_revision'} disabled={saving} placeholder={mode === 'request_revision' ? 'Describe the changes needed…' : 'Add a comment…'} /></div><div className="space-y-2"><Label htmlFor="proof-name">Your name (optional)</Label><Input id="proof-name" value={name} onChange={e => setName(e.target.value)} disabled={saving} /></div>{submitError && <p role="alert" className="text-sm text-destructive">{submitError}</p>}<div className="flex flex-wrap gap-3"><Button type="submit" variant={mode === 'approve_proof' ? 'success' : 'warning'} disabled={saving || (mode === 'request_revision' && !comment.trim())}>{saving ? <Loader2 className="animate-spin" /> : mode === 'approve_proof' ? <CheckCircle2 /> : <Pencil />}{mode === 'approve_proof' ? 'Approve' : 'Submit'}</Button><Button type="button" variant="outline" onClick={() => setMode(null)} disabled={saving}>Cancel</Button></div></form>}
+          {!mode ? <div className="flex flex-col gap-3 sm:flex-row"><Button variant="success" size="lg" onClick={() => { setMode('approve_proof'); setSubmitError(''); }}><CheckCircle2 />Approve Proof</Button><Button variant="warning" size="lg" onClick={() => { setMode('request_revision'); setSubmitError(''); }}><Pencil />Request Changes</Button></div> : <form onSubmit={submit} className="space-y-4"><h2 className="text-lg font-semibold">{mode === 'approve_proof' ? 'Approve Proof' : 'Request Changes'}</h2><div className="space-y-2"><Label htmlFor="proof-comment">{mode === 'request_revision' ? 'Changes needed (required)' : 'Comment (optional)'}</Label><Textarea id="proof-comment" rows={4} value={comment} onChange={e => setComment(e.target.value)} required={mode === 'request_revision'} disabled={saving} placeholder={mode === 'request_revision' ? 'Describe the changes needed…' : 'Add a comment…'} /></div>{mode === 'request_revision' && <ProofAnnotator media={media} annotations={annotations} onAnnotationsChange={setAnnotations} disabled={saving} />}<div className="space-y-2"><Label htmlFor="proof-name">Your name (optional)</Label><Input id="proof-name" value={name} onChange={e => setName(e.target.value)} disabled={saving} /></div>{submitError && <p role="alert" className="text-sm text-destructive">{submitError}</p>}<div className="flex flex-wrap gap-3"><Button type="submit" variant={mode === 'approve_proof' ? 'success' : 'warning'} disabled={saving || (mode === 'request_revision' && !comment.trim())}>{saving ? <Loader2 className="animate-spin" /> : mode === 'approve_proof' ? <CheckCircle2 /> : <Pencil />}{mode === 'approve_proof' ? 'Approve' : 'Submit'}</Button><Button type="button" variant="outline" onClick={() => setMode(null)} disabled={saving}>Cancel</Button></div></form>}
         </section>}
       </div>}
     </main>

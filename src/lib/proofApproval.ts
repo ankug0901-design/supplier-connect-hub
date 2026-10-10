@@ -35,7 +35,11 @@ export function proofMedia(raw: unknown): ProofMedia[] {
   return raw.filter((m): m is ProofMedia => !!m && typeof m.url === 'string' && /^https?:\/\//i.test(m.url));
 }
 export async function proofRpc(payload: Record<string, unknown>): Promise<ProofResult> {
-  const { data, error } = await (supabase as any).rpc('proof_manage', { payload });
+  // Responses are saved through the same token-scoped RPC on the server so
+  // notification permission cannot be forged or replayed by the browser.
+  const { data, error } = payload.action === 'approve_proof' || payload.action === 'request_revision'
+    ? await supabase.functions.invoke('n8n-proxy', { body: { path: 'proof-response', payload } })
+    : await (supabase as any).rpc('proof_manage', { payload });
   if (error) throw new Error(error.message);
   const result: ProofResult = Array.isArray(data) ? data[0] : data;
   if (!result || result.ok === false) throw new Error(result?.error || 'Proof request failed');

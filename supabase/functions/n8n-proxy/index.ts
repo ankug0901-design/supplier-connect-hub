@@ -1,5 +1,6 @@
 // Authenticated proxy for N8N webhooks. Keeps the N8N access code server-side.
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { handleProofResponse } from './proof-response.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -101,6 +102,33 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // This one public path accepts review tokens, never arbitrary email content.
+    // All existing webhook paths retain their authentication and role checks.
+    if (req.headers.get('content-type')?.includes('application/json')) {
+      const publicBody = await req.clone().json().catch(() => null);
+      if (publicBody?.path === 'proof-response') {
+        if (req.method !== 'POST' || !publicBody.payload || typeof publicBody.payload !== 'object' || Array.isArray(publicBody.payload)) return json({ ok: false, error: 'Invalid proof response' }, 400);
+        const url = Deno.env.get('SUPABASE_URL');
+        const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+        if (!url || !anonKey) return json({ ok: false, error: 'Server not configured' }, 500);
+        const publicClient = createClient(url, anonKey);
+        const result = await handleProofResponse(publicBody.payload, async payload => {
+          const { data, error } = await publicClient.rpc('proof_manage', { payload });
+          return { data, error };
+        }, async email => {
+          const accessCode = Deno.env.get('N8N_ACCESS_CODE');
+          if (!accessCode) throw new Error('Notification not configured');
+          const response = await fetch(`${N8N_BASE}/send-email`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...email, access_code: accessCode }),
+            signal: AbortSignal.timeout(10000),
+          });
+          if (!response.ok) throw new Error('Notification not confirmed');
+          await response.body?.cancel();
+        });
+        return json(result);
+      }
+    }
     // Require authenticated user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
