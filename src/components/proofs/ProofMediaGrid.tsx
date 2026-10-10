@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play } from 'lucide-react';
+import { Download, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { isProofVideo, proofMedia, type ProofMedia } from '@/lib/proofApproval';
@@ -18,6 +18,7 @@ export function ProofMediaGrid({ media, compact = false }: { media: unknown; com
       <DialogContent className="max-w-4xl">
         <DialogHeader><DialogTitle>{active?.filename || 'Proof preview'}</DialogTitle></DialogHeader>
         {active && (isProofVideo(active) ? <video src={active.url} controls autoPlay className="max-h-[75vh] w-full object-contain" /> : <img src={active.url} alt={active.filename || 'Proof preview'} className="max-h-[75vh] w-full object-contain" />)}
+        {active && <div className="flex justify-end"><Button type="button" variant="outline" size="sm" onClick={() => window.open(active.url, '_blank')}><Download />Download</Button></div>}
       </DialogContent>
     </Dialog>
   </>;
