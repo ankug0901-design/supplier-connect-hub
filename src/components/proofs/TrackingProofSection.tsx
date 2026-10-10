@@ -11,7 +11,7 @@ export function TrackingProofSection({ proofs }: { proofs: Proof[] }) {
       {proofs.map(proof => <div key={proof.id} className="rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0"><h3 className="break-words font-semibold">{proof.title}</h3><p className="text-xs text-muted-foreground">{proofTypeLabel(proof.proof_type)}{proof.revision_number > 1 && ` · Revision ${proof.revision_number}`}</p></div>
-          <Badge variant="outline" className={proof.status === 'approved' ? 'border-success/20 bg-success/10 text-success' : proof.status === 'pending' ? 'border-warning/30 bg-warning/10 text-foreground' : 'border-destructive/20 bg-destructive/10 text-foreground'}>
+          <Badge variant="outline" className={proof.status === 'approved' ? 'border-success/20 bg-success/10 text-success' : proof.status === 'pending' ? 'border-warning/30 bg-warning/10 text-foreground' : 'border-warning/40 bg-warning/20 text-foreground'}>
             {proof.status === 'pending' ? '⏳ Awaiting Review' : proof.status === 'approved' ? '✅ Approved' : '✏️ Changes Requested'}
           </Badge>
         </div>
