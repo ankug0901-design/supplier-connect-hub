@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Add proof-page and lightbox downloads, optional item names, and a styled Notes box; verify existing review behavior.
+- [x] Add proof-page and lightbox downloads, optional item names, and a styled Notes box; 12 regression tests pass, simulated desktop/mobile checks pass, existing review behavior and branding unchanged.
 
 - [x] Build Document Hub uploads, order-scoped admin management, public token document views, notifications, and non-blocking tracking documents using the existing database RPC only; regression tests and simulated desktop/mobile client checks pass; unpublished, no database changes.
 - [ ] Verify real document sharing and safe management — blocked by existing document_manage referencing nonexistent co.po_id/co.client_po_number/po.supplier_name and lacking admin management guards; database corrections need authorization because this request forbids function changes.
