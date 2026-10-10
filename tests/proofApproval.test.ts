@@ -75,10 +75,10 @@ test('download uses blob attachment and cleans up, with new tab fallback for fai
     { createObjectURL: () => 'blob:test', revokeObjectURL: (url: string) => calls.push(['revoke', url]) },
     { createElement: () => anchor, body: { appendChild: () => calls.push(['append']) } },
     { open: (...args: any[]) => calls.push(['open', ...args]) });
-  await exports.downloadFile('https://example.test/proof.png', 'Artwork.png');
+  await exports.downloadProofFile('https://example.test/proof.png', 'Artwork.png');
   expect(calls).toEqual([['append'], ['click', 'blob:test', 'Artwork.png'], ['remove'], ['revoke', 'blob:test']]);
   calls.length = 0; fail = true;
-  await exports.downloadFile('https://example.test/proof.png', 'Artwork.png');
+  await exports.downloadProofFile('https://example.test/proof.png', 'Artwork.png');
   expect(calls).toEqual([['open', 'https://example.test/proof.png', '_blank']]);
 });
 

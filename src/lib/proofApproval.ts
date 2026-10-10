@@ -57,7 +57,7 @@ export function proofFilename(media: ProofMedia): string {
   try { return decodeURIComponent(new URL(media.url).pathname.split('/').pop() || '') || 'proof-file'; }
   catch { return 'proof-file'; }
 }
-export async function downloadFile(url: string, filename: string) {
+export async function downloadProofFile(url: string, filename: string) {
   let blobUrl: string | undefined;
   let anchor: HTMLAnchorElement | undefined;
   try {
@@ -67,7 +67,7 @@ export async function downloadFile(url: string, filename: string) {
     blobUrl = URL.createObjectURL(blob);
     anchor = document.createElement('a');
     anchor.href = blobUrl;
-    anchor.download = filename || proofFilename({ url });
+    anchor.download = filename || 'proof-file';
     document.body.appendChild(anchor);
     anchor.click();
   } catch { window.open(url, '_blank'); }
