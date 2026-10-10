@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Copy, Download, Files, Loader2, Mail, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Copy, Download, Files, Loader2, Mail, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,7 @@ import { DocumentTypeBadge } from './DocumentTypeBadge';
 type Item = { id: string; item_name: string | null };
 type Props = {
   orderId: string; clientEmail: string | null; poId: string; items: Item[]; updatedBy: string; mediaBucket: string;
-  sendEmail: (doc: OrderDocument, recipient: string) => Promise<void>;
+  sendEmail: (doc: OrderDocument, recipient: string, cc?: string, subject?: string, message?: string) => Promise<void>;
 };
 export function AdminDocumentSection({ orderId, clientEmail, poId, items: poItems, updatedBy, mediaBucket, sendEmail }: Props) {
   const { toast } = useToast();
@@ -31,6 +31,11 @@ export function AdminDocumentSection({ orderId, clientEmail, poId, items: poItem
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [emailDocument, setEmailDocument] = useState<OrderDocument | null>(null);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailCc, setEmailCc] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const epoch = useRef(0);
   const load = useCallback(async () => {
@@ -66,15 +71,24 @@ export function AdminDocumentSection({ orderId, clientEmail, poId, items: poItem
     } catch (e) { toast({ title: 'Unable to save document', description: e instanceof Error ? e.message : 'Please try again', variant: 'destructive' }); }
     finally { setSaving(false); }
   };
-  const notify = async (doc: OrderDocument) => {
-    const to = recipient.trim() || doc.email_recipient || clientEmail;
+  const openEmail = (doc: OrderDocument) => {
+    setEmailTo(recipient.trim() || doc.email_recipient || clientEmail || '');
+    setEmailCc('');
+    setEmailSubject(`Document Shared — ${doc.title}`);
+    setEmailBody('');
+    setEmailDocument(doc);
+  };
+  const notify = async () => {
+    const doc = emailDocument;
+    if (!doc || busy !== null) return;
+    const to = emailTo.trim();
     if (!to) { toast({ title: 'Enter an email recipient', variant: 'destructive' }); return; }
     setBusy(doc.id);
     try {
-      await sendEmail(doc, to);
+      await sendEmail(doc, to, emailCc.trim(), emailSubject, emailBody);
       try { await documentRpc({ action: 'mark_email_sent', id: doc.id, email_recipient: to }); }
       catch { throw new Error('Email sent, but its sent timestamp could not be saved; check before retrying'); }
-      toast({ title: 'Document email sent' }); await load();
+      toast({ title: 'Document email sent' }); setEmailDocument(null); await load();
     } catch (e) { toast({ title: 'Email not confirmed', description: e instanceof Error ? e.message : 'Please retry', variant: 'destructive' }); }
     finally { setBusy(null); }
   };
@@ -92,7 +106,7 @@ export function AdminDocumentSection({ orderId, clientEmail, poId, items: poItem
       <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h3 className="break-words font-semibold">{doc.title}</h3><p className="mt-1 break-all text-xs text-muted-foreground">{doc.file_name} · {formatFileSize(doc.file_size_bytes)}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(doc.created_at).toLocaleString('en-IN')}{doc.item_name && ` · ${doc.item_name}`}</p></div><DocumentTypeBadge type={doc.document_type} /></div>
       {doc.description && <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{doc.description}</p>}
       {doc.email_sent_at && <p className="text-xs text-muted-foreground">Email sent {new Date(doc.email_sent_at).toLocaleString('en-IN')} · {doc.email_recipient}</p>}
-      <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(documentLink(doc.access_token)); toast({ title: 'Document link copied' }); } catch { toast({ title: 'Unable to copy link', variant: 'destructive' }); } }}><Copy />Copy Link</Button><Button size="sm" variant="outline" disabled={busy !== null || saving} onClick={() => notify(doc)}>{busy === doc.id ? <Loader2 className="animate-spin" /> : <Mail />}Send Email</Button>{documentFileUrl(doc.file_url) && <Button asChild size="sm" variant="outline"><a href={documentFileUrl(doc.file_url)} target="_blank" rel="noopener noreferrer"><Download />Download</a></Button>}<Button size="sm" variant="ghost" className="text-destructive" disabled={busy !== null || saving} onClick={() => remove(doc)}><Trash2 />Delete</Button></div>
+      <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(documentLink(doc.access_token)); toast({ title: 'Document link copied' }); } catch { toast({ title: 'Unable to copy link', variant: 'destructive' }); } }}><Copy />Copy Link</Button><Button size="sm" variant="outline" disabled={busy !== null || saving} onClick={() => openEmail(doc)}>{busy === doc.id ? <Loader2 className="animate-spin" /> : <Mail />}Send Email</Button>{documentFileUrl(doc.file_url) && <Button asChild size="sm" variant="outline"><a href={documentFileUrl(doc.file_url)} target="_blank" rel="noopener noreferrer"><Download />Download</a></Button>}<Button size="sm" variant="ghost" className="text-destructive" disabled={busy !== null || saving} onClick={() => remove(doc)}><Trash2 />Delete</Button></div>
     </article>)}</div>}
     <Dialog open={open} onOpenChange={value => { if (!saving) setOpen(value); }}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>Upload Document</DialogTitle></DialogHeader><form onSubmit={save} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Document type</Label><Select value={documentType} onValueChange={setDocumentType} disabled={saving}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{DOCUMENT_TYPES.map(type => <SelectItem key={type} value={type}>{documentTypeLabel(type)}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Item (optional)</Label><Select value={itemId} onValueChange={setItemId} disabled={saving}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Whole order</SelectItem>{items.map(item => <SelectItem key={item.id} value={item.id}>{item.item_name || 'Item'}</SelectItem>)}</SelectContent></Select></div></div>
@@ -101,5 +115,20 @@ export function AdminDocumentSection({ orderId, clientEmail, poId, items: poItem
       <div className="space-y-2"><Label>File</Label><input ref={fileRef} type="file" className="hidden" onChange={e => { const selected = e.target.files?.[0]; setFile(selected || null); if (!title && selected) setTitle(selected.name.replace(/\.[^.]+$/, '')); }} /><Button type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={saving}><Plus />Choose file</Button>{file && <p className="break-all text-xs text-muted-foreground">{file.name} · {formatFileSize(file.size)}</p>}</div>
       <DialogFooter><Button type="button" variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={saving || !title.trim() || !file}>{saving ? <Loader2 className="animate-spin" /> : <Plus />}Upload Document</Button></DialogFooter>
     </form></DialogContent></Dialog>
+    <Dialog open={emailDocument !== null} onOpenChange={value => { if (!value && busy === null) setEmailDocument(null); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Send email — {emailDocument?.title}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1"><Label htmlFor={`document-email-to-${poId}`}>To</Label><Input id={`document-email-to-${poId}`} type="email" value={emailTo} onChange={e => setEmailTo(e.target.value)} placeholder="client@example.com" disabled={busy !== null} /></div>
+          <div className="space-y-1"><Label htmlFor={`document-email-cc-${poId}`}>Cc (comma separated)</Label><Input id={`document-email-cc-${poId}`} value={emailCc} onChange={e => setEmailCc(e.target.value)} placeholder="optional" disabled={busy !== null} /></div>
+          <div className="space-y-1"><Label htmlFor={`document-email-subject-${poId}`}>Subject</Label><Input id={`document-email-subject-${poId}`} value={emailSubject} onChange={e => setEmailSubject(e.target.value)} disabled={busy !== null} /></div>
+          <div className="space-y-1"><Label htmlFor={`document-email-message-${poId}`}>Message</Label><Textarea id={`document-email-message-${poId}`} rows={6} value={emailBody} onChange={e => setEmailBody(e.target.value)} placeholder="Optional note to include..." disabled={busy !== null} /></div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setEmailDocument(null)} disabled={busy !== null}>Cancel</Button>
+          <Button onClick={notify} disabled={busy !== null} className="gap-2">{busy !== null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </section>;
 }
