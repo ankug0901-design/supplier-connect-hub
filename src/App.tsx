@@ -95,6 +95,7 @@ import ProductionOrders from "./pages/ProductionOrders";
 import ResetPassword from "./pages/ResetPassword";
 import TrackOrder from "./pages/TrackOrder";
 import ProofApproval from "./pages/ProofApproval";
+import DocumentView from "./pages/DocumentView";
 import { SupplierSectionGuard } from "./components/SupplierSectionGuard";
 import NotFound from "./pages/NotFound";
 import OAuthConsent from "./pages/OAuthConsent";
@@ -208,6 +209,7 @@ function AppRoutes() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/track" element={<TrackOrder />} />
       <Route path="/proof" element={<ProofApproval />} />
+      <Route path="/documents" element={<DocumentView />} />
       <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

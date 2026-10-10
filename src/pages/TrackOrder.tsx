@@ -5,6 +5,8 @@ import { prettyStage } from "@/lib/stageTemplates";
 import { isOrderDelivered } from "@/lib/trackingDelivery";
 import { proofRpc, type Proof } from '@/lib/proofApproval';
 import { TrackingProofSection } from '@/components/proofs/TrackingProofSection';
+import { documentRpc, type OrderDocument } from '@/lib/documentHub';
+import { TrackingDocumentSection } from '@/components/documents/TrackingDocumentSection';
 import { Check, Loader2, Package, CheckCircle2, Play, X, Copy, RefreshCw } from "lucide-react";
 
 const TEAL = "#0d7377";
@@ -32,6 +34,7 @@ type MediaItem = { url: string; type?: string };
 type TrackData = {
   ok?: boolean;
   digital_proofs?: Proof[];
+  documents?: OrderDocument[];
   order?: {
     id?: string;
     order_number?: string;
@@ -237,6 +240,9 @@ export default function TrackOrder() {
             } catch { /* Proof availability must not interrupt order tracking. */ }
           }
           setData(json);
+          void documentRpc({ action: 'list_documents_by_tracking_token', tracking_token: token })
+            .then(result => setData(current => current === json ? { ...current, documents: result.documents || [] } : current))
+            .catch(() => { /* Document availability must not interrupt order tracking. */ });
           setError(false);
         }
       } catch {
@@ -516,6 +522,7 @@ export default function TrackOrder() {
             )}
 
             <TrackingProofSection proofs={data?.digital_proofs || []} />
+            <TrackingDocumentSection documents={data?.documents || []} />
 
             {/* Dispatch details remain visible even without a courier waybill. */}
             {dispatchList.length > 0 && (
