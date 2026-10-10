@@ -7,7 +7,10 @@ const output = ts.transpileModule(source.replace(/^import .*supabase.*;$/m, ''),
 function setup(raw: unknown = { ok: true }, error: unknown = null) {
   const calls: unknown[] = [];
   const exports: Record<string, any> = {};
-  new Function('exports', 'supabase', output)(exports, { rpc: async (...args: unknown[]) => { calls.push(args); return { data: raw, error }; } });
+  new Function('exports', 'supabase', output)(exports, {
+    rpc: async (...args: unknown[]) => { calls.push(args); return { data: raw, error }; },
+    functions: { invoke: async (...args: unknown[]) => { calls.push(args); return { data: raw, error }; } },
+  });
   return { ...exports, calls } as any;
 }
 test('proof lookup uses proof_manage with the supplied token and unwraps array responses', async () => {
@@ -19,12 +22,12 @@ test('proof lookup uses proof_manage with the supplied token and unwraps array r
   }
 });
 test('approval permits an empty comment and reviewer name', () => {
-  expect(setup().proofResponsePayload('approve_proof', 'token', ' ', '')).toEqual({ action: 'approve_proof', approval_token: 'token', comment: '', client_name: '' });
+  expect(setup().proofResponsePayload('approve_proof', 'token', ' ', '')).toEqual({ action: 'approve_proof', approval_token: 'token', comment: '', client_name: '', annotations: [] });
 });
 test('requesting changes requires a nonblank comment', () => {
   const api = setup();
   expect(() => api.proofResponsePayload('request_revision', 'token', '   ', '')).toThrow('Please describe the changes needed');
-  expect(api.proofResponsePayload('request_revision', 'token', ' Change colour ', ' Reviewer ')).toEqual({ action: 'request_revision', approval_token: 'token', comment: 'Change colour', client_name: 'Reviewer' });
+  expect(api.proofResponsePayload('request_revision', 'token', ' Change colour ', ' Reviewer ')).toEqual({ action: 'request_revision', approval_token: 'token', comment: 'Change colour', client_name: 'Reviewer', annotations: [] });
 });
 test('responses without review tokens are rejected', () => {
   expect(() => setup().proofResponsePayload('approve_proof', '', '', '')).toThrow('Review token required');
@@ -38,6 +41,45 @@ test('review links encode tokens and media previews discard unsafe URLs', () => 
   expect(api.proofLink('a&b')).toBe('https://supplierconnect.embossmarketing.in/proof?t=a%26b');
   expect(api.proofMedia([{ url: 'javascript:alert(1)' }, { url: 'https://example.test/proof.png' }])).toEqual([{ url: 'https://example.test/proof.png' }]);
   expect(api.isProofVideo({ url: 'https://example.test/proof', type: 'video/mp4' })).toBe(true);
+});
+test('proof response writes use the token validated notification path', async () => {
+  const api = setup();
+  await api.proofRpc({ action: 'approve_proof', approval_token: 'review-token' });
+  expect(api.calls).toEqual([['n8n-proxy', { body: { path: 'proof-response', payload: { action: 'approve_proof', approval_token: 'review-token' } } }]]);
+});
+test('annotations stop at ten across all images and preserve percentage coordinates and media index', () => {
+  const api = setup();
+  let annotations: any[] = [];
+  for (let i = 0; i < 10; i++) annotations = api.addProofAnnotation(annotations, i % 2, 25, 75);
+  expect(annotations).toHaveLength(10);
+  expect(api.addProofAnnotation(annotations, 2, 50, 50)).toEqual(annotations);
+  expect(annotations[1]).toEqual({ number: 2, media_index: 1, x_percent: 25, y_percent: 75, comment: '' });
+  const reduced = annotations.filter(a => a.number !== 2);
+  expect(api.addProofAnnotation(reduced, 0, 10, 20).at(-1).number).toBe(2);
+  expect(() => api.proofResponsePayload('request_revision', 'token', 'Change', '', [...annotations, annotations[0]])).toThrow('A maximum of 10 markers is allowed');
+  expect(api.proofResponsePayload('request_revision', 'token', 'Change', '', annotations).annotations).toEqual(annotations);
+});
+test('download filename uses media name or decoded URL path without query parameters', () => {
+  const api = setup();
+  expect(api.proofFilename({ url: 'https://example.test/path/Sample%20Proof.png?t=1' })).toBe('Sample Proof.png');
+  expect(api.proofFilename({ url: 'https://example.test/', filename: 'Artwork.png' })).toBe('Artwork.png');
+  expect(api.proofFilename({ url: 'https://example.test/' })).toBe('proof-file');
+});
+test('download uses blob attachment and cleans up, with new tab fallback for failed fetches', async () => {
+  const calls: any[] = [];
+  let fail = false;
+  const exports: Record<string, any> = {};
+  const anchor = { href: '', download: '', click: () => calls.push(['click', anchor.href, anchor.download]), remove: () => calls.push(['remove']) };
+  new Function('exports', 'supabase', 'fetch', 'URL', 'document', 'window', output)(exports, {},
+    async () => { if (fail) throw new Error('CORS'); return { ok: true, blob: async () => 'blob' }; },
+    { createObjectURL: () => 'blob:test', revokeObjectURL: (url: string) => calls.push(['revoke', url]) },
+    { createElement: () => anchor, body: { appendChild: () => calls.push(['append']) } },
+    { open: (...args: any[]) => calls.push(['open', ...args]) });
+  await exports.downloadFile('https://example.test/proof.png', 'Artwork.png');
+  expect(calls).toEqual([['append'], ['click', 'blob:test', 'Artwork.png'], ['remove'], ['revoke', 'blob:test']]);
+  calls.length = 0; fail = true;
+  await exports.downloadFile('https://example.test/proof.png', 'Artwork.png');
+  expect(calls).toEqual([['open', 'https://example.test/proof.png', '_blank']]);
 });
 
 const adminSource = readFileSync(new URL('../src/pages/admin/AdminPoTrackerUpdate.tsx', import.meta.url), 'utf8');

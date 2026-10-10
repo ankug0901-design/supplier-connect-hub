@@ -863,7 +863,9 @@ export type Database = {
       }
       proof_approvals: {
         Row: {
+          admin_notified_at: string | null
           approval_token: string
+          client_annotations: Json | null
           client_comment: string | null
           client_name: string | null
           client_order_id: string
@@ -877,6 +879,7 @@ export type Database = {
           item_id: string | null
           media_urls: Json
           parent_proof_id: string | null
+          proof_group_id: string | null
           proof_type: string
           revision_number: number
           status: string
@@ -884,7 +887,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_notified_at?: string | null
           approval_token?: string
+          client_annotations?: Json | null
           client_comment?: string | null
           client_name?: string | null
           client_order_id: string
@@ -898,6 +903,7 @@ export type Database = {
           item_id?: string | null
           media_urls?: Json
           parent_proof_id?: string | null
+          proof_group_id?: string | null
           proof_type?: string
           revision_number?: number
           status?: string
@@ -905,7 +911,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_notified_at?: string | null
           approval_token?: string
+          client_annotations?: Json | null
           client_comment?: string | null
           client_name?: string | null
           client_order_id?: string
@@ -919,6 +927,7 @@ export type Database = {
           item_id?: string | null
           media_urls?: Json
           parent_proof_id?: string | null
+          proof_group_id?: string | null
           proof_type?: string
           revision_number?: number
           status?: string
