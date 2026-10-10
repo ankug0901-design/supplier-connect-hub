@@ -14,6 +14,7 @@ function Brand() {
   return <div><div className="text-lg font-extrabold sm:text-xl"><span className="text-primary">EMBOSS</span> MARKETING</div><div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70 sm:text-[11px]">Printing · Packaging · POS Materials</div></div>;
 }
 const dateLabel = (date: string | null) => date ? new Date(date).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+const escapeNotificationHtml = (value: string) => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] || character));
 
 export default function ProofApproval() {
   const [params] = useSearchParams();
@@ -52,6 +53,37 @@ export default function ProofApproval() {
       const result = await proofRpc(proofResponsePayload(mode, token, comment, name, mode === 'request_revision' ? annotations : []));
       if (!result.proof) throw new Error('Your response could not be confirmed. Please try again.');
       if (request === epoch.current) { setData(current => current ? { ...current, proof: result.proof } : current); setMode(null); setSubmitted(true); }
+      if (result.notify_admin && result.order_number) {
+        try {
+          const approved = mode === 'approve_proof';
+          const response = await fetch('https://n8n.srv1141999.hstgr.cloud/webhook/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: 'embossmarketing@gmail.com',
+              subject: `Proof ${approved ? 'Approved' : 'Revision Requested'} — ${result.order_number}`,
+              html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+                <div style="background-color:#0d7377;padding:32px 28px 24px 28px;border-radius:12px 12px 0 0;">
+                  <div style="font-size:28px;font-weight:900;color:#ffffff;letter-spacing:0.5px;">EMBOSS MARKETING</div>
+                  <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.55);letter-spacing:3px;text-transform:uppercase;padding-top:6px;">PRINTING &middot; PACKAGING &middot; POS MATERIALS</div>
+                </div>
+                <div style="padding:28px;background:#ffffff;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none;">
+                  <h2 style="color:#0d7377;margin:0 0 16px;">Proof ${approved ? 'Approved ✓' : 'Revision Requested ✎'}</h2>
+                  <p><strong>Order:</strong> ${escapeNotificationHtml(result.order_number)}</p>
+                  <p><strong>Client:</strong> ${escapeNotificationHtml(result.proof.client_name || name.trim() || data?.order?.client_name || 'Unknown')}</p>
+                  <p><strong>Status:</strong> ${approved ? 'Approved' : 'Changes Requested'}</p>
+                  ${mode === 'request_revision' && comment.trim() ? `<p><strong>Comments:</strong> ${escapeNotificationHtml(comment.trim())}</p>` : ''}
+                  ${mode === 'request_revision' && annotations.length > 0 ? `<p><strong>Annotations:</strong> ${annotations.length} markup(s) added to proof</p>` : ''}
+                  <p style="margin-top:20px;"><a href="https://supplierconnect.embossmarketing.in" style="background:#0d7377;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">View in Admin Panel</a></p>
+                </div>
+              </div>`,
+            }),
+          });
+          if (!response.ok) throw new Error('Admin notification was not accepted');
+        } catch (notifyErr) {
+          console.error('Admin notification failed:', notifyErr);
+        }
+      }
     } catch (e) { if (request === epoch.current) setSubmitError(e instanceof Error ? e.message : 'Unable to submit your response. Please try again.'); }
     finally { setSaving(false); }
   };
