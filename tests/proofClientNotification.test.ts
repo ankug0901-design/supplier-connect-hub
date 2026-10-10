@@ -29,7 +29,7 @@ test('approval notifies the requested admin after the response has been saved', 
   const calls = await submit('approve_proof');
   const notice = calls.find(call => call[0] === 'notify');
   expect(notice[1]).toBe('https://n8n.srv1141999.hstgr.cloud/webhook/send-email');
-  expect(notice[2].to).toBe('embossmarketing@gmail.com');
+  expect(notice[2].to).toBe('ankur.gupta@embossmarketing.in, hkumar@embossmarketing.in');
   expect(notice[2].subject).toBe('Proof Approved — ORDER-1');
   expect(calls.findIndex(call => call[0] === 'saved')).toBeLessThan(calls.indexOf(notice));
 });
