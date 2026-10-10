@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 export type ProofMedia = { url: string; type?: string; filename?: string };
 export type Proof = {
   id: string; client_order_id: string; item_id: string | null; proof_type: string;
-  title: string; description: string | null; media_urls: ProofMedia[]; item_name?: string | null;
+  title: string; description: string | null; media_urls: ProofMedia[];
   status: 'pending' | 'approved' | 'revision_requested'; approval_token: string;
   revision_number: number; created_at: string; client_response_at: string | null;
   client_comment: string | null; client_name: string | null; email_recipient: string | null;
@@ -12,6 +12,7 @@ export type Proof = {
 export type ProofResult = {
   ok: boolean; error?: string; proof?: Proof; proofs?: Proof[];
   order?: { order_number?: string; client_name?: string; client_po_ref?: string };
+  item?: { item_name?: string; description?: string; quantity?: number } | null;
 };
 export const PROOF_TYPES = ['artwork', 'print_sample', 'color_swatch', 'mockup', 'other'] as const;
 export const proofTypeLabel = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
