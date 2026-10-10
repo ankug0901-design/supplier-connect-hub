@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { PROOF_TYPES, proofLink, proofMedia, proofRpc, proofTypeLabel, type Proof, type ProofMedia } from '@/lib/proofApproval';
 import { ProofMediaGrid } from './ProofMediaGrid';
+import { ProofAnnotationView } from './ProofAnnotationView';
 
 type Item = { id: string; item_name: string | null; description: string | null };
 type Props = {
@@ -129,6 +130,7 @@ export function AdminProofSection({ orderId, clientEmail, poId, items: poItems, 
       <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h3 className="break-words font-semibold">{proof.title}</h3><p className="mt-1 text-xs text-muted-foreground">Revision {proof.revision_number} · {formatDate(proof.created_at)}</p></div><div className="flex flex-wrap gap-2"><Badge variant="outline">{proofTypeLabel(proof.proof_type)}</Badge><Badge variant="outline" className={proof.status === 'approved' ? 'border-success/30 bg-success/10 text-success' : 'border-warning/30 bg-warning/10 text-foreground'}>{proof.status === 'pending' ? '⏳ Pending' : proof.status === 'approved' ? '✅ Approved' : '✏️ Changes Requested'}</Badge></div></div>
       {proof.description && <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{proof.description}</p>}
       <ProofMediaGrid media={proof.media_urls} compact />
+      {proof.status === 'revision_requested' && !!proof.client_annotations?.length && <ProofAnnotationView media={proofMedia(proof.media_urls)} annotations={proof.client_annotations} />}
       {proof.client_response_at && <div className="border-l-2 border-border pl-3"><p className="text-xs text-muted-foreground">{proof.client_name || 'Client'} · {formatDate(proof.client_response_at)}</p>{proof.client_comment && <p className="mt-1 whitespace-pre-wrap break-words text-sm">{proof.client_comment}</p>}</div>}
       {proof.email_sent_at && <p className="text-xs text-muted-foreground">Email sent {formatDate(proof.email_sent_at)} · {proof.email_recipient}</p>}
       <div className="flex flex-wrap gap-2">{proof.status === 'pending' && <><Button size="sm" variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(proofLink(proof.approval_token)); toast({ title: 'Review link copied' }); } catch { toast({ title: 'Unable to copy link', variant: 'destructive' }); } }}><Copy />Copy Review Link</Button><Button size="sm" variant="outline" disabled={busy !== null || saving} onClick={() => openEmailDialog(proof)}>{busy === proof.id ? <Loader2 className="animate-spin" /> : <Mail />}Send Email</Button><Button size="sm" variant="ghost" className="text-destructive" disabled={busy !== null || saving} onClick={() => remove(proof)}><Trash2 />Delete</Button></>}{proof.status === 'revision_requested' && <Button size="sm" variant="outline" disabled={saving} onClick={() => start(proof)}><Upload />Resubmit Revised Proof</Button>}</div>

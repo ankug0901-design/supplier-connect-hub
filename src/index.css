@@ -20,6 +20,8 @@
     --primary: 160 84% 39%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 158 64% 52%;
+    --proof-marker: 182.26 80.30% 25.88%;
+    --proof-marker-foreground: 0 0% 100%;
 
     --secondary: 160 40% 96%;
     --secondary-foreground: 220 39% 11%;
@@ -145,6 +147,11 @@
 }
 
 @layer utilities {
+  .proof-marker {
+    background-color: hsl(var(--proof-marker));
+    color: hsl(var(--proof-marker-foreground));
+    border-color: hsl(var(--proof-marker-foreground));
+  }
   .text-gradient {
     @apply bg-clip-text text-transparent;
     background-image: var(--gradient-primary);

@@ -1,6 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export type ProofMedia = { url: string; type?: string; filename?: string };
+export type ProofAnnotation = {
+  number: number; x_percent: number; y_percent: number; comment: string; media_index: number;
+};
+export type GroupResponse = {
+  id: string; email_recipient: string; status: string; client_name: string | null;
+  client_response_at: string | null; is_current: boolean;
+};
 export type Proof = {
   id: string; client_order_id: string; item_id: string | null; proof_type: string;
   title: string; description: string | null; media_urls: ProofMedia[];
@@ -8,11 +15,16 @@ export type Proof = {
   revision_number: number; created_at: string; client_response_at: string | null;
   client_comment: string | null; client_name: string | null; email_recipient: string | null;
   email_sent_at?: string | null;
+  client_annotations?: ProofAnnotation[];
+  proof_group_id?: string | null;
 };
 export type ProofResult = {
   ok: boolean; error?: string; proof?: Proof; proofs?: Proof[];
   order?: { order_number?: string; client_name?: string; client_po_ref?: string };
   item?: { item_name?: string; description?: string; quantity?: number } | null;
+  group_responses?: GroupResponse[] | null;
+  order_number?: string;
+  notify_admin?: boolean;
 };
 export const PROOF_TYPES = ['artwork', 'print_sample', 'color_swatch', 'mockup', 'other'] as const;
 export const proofTypeLabel = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -29,8 +41,40 @@ export async function proofRpc(payload: Record<string, unknown>): Promise<ProofR
   if (!result || result.ok === false) throw new Error(result?.error || 'Proof request failed');
   return result;
 }
-export function proofResponsePayload(action: 'approve_proof' | 'request_revision', token: string, comment: string, name: string) {
+export const MAX_PROOF_ANNOTATIONS = 10;
+export function addProofAnnotation(annotations: ProofAnnotation[], mediaIndex: number, x: number, y: number): ProofAnnotation[] {
+  if (annotations.length >= MAX_PROOF_ANNOTATIONS) return annotations;
+  const number = Array.from({ length: MAX_PROOF_ANNOTATIONS }, (_, i) => i + 1).find(n => !annotations.some(a => a.number === n));
+  if (number === undefined) return annotations;
+  return [...annotations, { number, media_index: mediaIndex, x_percent: Math.max(0, Math.min(100, x)), y_percent: Math.max(0, Math.min(100, y)), comment: '' }];
+}
+export function proofFilename(media: ProofMedia): string {
+  if (media.filename) return media.filename;
+  try { return decodeURIComponent(new URL(media.url).pathname.split('/').pop() || '') || 'proof-file'; }
+  catch { return 'proof-file'; }
+}
+export async function downloadFile(url: string, filename: string) {
+  let blobUrl: string | undefined;
+  let anchor: HTMLAnchorElement | undefined;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Download failed');
+    const blob = await response.blob();
+    blobUrl = URL.createObjectURL(blob);
+    anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = filename || proofFilename({ url });
+    document.body.appendChild(anchor);
+    anchor.click();
+  } catch { window.open(url, '_blank'); }
+  finally {
+    anchor?.remove();
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+  }
+}
+export function proofResponsePayload(action: 'approve_proof' | 'request_revision', token: string, comment: string, name: string, annotations?: ProofAnnotation[]) {
   if (!token) throw new Error('Review token required');
   if (action === 'request_revision' && !comment.trim()) throw new Error('Please describe the changes needed');
-  return { action, approval_token: token, comment: comment.trim(), client_name: name.trim() };
+  if ((annotations?.length || 0) > MAX_PROOF_ANNOTATIONS) throw new Error('A maximum of 10 markers is allowed');
+  return { action, approval_token: token, comment: comment.trim(), client_name: name.trim(), annotations: annotations || [] };
 }
