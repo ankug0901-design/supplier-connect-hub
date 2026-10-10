@@ -1,5 +1,5 @@
 BEGIN;
-SET LOCAL ROLE anon;
+-- The query runner has no user session; existing role helpers must deny management.
 DO $$
 DECLARE result jsonb; action text;
 BEGIN

@@ -10,7 +10,7 @@ export function ProofMediaGrid({ media, compact = false }: { media: unknown; com
   if (!items.length) return null;
   return <>
     <div className={compact ? 'flex flex-wrap gap-2' : 'grid grid-cols-2 gap-3 sm:grid-cols-3'}>
-      {items.map((m, i) => <Button key={`${m.url}-${i}`} variant="ghost" onClick={() => setActive(m)} aria-label={`View ${m.filename || `proof media ${i + 1}`}`} className={`relative overflow-hidden rounded-lg border border-border bg-muted p-0 hover:bg-muted ${compact ? 'h-16 w-16' : 'h-auto w-full aspect-square'}`}>
+      {items.map((m, i) => <Button type="button" key={`${m.url}-${i}`} variant="ghost" onClick={() => setActive(m)} aria-label={`View ${m.filename || `proof media ${i + 1}`}`} className={`relative overflow-hidden rounded-lg border border-border bg-muted p-0 hover:bg-muted ${compact ? 'h-16 w-16' : 'h-auto w-full aspect-square'}`}>
         {isProofVideo(m) ? <><video src={m.url} muted playsInline className="h-full w-full object-cover" /><span className="absolute inset-0 flex items-center justify-center bg-foreground/30 text-primary-foreground"><Play /></span></> : <img src={m.url} alt={m.filename || 'Proof image'} loading="lazy" className="h-full w-full object-cover" />}
       </Button>)}
     </div>
