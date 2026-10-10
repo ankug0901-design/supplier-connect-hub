@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Build public token-based proof approval, order-scoped admin proof management, uploads, revisions, and proof notification emails; verify review and failure flows without sending real client emails.
+
 - [x] Switch public tracking to direct token RPC and update email branding/confidentiality; 13 regression tests pass, browser verified with a mocked RPC response, build clean, unpublished.
 
 - [x] Add optional Client PO reference and professional default body; seven regression tests pass and build is clean.
