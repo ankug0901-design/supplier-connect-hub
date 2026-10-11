@@ -125,6 +125,53 @@ Deno.serve(async (req) => {
 
   try {
     const poIds = [...new Set(records.map((record) => record.po_id))];
+
+    // --- FIX 1: AWB-based deduplication ---
+    // When the same shipment (same AWB) arrives with a different LR number,
+    // update the existing record's LR number instead of creating a duplicate.
+    const awbNumbers = records
+      .map((r) => r.awb_number?.trim())
+      .filter((a): a is string => !!a && a.length > 0);
+
+    if (awbNumbers.length > 0) {
+      // Find existing records with matching AWBs but different LR numbers
+      const { data: awbMatches } = await supabase
+        .from("po_dispatch")
+        .select("id,po_id,lr_number,awb_number")
+        .in("po_id", poIds)
+        .in("awb_number", awbNumbers);
+
+      if (awbMatches && awbMatches.length > 0) {
+        // Build a map: po_id+awb -> existing record
+        const existingByAwb = new Map<string, { id: string; lr_number: string }>();
+        for (const row of awbMatches) {
+          if (row.awb_number) {
+            existingByAwb.set(`${row.po_id}:${row.awb_number}`, {
+              id: row.id,
+              lr_number: row.lr_number,
+            });
+          }
+        }
+
+        // For each incoming record, if there's an existing record with same AWB
+        // but different LR, update the existing record's LR to match the incoming one
+        // so the upsert will hit the existing row instead of creating a new one
+        for (const record of records) {
+          if (!record.awb_number) continue;
+          const awbKey = `${record.po_id}:${record.awb_number}`;
+          const existing = existingByAwb.get(awbKey);
+          if (existing && existing.lr_number !== record.lr_number) {
+            // Update the existing record's LR number to match incoming
+            await supabase
+              .from("po_dispatch")
+              .update({ lr_number: record.lr_number })
+              .eq("id", existing.id);
+          }
+        }
+      }
+    }
+
+    // Lookup existing records for insert/update counting
     const { data: existing, error: lookupError } = await supabase
       .from("po_dispatch")
       .select("po_id,lr_number")
@@ -146,7 +193,52 @@ Deno.serve(async (req) => {
 
     if (upsertError) throw upsertError;
 
-    return json({ success: true, inserted, updated, errors: [] });
+    // --- FIX 2: Recalculate order status after sync ---
+    // Collect all affected client_order_ids and call _po_recalc_status for each
+    const affectedOrderIds = new Set<string>();
+
+    // Get client_order_ids from the records themselves
+    for (const record of records) {
+      if (record.client_order_id) {
+        affectedOrderIds.add(record.client_order_id);
+      }
+    }
+
+    // Also look up client_order_ids from po_dispatch for records that didn't include it
+    if (affectedOrderIds.size < records.length) {
+      const { data: dispatchRows } = await supabase
+        .from("po_dispatch")
+        .select("client_order_id")
+        .in("po_id", poIds)
+        .not("client_order_id", "is", null);
+
+      if (dispatchRows) {
+        for (const row of dispatchRows) {
+          if (row.client_order_id) {
+            affectedOrderIds.add(row.client_order_id);
+          }
+        }
+      }
+    }
+
+    // Call _po_recalc_status for each affected order (best-effort)
+    const recalcErrors: string[] = [];
+    for (const orderId of affectedOrderIds) {
+      const { error: recalcError } = await supabase.rpc("_po_recalc_status", {
+        p_order_id: orderId,
+      });
+      if (recalcError) {
+        recalcErrors.push(`recalc ${orderId}: ${recalcError.message}`);
+      }
+    }
+
+    return json({
+      success: true,
+      inserted,
+      updated,
+      recalculated: affectedOrderIds.size,
+      errors: recalcErrors.length > 0 ? recalcErrors : [],
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Dispatch sync failed";
     return json(
