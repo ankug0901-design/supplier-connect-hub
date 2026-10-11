@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Add supplied AWB reconciliation and affected-order recalculation; preserve existing authentication and verify regression tests.
+- [x] Add supplied AWB reconciliation and affected-order recalculation; existing authentication preserved, two regression tests pass. Source updated only; no deployment performed.
 
 - [x] Add approval-only client-side PDF certificates; simulated download and PDF contents verified, mobile fits.
 - [x] Add removable multi-recipient entries, individual-token sends and group status views using the deployed email-string RPC contract; single-recipient regression tests pass, simulated desktop/mobile UI verified. 27 tests pass; no real emails or database changes.
