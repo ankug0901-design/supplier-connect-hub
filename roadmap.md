@@ -1,5 +1,6 @@
 # Roadmap
 
+- [x] Add delivery locations display on client tracking and admin per-item management via set_delivery_locations; client page verified with sample data, regression tests pass; no database changes.
 - [x] Add supplied AWB reconciliation and affected-order recalculation; existing authentication preserved, two regression tests pass. Source updated only; no deployment performed.
 
 - [x] Add approval-only client-side PDF certificates; simulated download and PDF contents verified, mobile fits.

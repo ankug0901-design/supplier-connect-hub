@@ -43,6 +43,7 @@ function dispatchHarness() {
     prettyStage: (stage: string) => stage,
     StageBar: 'StageBar',
     EditStagesDialog: 'EditStagesDialog',
+    DeliveryLocationsSection: 'DeliveryLocationsSection',
     CUSTOM_STAGE: '__custom__',
     MAX_FILES: 10,
     poTrackerRpc: async (payload: Record<string, unknown>) => { rpcCalls.push(payload); return { ok: true }; },

@@ -48,6 +48,7 @@ interface TrackItem {
   current_stage: string | null;
   production_stages: string[] | null;
   completed_stages: string[] | null;
+  delivery_locations?: Array<{ location: string; quantity: number }> | null;
 }
 
 interface TrackPO {
@@ -384,6 +385,127 @@ function EditStagesDialog({ item, open, onOpenChange, onDone }: {
   );
 }
 
+function DeliveryLocationsSection({ item, onDone }: { item: TrackItem; onDone: () => Promise<void> | void }) {
+  const { toast } = useToast();
+  const [locations, setLocations] = useState<Array<{ location: string; quantity: number }>>(
+    Array.isArray(item.delivery_locations) ? item.delivery_locations : []
+  );
+  const [newLocation, setNewLocation] = useState('');
+  const [newQuantity, setNewQuantity] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLocations(Array.isArray(item.delivery_locations) ? item.delivery_locations : []);
+  }, [item.id, item.delivery_locations]);
+
+  const addLocation = () => {
+    const name = newLocation.trim();
+    const quantity = parseInt(newQuantity, 10);
+    if (!name) {
+      toast({ title: 'Enter a location name', variant: 'destructive' });
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      toast({ title: 'Enter a valid quantity', variant: 'destructive' });
+      return;
+    }
+    setLocations((arr) => [...arr, { location: name, quantity }]);
+    setNewLocation('');
+    setNewQuantity('');
+  };
+
+  const removeLocation = (index: number) => {
+    setLocations((arr) => arr.filter((_, i) => i !== index));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const result = await poTrackerRpc({ action: 'set_delivery_locations', item_id: item.id, locations });
+      if (result?.ok === false) throw new Error(result?.error || 'Unable to save delivery locations');
+      toast({ title: 'Delivery locations saved' });
+      await onDone();
+    } catch (e: any) {
+      toast({ title: 'Unable to save delivery locations', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const totalQuantity = locations.reduce((sum, loc) => sum + (Number(loc.quantity) || 0), 0);
+
+  return (
+    <div className="space-y-3 rounded-md border bg-background p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-primary" />
+          Delivery Locations
+        </Label>
+        <span className="text-xs text-muted-foreground">
+          Total quantity: <span className="font-semibold text-foreground">{totalQuantity}</span>
+        </span>
+      </div>
+
+      {locations.length > 0 && (
+        <div className="overflow-hidden rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Location</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="w-10" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {locations.map((loc, index) => (
+                <TableRow key={`${loc.location}-${index}`}>
+                  <TableCell className="font-medium">{loc.location}</TableCell>
+                  <TableCell className="text-right">{loc.quantity}</TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={() => removeLocation(index)}
+                      className="rounded-full p-1 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`Remove ${loc.location}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-[1fr_120px_auto]">
+        <Input
+          value={newLocation}
+          onChange={(e) => setNewLocation(e.target.value)}
+          placeholder="Location e.g. Chennai"
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLocation(); } }}
+        />
+        <Input
+          type="number"
+          min="1"
+          value={newQuantity}
+          onChange={(e) => setNewQuantity(e.target.value)}
+          placeholder="Qty"
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLocation(); } }}
+        />
+        <Button type="button" variant="outline" onClick={addLocation}>
+          <Plus className="mr-2 h-4 w-4" />Add
+        </Button>
+      </div>
+
+      <Button type="button" onClick={save} disabled={saving} className="w-full sm:w-auto">
+        {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+        Save Delivery Locations
+      </Button>
+    </div>
+  );
+}
+
 function ItemUpdateForm({
   po,
   item,
@@ -658,6 +780,8 @@ function ItemUpdateForm({
           </Select>
         </div>
       </div>
+
+      <DeliveryLocationsSection item={item} onDone={onDone} />
 
       {stage === 'dispatched' && (
         <div className="space-y-3 rounded-md border bg-background p-3">

@@ -7,7 +7,7 @@ import { proofRpc, type Proof } from '@/lib/proofApproval';
 import { TrackingProofSection } from '@/components/proofs/TrackingProofSection';
 import { documentRpc, type OrderDocument } from '@/lib/documentHub';
 import { TrackingDocumentSection } from '@/components/documents/TrackingDocumentSection';
-import { Check, Loader2, Package, CheckCircle2, Play, X, Copy, RefreshCw } from "lucide-react";
+import { Check, Loader2, Package, CheckCircle2, Play, X, Copy, RefreshCw, MapPin } from "lucide-react";
 
 const TEAL = "#0d7377";
 const GREEN = "#22c55e";
@@ -54,6 +54,7 @@ type TrackData = {
     current_stage?: string;
     production_stages?: string[];
     completed_stages?: string[];
+    delivery_locations?: Array<{ location: string; quantity: number }> | null;
   }>;
   production_updates?: Array<{
     id?: string;
@@ -483,6 +484,36 @@ export default function TrackOrder() {
                                 </span>
                               );
                             })}
+                          </div>
+                        )}
+                        {Array.isArray(it.delivery_locations) && it.delivery_locations.length > 0 && (
+                          <div className="mt-3 rounded-xl bg-slate-50 p-3">
+                            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              <MapPin className="h-3.5 w-3.5" style={{ color: TEAL }} />
+                              Delivery Locations
+                            </div>
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="text-left text-xs text-slate-400">
+                                  <th className="py-1 font-medium">Location</th>
+                                  <th className="py-1 text-right font-medium">Qty</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {it.delivery_locations.map((loc, li) => (
+                                  <tr key={`${loc.location}-${li}`} className="border-t border-slate-100">
+                                    <td className="py-1.5 text-slate-700">{loc.location}</td>
+                                    <td className="py-1.5 text-right font-medium text-slate-900">{loc.quantity}</td>
+                                  </tr>
+                                ))}
+                                <tr className="border-t border-slate-200">
+                                  <td className="py-1.5 font-semibold text-slate-900">Total</td>
+                                  <td className="py-1.5 text-right font-semibold" style={{ color: TEAL }}>
+                                    {it.delivery_locations.reduce((sum, loc) => sum + (Number(loc.quantity) || 0), 0)}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
                         )}
                       </div>
