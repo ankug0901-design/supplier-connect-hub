@@ -48,6 +48,7 @@ interface TrackItem {
   current_stage: string | null;
   production_stages: string[] | null;
   completed_stages: string[] | null;
+  delivery_locations?: Array<{ location: string; quantity: number }> | null;
 }
 
 interface TrackPO {
