@@ -1439,7 +1439,7 @@ export default function AdminPoTrackerUpdate() {
       supabase
         .from('purchase_orders')
         .select(
-          'id, po_number, status, date, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, client_email, tracking_token, overall_status, order_date), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages)'
+          'id, po_number, status, date, updated_at, supplier:suppliers(company, name), client_order:client_orders(id, order_number, client_name, client_email, tracking_token, overall_status, order_date), items:po_items(id, item_name, description, quantity, current_stage, production_stages, completed_stages, delivery_locations)'
         )
         .not('status', 'in', '(cancelled,rejected,void)')
         .order('date', { ascending: false })
