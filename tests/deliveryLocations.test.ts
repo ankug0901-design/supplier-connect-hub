@@ -17,3 +17,7 @@ test('admin item form manages delivery locations and saves via set_delivery_loca
   expect(adminSource).toMatch(/item_id: item\.id,\s*locations/);
   expect(adminSource).toMatch(/<DeliveryLocationsSection item=\{item\} onDone=\{onDone\} \/>/);
 });
+
+test('admin reload query selects delivery_locations so saved locations survive refetch', () => {
+  expect(adminSource).toMatch(/items:po_items\([^)]*delivery_locations[^)]*\)/);
+});
