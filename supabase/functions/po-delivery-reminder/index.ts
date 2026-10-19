@@ -1,18 +1,14 @@
 // One PO release / delivery-date confirmation notice per purchase order.
 // - CC: all admin + super_user suppliers.
 //
-// Auth: accepts service role token OR anon apikey (cron) OR admin user.
+// Auth: accepts service role token (cron) OR authenticated admin user.
 import { sendTemplateEmail } from '../_shared/transactional-email-templates/send-email.ts';
 import { DELIVERY_CONFIRMATION_CC, poReleaseEmailKey, shouldNotifyPoRelease } from '../_shared/supplier-email-policy.ts';
 import { z } from 'npm:zod@3.25.76';
 import { recordEmailSendOutcome } from '../_shared/email-send-outcome.ts';
 import { retryRateLimitedEmail } from '../_shared/email-rate-limit.ts';
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const SITE_URL = "https://supplierconnect.embossmarketing.in";
 
@@ -56,10 +52,7 @@ Deno.serve(async (req) => {
   if (!parsed.success) return new Response(JSON.stringify({ error: 'Invalid PO ID' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   const explicitPoId = parsed.data.po_id;
 
-  // POs needing reminders: not yet delivery-confirmed, not in a terminal/partial state.
-  // We exclude 'partial' because the supplier has already moved past the delivery-confirmation
-  // stage (invoicing has started). We also skip POs older than 45 days, and POs that already
-  // have at least one invoice recorded (the supplier is clearly working on it).
+  // Released POs with no prior notice; daily cron is only a retry opportunity.
   let q = admin
     .from("purchase_orders")
     .select("id, po_number, date, supplier_id, status, delivery_dates_confirmed_at, delivery_notification_sent_at, delivery_reminder_count, delivery_first_notified_at")
@@ -118,6 +111,7 @@ Deno.serve(async (req) => {
       const reminderCount = po.delivery_reminder_count || 0;
       const poUrl = `${SITE_URL}/purchase-orders/${po.id}`;
       const messageId = poReleaseEmailKey(po.id);
+      let wasSent = false;
       try {
         const outcome = await retryRateLimitedEmail(() => sendTemplateEmail('po-release', sup.email, {
           idempotencyKey: messageId,
@@ -129,7 +123,7 @@ Deno.serve(async (req) => {
           },
         }));
         await recordEmailSendOutcome(admin, { message_id: messageId, template_name: 'po-release', recipient_email: sup.email, status: outcome.sent ? 'sent' : 'suppressed' });
-        if (!outcome.sent) { skipped++; continue; }
+        wasSent = outcome.sent;
       } catch (error) {
         await recordEmailSendOutcome(admin, { message_id: messageId, template_name: 'po-release', recipient_email: sup.email, status: 'failed', error_message: error instanceof Error ? error.message : String(error) });
         throw error;
@@ -145,7 +139,8 @@ Deno.serve(async (req) => {
         .eq("id", po.id);
       if (markerError) throw markerError;
 
-      sent++;
+      if (wasSent) sent++;
+      else skipped++;
     } catch (e: any) {
       errors.push(`PO ${po.po_number}: ${e?.message || e}`);
     }
