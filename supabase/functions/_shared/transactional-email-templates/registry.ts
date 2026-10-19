@@ -1,5 +1,7 @@
 import type { ComponentType } from 'npm:react@18.3.1'
 import { inviteTemplate, recoveryTemplate } from './supplier-account.tsx'
+import { template as poReleaseTemplate } from './po-release.tsx'
+import { template as supplierPaymentTemplate } from './supplier-payment.tsx'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -21,4 +23,6 @@ export interface TemplateEntry {
 export const TEMPLATES: Record<string, TemplateEntry> = {
   invite: inviteTemplate,
   recovery: recoveryTemplate,
+  'po-release': poReleaseTemplate,
+  'supplier-payment': supplierPaymentTemplate,
 }

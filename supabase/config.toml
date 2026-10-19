@@ -20,7 +20,7 @@ project_id = "agrhkarauqxkgyvfthvc"
   [functions.zoho-webhook]
     verify_jwt = false
   [functions.po-delivery-reminder]
-    verify_jwt = true
+    verify_jwt = false
   [functions.po-whatsapp-helper]
     verify_jwt = false
   [functions.rfq-documents-manage]

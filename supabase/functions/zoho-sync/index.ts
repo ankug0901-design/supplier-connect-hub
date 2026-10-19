@@ -440,15 +440,38 @@ Deno.serve(async (req) => {
             .upsert(matchedPayRows, { onConflict: "invoice_id,transaction_id" });
           if (error) throw error;
           summary.payments_upserted += matchedPayRows.length;
+          // Existing payments were baselined when this feature was enabled.
+          // Only newly made, not-yet-notified payments are eligible; repeated
+          // syncs retry the same provider idempotency key, never a bulk mailout.
+          const { data: pendingNotices, error: noticeLookupError } = await supabase
+            .from('payments')
+            .select('id')
+            .in('invoice_id', (invList || []).map((invoice: any) => invoice.id))
+            .is('supplier_notified_at', null)
+            .in('status', ['completed', 'paid', 'success', 'succeeded'])
+            .gt('amount', 0);
+          if (noticeLookupError) throw noticeLookupError;
+          await Promise.all((pendingNotices || []).map(async (payment: any) => {
+            try {
+              const response = await fetch(`${supabaseUrl}/functions/v1/supplier-payment-notification`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${serviceRoleKey}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ payment_id: payment.id }),
+                signal: AbortSignal.timeout(8_000),
+              });
+              if (!response.ok) summary.errors.push(`Payment notification ${payment.id}: ${response.status}`);
+            } catch {
+              summary.errors.push(`Payment notification ${payment.id}: unavailable; will retry on sync`);
+            }
+          }));
         }
       } catch (e: any) {
         summary.errors.push(`Payment ${sup.id}: ${e.message}`);
       }
     }));
 
-    // Fire-and-forget: trigger PO delivery confirmation reminder for any newly
-    // synced POs that still need confirmation. The function itself deduplicates
-    // so the daily cron and ad-hoc kicks won't double-send within 20h.
+    // Retry one-time release notices after items have synced. Previously
+    // notified POs are skipped, and concurrent calls share the same event key.
     if (summary.pos_upserted > 0) {
       try {
         await fetch(`${supabaseUrl}/functions/v1/po-delivery-reminder`, {

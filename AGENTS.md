@@ -20,7 +20,7 @@
 
 - Admin email outcomes read the existing RLS-protected audit log using exact server-side counts and stable pagination; distinguish accepted sends from confirmed delivery and never alter sending or suppression workflows for reporting.
 
-- Existing email features send synchronously through the managed email SDK (registered templates for account invitations, direct sends for runtime-composed HTML); retain checked audit writes and notification-only outcome mirrors, never local send-gating or queue mechanics, to preserve workflows and history.
+- Emails use managed SDK sends and audit mirrors, not queues. PO notices use atomic service-role claims, stable PO keys and completion timestamps; payment notices use supplier/transaction keys and markers, with historical payments baselined to prevent mailouts.
 
 - Keep item production history scoped to its PO and matching-or-null item ID, with PO-wide activity counts; reuse existing media and stage helpers to preserve update workflows.
 
@@ -33,5 +33,5 @@
 - `sync-dispatch` reconciles PO/AWB before PO/LR upserts, then recalculates affected orders best-effort to avoid duplicates and stale statuses.
 - Scheduled Zoho sync requests resolve authorization from Vault at execution time; authorized syncs refresh that credential from the live runtime binding through a service-role-only RPC, without exposing credentials or embedding them in cron commands.
 - Rolling Zoho syncs process one four-supplier page using a service-role-only leased cursor; hourly syncs always use offset zero, and manual syncs never modify the cursor, preserving bounded requests independently of schedule frequency.
-- Zoho credential refresh uses a dedicated Vault secret and never overwrites the email queue credential, preventing cross-function authorization conflicts.
+- Zoho credential refresh never overwrites the separate email credential, preventing authorization conflicts.
 - Zoho item sync matches stored line IDs and upserts on the existing primary key because the partial Zoho unique index cannot be inferred by PostgREST; omit production fields and prune only stale identified items with an explicitly zero history count.
