@@ -21,8 +21,8 @@ Deno.serve(async (req) => {
   if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) return new Response(JSON.stringify({ error: 'Server configuration missing' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   // Auth: requires service-role token (cron/internal) OR an authenticated admin/super_user.
-  // verify_jwt=true at the gateway ensures the JWT is cryptographically valid; we then
-  // check role here. The previous "apikey === ANON_KEY" shortcut has been removed because
+  // getUser validates the user JWT before the role check. The previous
+  // "apikey === ANON_KEY" shortcut has been removed because
   // the anon key is public and would let anyone trigger mass reminder emails.
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
