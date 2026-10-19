@@ -1,7 +1,8 @@
 # Roadmap
 
-- [ ] Prevent duplicate delivery confirmation emails per PO and add hkumar@embossmarketing.in in Cc.
-- [ ] Send automatic supplier notices when a new PO is released and when supplier payment is made.
+- [x] Replace repeated delivery-date reminders with one PO-release notice, stable event identity, existing notification markers and hkumar@embossmarketing.in in Cc; deployed, regression tests pass.
+- [x] Add released-status trigger coverage and automatic supplier payment notices through Zoho sync; deployed, existing 466 payments baselined to prevent historical mailouts.
+- [ ] Verify a real new PO and payment email end-to-end — requires a new released PO/payment event; live manual check had no authorized admin session, no test supplier emails sent.
 
 - [x] Add delivery locations display on client tracking and admin per-item management via set_delivery_locations; client page verified with sample data, regression tests pass; no database changes.
 - [x] Add supplied AWB reconciliation and affected-order recalculation; existing authentication preserved, two regression tests pass. Source updated only; no deployment performed.
