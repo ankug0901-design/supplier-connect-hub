@@ -524,6 +524,7 @@ export type Database = {
           payment_mode: string | null
           payment_number: string | null
           status: string
+          supplier_notified_at: string | null
           transaction_id: string | null
           updated_at: string
         }
@@ -537,6 +538,7 @@ export type Database = {
           payment_mode?: string | null
           payment_number?: string | null
           status?: string
+          supplier_notified_at?: string | null
           transaction_id?: string | null
           updated_at?: string
         }
@@ -550,6 +552,7 @@ export type Database = {
           payment_mode?: string | null
           payment_number?: string | null
           status?: string
+          supplier_notified_at?: string | null
           transaction_id?: string | null
           updated_at?: string
         }
