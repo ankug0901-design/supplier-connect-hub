@@ -983,6 +983,7 @@ export type Database = {
           expected_delivery: string | null
           id: string
           po_number: string
+          release_email_claimed_at: string | null
           status: string
           supplier_id: string
           updated_at: string
@@ -1008,6 +1009,7 @@ export type Database = {
           expected_delivery?: string | null
           id?: string
           po_number: string
+          release_email_claimed_at?: string | null
           status?: string
           supplier_id: string
           updated_at?: string
@@ -1033,6 +1035,7 @@ export type Database = {
           expected_delivery?: string | null
           id?: string
           po_number?: string
+          release_email_claimed_at?: string | null
           status?: string
           supplier_id?: string
           updated_at?: string
@@ -1816,6 +1819,7 @@ export type Database = {
       }
       _supplier_dash_auth: { Args: { _supplier_id: string }; Returns: boolean }
       can_write_po_media: { Args: { _object_name: string }; Returns: boolean }
+      claim_po_release_email: { Args: { p_po_id: string }; Returns: boolean }
       claim_zoho_sync_cursor: { Args: never; Returns: Json }
       complete_zoho_sync_cursor: {
         Args: { p_next_offset: number; p_token: string }
