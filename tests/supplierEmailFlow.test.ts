@@ -5,7 +5,12 @@ import { paymentIsMade, supplierPaymentEmailKey, shouldNotifyPoRelease, poReleas
 
 const transpile = (code: string) => ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
 function fixture(rows: Record<string, any[]>) {
-  return { from(table: string) {
+  return { async rpc(_name: string, { p_po_id }: any) {
+    const po = rows.purchase_orders?.find(r => r.id === p_po_id);
+    if (!po || po.release_email_claimed_at || po.delivery_notification_sent_at) return { data: false, error: null };
+    po.release_email_claimed_at = new Date().toISOString();
+    return { data: true, error: null };
+  }, from(table: string) {
     let action = 'select'; let values: any; let single = false;
     const filters: ((row: any) => boolean)[] = [];
     const q: any = {
@@ -45,7 +50,7 @@ test('release notice includes Cc, then skips the same PO on the next invocation'
   const client = fixture({ purchase_orders: [{ id: 'po-1', status: 'open', supplier_id: 'sup-1', po_number: 'PO-1' }], po_items: [{ id: 'item-1', po_id: 'po-1', item_name: 'Packaging', quantity: 20 }], suppliers: [{ id: 'sup-1', email: 'supplier@example.test' }] });
   const calls: any[] = [];
   const args = [() => client, shouldNotifyPoRelease, poReleaseEmailKey, DELIVERY_CONFIRMATION_CC, async (...v: any[]) => { calls.push(v); return { sent: true }; }, async (fn: any) => fn(), async () => {}, 'https://supplierconnect.embossmarketing.in', { method: 'GET' }, '', '', { object: () => ({ safeParse: () => ({ success: true, data: {} }) }), string: () => ({ uuid: () => ({ optional: () => ({}) }) }) }, {}];
-  await run(...args); await run(...args);
+  await Promise.all([run(...args), run(...args)]); await run(...args);
   expect(calls).toHaveLength(1);
   expect(calls[0][2].cc).toContain('hkumar@embossmarketing.in');
   expect(calls[0][2].idempotencyKey).toBe('po-release-po-1');

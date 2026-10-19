@@ -111,6 +111,9 @@ Deno.serve(async (req) => {
       const reminderCount = po.delivery_reminder_count || 0;
       const poUrl = `${SITE_URL}/purchase-orders/${po.id}`;
       const messageId = poReleaseEmailKey(po.id);
+      const { data: claimed, error: claimError } = await admin.rpc('claim_po_release_email', { p_po_id: po.id });
+      if (claimError) throw claimError;
+      if (!claimed) { skipped++; continue; }
       let wasSent = false;
       try {
         const outcome = await retryRateLimitedEmail(() => sendTemplateEmail('po-release', sup.email, {
@@ -125,6 +128,7 @@ Deno.serve(async (req) => {
         await recordEmailSendOutcome(admin, { message_id: messageId, template_name: 'po-release', recipient_email: sup.email, status: outcome.sent ? 'sent' : 'suppressed' });
         wasSent = outcome.sent;
       } catch (error) {
+        await admin.from('purchase_orders').update({ release_email_claimed_at: null }).eq('id', po.id);
         await recordEmailSendOutcome(admin, { message_id: messageId, template_name: 'po-release', recipient_email: sup.email, status: 'failed', error_message: error instanceof Error ? error.message : String(error) });
         throw error;
       }
@@ -133,6 +137,7 @@ Deno.serve(async (req) => {
         .from("purchase_orders")
         .update({
           delivery_notification_sent_at: new Date().toISOString(),
+          release_email_claimed_at: null,
           delivery_reminder_count: reminderCount + 1,
           delivery_first_notified_at: po.delivery_first_notified_at || new Date().toISOString(),
         })
