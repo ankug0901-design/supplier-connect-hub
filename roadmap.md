@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Prevent duplicate delivery confirmation emails per PO and add hkumar@embossmarketing.in in Cc.
+- [ ] Send automatic supplier notices when a new PO is released and when supplier payment is made.
+
 - [x] Add delivery locations display on client tracking and admin per-item management via set_delivery_locations; client page verified with sample data, regression tests pass; no database changes.
 - [x] Add supplied AWB reconciliation and affected-order recalculation; existing authentication preserved, two regression tests pass. Source updated only; no deployment performed.
 
