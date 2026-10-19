@@ -24,6 +24,7 @@ export interface SendTemplateEmailOptions {
   /** Dedupes retries of the same logical send; defaults to a random UUID (no dedupe). */
   idempotencyKey?: string
   replyTo?: string
+  cc?: string[]
 }
 
 /**
@@ -79,6 +80,7 @@ export async function sendTemplateEmail(
         label: templateName,
         idempotency_key: options.idempotencyKey || crypto.randomUUID(),
         reply_to: options.replyTo,
+        cc: options.cc,
       },
       { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
     )
