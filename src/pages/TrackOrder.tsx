@@ -471,12 +471,15 @@ export default function TrackOrder() {
                           <div className="mt-3 flex flex-wrap gap-1.5">
                             {it.production_stages!.map((st) => {
                               const done = completed.includes(st.toLowerCase());
+                              const inProgress = !done && st.toLowerCase() === (it.current_stage || '').toLowerCase();
                               return (
                                 <span
                                   key={st}
                                   className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
                                     done
                                       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                      : inProgress
+                                      ? "border-amber-300 bg-amber-50 text-amber-700 animate-blink"
                                       : "border-slate-200 bg-slate-50 text-slate-400"
                                   }`}
                                 >
