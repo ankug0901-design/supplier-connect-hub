@@ -147,6 +147,12 @@
 }
 
 @layer utilities {
+  @media (max-width: 767px) {
+    body:has(.asset-library) aside { display: none; }
+    body:has(.asset-library) .ml-64 { margin-left: 0; }
+    body:has(.asset-library) .ml-64 > header { display: none; }
+    body:has(.asset-library) main { padding: 16px; }
+  }
   .proof-marker {
     background-color: hsl(var(--proof-marker));
     color: hsl(var(--proof-marker-foreground));

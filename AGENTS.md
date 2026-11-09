@@ -1,5 +1,7 @@
 # Project Architecture Rules
 
+- DAM uses direct checked client operations on existing asset tables/storage; signed file links preserve bucket privacy, version chains remain predecessor-linked, and partial multi-request failures are surfaced instead of hidden.
+
 - Document Hub uses the existing `document_manage` RPC through a checked helper; public lists use tracking tokens, and document fetch failures never block order tracking.
 - Document notification emails use the existing production email wrapper and authenticated `n8nPost`; admin UI marks the record only after successful sends so saved documents remain recoverable on notification failure.
 

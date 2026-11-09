@@ -1,0 +1,10 @@
+import { expect, test } from 'bun:test';
+import { nextAssetCode, versionFields, statusFields, assetMatches } from '../src/lib/assetRules';
+const day = new Date('2026-11-09T08:25:00Z');
+test('asset code starts at 0001 for each UTC day', () => { expect(nextAssetCode(['AST-20261108-9999'], day)).toBe('AST-20261109-0001'); });
+test('daily sequence increments the numeric maximum', () => { expect(nextAssetCode(['AST-20261109-0002', 'AST-20261109-0010'], day)).toBe('AST-20261109-0011'); });
+test('new versions reference current asset and increment version', () => { expect(versionFields({ id: 'current', version: 3, is_latest: true })).toEqual({ parent_asset_id: 'current', version: 4, is_latest: true }); });
+test('old versions cannot create a competing version', () => { expect(() => versionFields({ id: 'old', version: 1, is_latest: false })).toThrow(); });
+test('rejection requires a reason', () => { expect(() => statusFields('rejected', 'Admin', ' ')).toThrow(); expect(statusFields('rejected', 'Admin', ' Incorrect size ').rejection_reason).toBe('Incorrect size'); });
+test('approval records actor and approval time', () => { const result = statusFields('approved', 'Ankur'); expect(result.approved_by).toBe('Ankur'); expect(Number.isFinite(Date.parse(result.approved_at || ''))).toBe(true); });
+test('search includes tags, asset code, client, description and name', () => { const asset = { name: 'Artwork', description: 'Shelf display', tags: ['POSM'], asset_code: 'AST-20261109-0001', client_name: 'Emboss' }; for (const term of ['artwork', 'display', 'posm', '0001', 'EMBOSS']) expect(assetMatches(asset, term)).toBe(true); expect(assetMatches(asset, 'missing')).toBe(false); });

@@ -22,6 +22,7 @@ import {
   PackageCheck,
   Factory,
   Mail,
+  FolderOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,6 +55,7 @@ const adminNavigation: NavItem[] = [
   { name: 'Email Outcomes', href: '/admin/email-outcomes', icon: Mail },
   { name: 'PO Tracker', href: '/admin/po-tracker', icon: PackageCheck, sectionKey: 'admin-po-tracker' },
   { name: 'PO Tracker Updates', href: '/admin/po-tracker-update', icon: Factory, sectionKey: 'admin-po-tracker-update' },
+  { name: 'Asset Library', href: '/admin/assets', icon: FolderOpen },
   { name: 'All Suppliers', href: '/admin/suppliers', icon: Users, sectionKey: 'admin-suppliers' },
   { name: 'Registrations', href: '/admin/registrations', icon: ClipboardList, badgeKey: 'pending_regs', sectionKey: 'admin-registrations' },
   { name: 'RFQ Management', href: '/admin/rfq', icon: FileQuestion, badgeKey: 'pending_rfqs_all', sectionKey: 'admin-rfq' },
