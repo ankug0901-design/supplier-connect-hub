@@ -7,7 +7,7 @@ export type AssetAudit = Database['public']['Tables']['asset_audit_log']['Row'];
 export type AssetInput = Pick<Asset, 'name' | 'description' | 'asset_type' | 'category' | 'sub_category' | 'client_name' | 'tags' | 'linked_po_id' | 'linked_rfq_id' | 'status'>;
 export type Actor = { id: string; name: string };
 export function errorMessage(error: unknown) { return error instanceof Error ? error.message : (error as { message?: string })?.message || 'Something went wrong. Please try again.'; }
-export const assetLabel = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+export const assetLabel = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 export const assetDate = (value: string) => new Date(value).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 export const assetSize = (size: number | null) => size == null ? '—' : size < 1024 * 1024 ? `${(size / 1024).toFixed(1)} KB` : `${(size / 1024 / 1024).toFixed(1)} MB`;
 export function assetPath(url: string) {

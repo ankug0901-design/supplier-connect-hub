@@ -1,6 +1,6 @@
 export const ASSET_TYPES = ['artwork', 'design', 'photo', 'logo', 'template', 'packaging_spec', 'technical_drawing', 'other'] as const;
 export const ASSET_STATUSES = ['draft', 'pending_review', 'approved', 'rejected', 'archived'] as const;
-export function assetCodePrefix(date = new Date()) { return `AST-${date.toISOString().slice(0, 10).replaceAll('-', '')}-`; }
+export function assetCodePrefix(date = new Date()) { return `AST-${date.toISOString().slice(0, 10).replace(/-/g, '')}-`; }
 export function nextAssetCode(codes: string[], date = new Date()) {
   const prefix = assetCodePrefix(date);
   const max = codes.reduce((n, code) => code.startsWith(prefix) && /^\d+$/.test(code.slice(prefix.length)) ? Math.max(n, Number(code.slice(prefix.length))) : n, 0);
