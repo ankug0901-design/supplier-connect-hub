@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Build and verify the admin Asset Library: upload, search/filter, metadata, versions, audit, comments, and sharing using existing tables/storage.
+
 - [x] Replace repeated delivery-date reminders with one PO-release notice, stable event identity, existing notification markers and hkumar@embossmarketing.in in Cc; deployed, regression tests pass.
 - [x] Add released-status trigger coverage and automatic supplier payment notices through Zoho sync; deployed, existing 466 payments baselined to prevent historical mailouts.
 - [ ] Verify a real new PO and payment email end-to-end — requires a new released PO/payment event; live manual check had no authorized admin session, no test supplier emails sent.
