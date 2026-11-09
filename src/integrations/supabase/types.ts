@@ -35,6 +35,228 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_audit_log: {
+        Row: {
+          action: string
+          asset_id: string
+          created_at: string
+          field_changed: string | null
+          id: string
+          ip_address: string | null
+          new_value: string | null
+          notes: string | null
+          old_value: string | null
+          performed_by: string | null
+          performed_by_name: string | null
+        }
+        Insert: {
+          action: string
+          asset_id: string
+          created_at?: string
+          field_changed?: string | null
+          id?: string
+          ip_address?: string | null
+          new_value?: string | null
+          notes?: string | null
+          old_value?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+        }
+        Update: {
+          action?: string
+          asset_id?: string
+          created_at?: string
+          field_changed?: string | null
+          id?: string
+          ip_address?: string | null
+          new_value?: string | null
+          notes?: string | null
+          old_value?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_audit_log_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_comments: {
+        Row: {
+          asset_id: string
+          attachments: Json | null
+          comment_text: string
+          commenter_id: string | null
+          commenter_name: string
+          commenter_role: string | null
+          created_at: string
+          id: string
+          parent_comment_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          attachments?: Json | null
+          comment_text: string
+          commenter_id?: string | null
+          commenter_name: string
+          commenter_role?: string | null
+          created_at?: string
+          id?: string
+          parent_comment_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          attachments?: Json | null
+          comment_text?: string
+          commenter_id?: string | null
+          commenter_name?: string
+          commenter_role?: string | null
+          created_at?: string
+          id?: string
+          parent_comment_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_comments_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "asset_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assets: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          asset_code: string
+          asset_type: string
+          category: string | null
+          client_name: string | null
+          created_at: string
+          description: string | null
+          file_name: string
+          file_size_bytes: number | null
+          file_url: string
+          id: string
+          is_latest: boolean
+          linked_client_order_id: string | null
+          linked_po_id: string | null
+          linked_rfq_id: string | null
+          metadata: Json | null
+          mime_type: string | null
+          name: string
+          parent_asset_id: string | null
+          rejection_reason: string | null
+          status: string
+          sub_category: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          updated_at: string
+          uploaded_by: string | null
+          uploaded_by_name: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          asset_code: string
+          asset_type?: string
+          category?: string | null
+          client_name?: string | null
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_size_bytes?: number | null
+          file_url: string
+          id?: string
+          is_latest?: boolean
+          linked_client_order_id?: string | null
+          linked_po_id?: string | null
+          linked_rfq_id?: string | null
+          metadata?: Json | null
+          mime_type?: string | null
+          name: string
+          parent_asset_id?: string | null
+          rejection_reason?: string | null
+          status?: string
+          sub_category?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+          version?: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          asset_code?: string
+          asset_type?: string
+          category?: string | null
+          client_name?: string | null
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_size_bytes?: number | null
+          file_url?: string
+          id?: string
+          is_latest?: boolean
+          linked_client_order_id?: string | null
+          linked_po_id?: string | null
+          linked_rfq_id?: string | null
+          metadata?: Json | null
+          mime_type?: string | null
+          name?: string
+          parent_asset_id?: string | null
+          rejection_reason?: string | null
+          status?: string
+          sub_category?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_linked_client_order_id_fkey"
+            columns: ["linked_client_order_id"]
+            isOneToOne: false
+            referencedRelation: "client_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_linked_po_id_fkey"
+            columns: ["linked_po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_parent_asset_id_fkey"
+            columns: ["parent_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       awb: {
         Row: {
           awb_number: string
@@ -1744,6 +1966,242 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      ticket_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          field_changed: string | null
+          id: string
+          new_value: string | null
+          old_value: string | null
+          performed_by: string | null
+          performed_by_name: string | null
+          ticket_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          field_changed?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+          ticket_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          field_changed?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_audit_log_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_comments: {
+        Row: {
+          attachments: Json | null
+          comment_text: string
+          commenter_id: string | null
+          commenter_name: string
+          commenter_role: string | null
+          created_at: string
+          id: string
+          is_internal: boolean | null
+          status_change_from: string | null
+          status_change_to: string | null
+          ticket_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          comment_text: string
+          commenter_id?: string | null
+          commenter_name: string
+          commenter_role?: string | null
+          created_at?: string
+          id?: string
+          is_internal?: boolean | null
+          status_change_from?: string | null
+          status_change_to?: string | null
+          ticket_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          comment_text?: string
+          commenter_id?: string | null
+          commenter_name?: string
+          commenter_role?: string | null
+          created_at?: string
+          id?: string
+          is_internal?: boolean | null
+          status_change_from?: string | null
+          status_change_to?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_comments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          assigned_to: string | null
+          assigned_to_name: string | null
+          attachments: Json | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string
+          created_by_role: string | null
+          description: string | null
+          due_date: string | null
+          escalated: boolean | null
+          escalated_at: string | null
+          id: string
+          linked_asset_id: string | null
+          linked_client_order_id: string | null
+          linked_invoice_id: string | null
+          linked_po_id: string | null
+          linked_rfq_id: string | null
+          linked_supplier_id: string | null
+          priority: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          subject: string
+          supplier_id: string | null
+          supplier_name: string | null
+          tags: string[] | null
+          ticket_number: string
+          ticket_type: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          assigned_to_name?: string | null
+          attachments?: Json | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name: string
+          created_by_role?: string | null
+          description?: string | null
+          due_date?: string | null
+          escalated?: boolean | null
+          escalated_at?: string | null
+          id?: string
+          linked_asset_id?: string | null
+          linked_client_order_id?: string | null
+          linked_invoice_id?: string | null
+          linked_po_id?: string | null
+          linked_rfq_id?: string | null
+          linked_supplier_id?: string | null
+          priority?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          subject: string
+          supplier_id?: string | null
+          supplier_name?: string | null
+          tags?: string[] | null
+          ticket_number: string
+          ticket_type?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          assigned_to_name?: string | null
+          attachments?: Json | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string
+          created_by_role?: string | null
+          description?: string | null
+          due_date?: string | null
+          escalated?: boolean | null
+          escalated_at?: string | null
+          id?: string
+          linked_asset_id?: string | null
+          linked_client_order_id?: string | null
+          linked_invoice_id?: string | null
+          linked_po_id?: string | null
+          linked_rfq_id?: string | null
+          linked_supplier_id?: string | null
+          priority?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          subject?: string
+          supplier_id?: string | null
+          supplier_name?: string | null
+          tags?: string[] | null
+          ticket_number?: string
+          ticket_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_linked_asset_id_fkey"
+            columns: ["linked_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_linked_client_order_id_fkey"
+            columns: ["linked_client_order_id"]
+            isOneToOne: false
+            referencedRelation: "client_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_linked_invoice_id_fkey"
+            columns: ["linked_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_linked_po_id_fkey"
+            columns: ["linked_po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_linked_supplier_id_fkey"
+            columns: ["linked_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendor_scores: {
         Row: {
