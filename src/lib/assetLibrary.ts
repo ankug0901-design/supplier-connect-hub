@@ -63,15 +63,15 @@ export async function createAsset(file: File, input: AssetInput, actor: Actor, p
     if (error) throw error;
     created = data;
   } catch (error) {
-    const { error: cleanupError } = await supabase.storage.from('dam-assets').remove([path]);
-    throw new Error(`${errorMessage(error)}${cleanupError ? ' The uploaded file could not be removed; contact an administrator to clean up the unused file.' : ''}`);
+    const { data: cleanup, error: cleanupError } = await supabase.storage.from('dam-assets').remove([path]);
+    throw new Error(`${errorMessage(error)}${cleanupError || !cleanup?.length ? ' The unused upload remains in storage because cleanup is not permitted.' : ''}`);
   }
   if (previous) {
     const { data, error } = await supabase.from('assets').update({ is_latest: false }).eq('id', previous.id).eq('is_latest', true).select('id');
     if (error || !data?.length) {
       const { error: rollbackError } = await supabase.from('assets').delete().eq('id', created.id);
-      if (!rollbackError) await supabase.storage.from('dam-assets').remove([path]);
-      throw new Error(rollbackError ? 'New version saved, but retiring the previous version failed. Refresh and reconcile the version history before retrying.' : 'The previous version changed or could not be retired. Refresh before retrying.');
+      const cleanup = !rollbackError ? await supabase.storage.from('dam-assets').remove([path]) : null;
+      throw new Error(rollbackError ? 'New version saved, but retiring the previous version failed. Refresh and reconcile the version history before retrying.' : `The previous version changed or could not be retired. Refresh before retrying.${cleanup?.error || !cleanup?.data?.length ? ' The unused upload remains in storage because cleanup is not permitted.' : ''}`);
     }
   }
   await writeAssetAudit(created.id, previous ? 'version_uploaded' : 'created', actor, { notes: previous ? `New version of ${previous.asset_code} (v${previous.version})` : file.name });

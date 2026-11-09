@@ -69,7 +69,7 @@ export function AssetDetailSheet({ asset, assets, clients, actor, onClose, onRef
       if (readOnly) throw new Error('This view is read-only.');
       const { error } = await supabase.from('asset_comments').insert({ asset_id: asset.id, parent_comment_id: reply?.id || null, comment_text: comment.trim(), commenter_id: actor.id, commenter_name: actor.name, commenter_role: 'admin' });
       if (error) throw error;
-      setComment(''); setReply(null); await writeAssetAudit(asset.id, 'commented', actor); await loadActivity(); toast.success('Comment added');
+      setComment(''); setReply(null); await writeAssetAudit(asset.id, 'comment_added', actor); await loadActivity(); toast.success('Comment added');
     });
   }
   function renderComment(row: AssetComment, visited = new Set<string>(), depth = 0): React.ReactNode {
