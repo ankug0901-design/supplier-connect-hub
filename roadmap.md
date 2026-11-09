@@ -54,3 +54,6 @@
 - [x] Add a protected rolling cursor for two-minute syncs; keep hourly offset zero.
 - [x] Verify real scheduled HTTP 200 responses and cursor progression 0 → 4 → 8 → 12 → 16 → 20 → 24 → 0, with no new 403s.
 - [ ] Confirm actual Zoho PO/invoice updates — blocked by n8n upstream timeouts, despite verified cursor coverage and HTTP 200 responses.
+
+- [x] Build Support Tickets (admin list/detail, supplier My Tickets, create drawer, comments/internal notes, audit log, Raise Ticket on PO/RFQ/invoice pages); rule tests pass, build clean.
+- [ ] Click-through ticket flow while signed in — no preview session was available to test with.

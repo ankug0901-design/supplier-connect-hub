@@ -67,6 +67,8 @@ function AdminLanding() {
   return <Navigate to={target} replace />;
 }
 import Login from "./pages/Login";
+import AdminTickets, { AdminTicketDetail } from "./pages/admin/AdminTickets";
+import SupplierTickets, { SupplierTicketDetail } from "./pages/SupplierTickets";
 import Dashboard from "./pages/Dashboard";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import PODetail from "./pages/PODetail";
@@ -195,6 +197,10 @@ function AppRoutes() {
       <Route path="/admin" element={<AdminRoute><AdminLanding /></AdminRoute>} />
       <Route path="/admin/email-outcomes" element={<AdminRoute><AdminEmailOutcomes /></AdminRoute>} />
       <Route path="/admin/assets" element={<AdminRoute><AdminAssets /></AdminRoute>} />
+      <Route path="/admin/tickets" element={<AdminRoute><AdminTickets /></AdminRoute>} />
+      <Route path="/admin/tickets/:id" element={<AdminRoute><AdminTicketDetail /></AdminRoute>} />
+      <Route path="/supplier/tickets" element={<ProtectedRoute><SupplierTickets /></ProtectedRoute>} />
+      <Route path="/supplier/tickets/:id" element={<ProtectedRoute><SupplierTicketDetail /></ProtectedRoute>} />
       <Route path="/admin/po-tracker-update" element={<AdminRoute><AdminPoTrackerUpdate /></AdminRoute>} />
       <Route path="/admin/suppliers" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-suppliers"><AdminSuppliers /></SupplierSectionGuard></AdminRoute>} />
       <Route path="/admin/registrations" element={<AdminRoute><SupplierSectionGuard sectionKey="admin-registrations"><AdminRegistrations /></SupplierSectionGuard></AdminRoute>} />

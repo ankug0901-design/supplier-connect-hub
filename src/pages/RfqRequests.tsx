@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { RaiseTicketButton } from '@/components/tickets/RaiseTicketButton';
+const isUuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v);
 import { toast } from 'sonner';
 import { n8nPost } from '@/lib/n8n';
 
@@ -224,7 +226,10 @@ export default function RfqRequests() {
                       ))
                     )}
                   </div>
-                  <div className="mt-auto pt-2">
+                  <div className="mt-auto flex justify-end">
+                    <RaiseTicketButton compact defaults={{ linked_rfq_id: r.rfq_id, supplier_id: isUuid(r.supplier_id) ? r.supplier_id : null, subject: `Query on RFQ ${r.rfq_id}`, labels: { rfq: r.rfq_id } }} />
+                  </div>
+                  <div className="pt-2">
                     <Button
                       className={`w-full ${
                         locked

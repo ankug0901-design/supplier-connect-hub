@@ -15,6 +15,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { RaiseTicketButton } from '@/components/tickets/RaiseTicketButton';
+const isUuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v);
 import { fetchInvoices, fetchInvoicesFromDb, downloadBillAttachment, syncZohoInBackground, type BillAttachment } from '@/services/api';
 import { supabase } from '@/integrations/supabase/client';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
@@ -491,6 +493,7 @@ export default function Invoices() {
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <RaiseTicketButton compact defaults={{ linked_invoice_id: isUuid(invoice.id) ? invoice.id : null, linked_po_id: isUuid(invoice.poId) ? invoice.poId : null, supplier_id: isUuid(invoice.supplierId ?? invoice.supplier_id) ? (invoice.supplierId ?? invoice.supplier_id) : null, subject: `Query on invoice ${invoice.invoiceNumber}`, labels: { invoice: invoice.invoiceNumber, po: invoice.poNumber, supplier: invoice.supplierName } }} />
                             <Button
                               variant="ghost"
                               size="icon"

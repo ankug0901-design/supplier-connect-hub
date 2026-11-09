@@ -5,6 +5,8 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { RaiseTicketButton } from '@/components/tickets/RaiseTicketButton';
+const isUuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v);
 import { fetchPurchaseOrders, fetchPurchaseOrdersFromDb, syncAndFetchPurchaseOrdersFromDb, fetchInvoicedQuantitiesForPo, fetchLivePurchaseOrdersFromZoho } from '@/services/api';
 import { AccountSetupBanner } from '@/components/AccountSetupBanner';
 import { DeliveryDateConfirmation } from '@/components/po/DeliveryDateConfirmation';
@@ -228,6 +230,9 @@ export default function PODetail() {
               Back
             </Button>
           </Link>
+          <div className="ml-auto mr-2">
+            <RaiseTicketButton defaults={{ linked_po_id: isUuid(order.dbId) ? order.dbId : isUuid(order.id) ? order.id : null, supplier_id: isUuid(order.supplier_id) ? order.supplier_id : null, subject: `Query on PO ${order.poNumber}`, labels: { po: order.poNumber } }} />
+          </div>
           {(order.status === 'pending' || order.status === 'partial') &&
             (order.unlockedForActions ? (
               <Link to={`/invoices/upload?po=${order.id}`}>
