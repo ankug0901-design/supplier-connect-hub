@@ -22,7 +22,7 @@
 
 - Admin email outcomes read the existing RLS-protected audit log using exact server-side counts and stable pagination; distinguish accepted sends from confirmed delivery and never alter sending or suppression workflows for reporting.
 
-- Emails use managed SDK sends and audit mirrors, not queues. PO notices use atomic service-role claims, stable PO keys and completion timestamps; payment notices use supplier/transaction keys and markers, with historical payments baselined to prevent mailouts.
+- Emails use managed SDK sends and audit mirrors, not queues. PO notices require a new-row eligibility baseline and atomic service-role claims excluding confirmed, invoiced and aged POs, with stable PO keys and completion timestamps; payment notices use supplier/transaction keys and markers, with historical payments baselined to prevent mailouts.
 
 - Keep item production history scoped to its PO and matching-or-null item ID, with PO-wide activity counts; reuse existing media and stage helpers to preserve update workflows.
 

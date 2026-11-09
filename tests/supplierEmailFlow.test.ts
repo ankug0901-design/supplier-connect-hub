@@ -16,6 +16,7 @@ function fixture(rows: Record<string, any[]>) {
     const q: any = {
       select() { return q; }, eq(k: string, v: any) { filters.push(r => r[k] === v); return q; },
       is(k: string, v: any) { filters.push(r => (r[k] ?? null) === v); return q; },
+      not(k: string, _op: string, v: any) { filters.push(r => (r[k] ?? null) !== v); return q; },
       in(k: string, v: any[]) { filters.push(r => v.includes(r[k])); return q; },
       maybeSingle() { single = true; return q; }, single() { single = true; return q; },
       update(v: any) { values = v; action = 'update'; return q; },
@@ -47,7 +48,7 @@ test('release notice includes Cc, then skips the same PO on the next invocation'
   const source = readFileSync(new URL('../supabase/functions/po-delivery-reminder/index.ts', import.meta.url), 'utf8');
   const block = source.slice(source.indexOf('  const admin = createClient'), source.lastIndexOf('\n});'));
   const run = new Function('createClient', 'shouldNotifyPoRelease', 'poReleaseEmailKey', 'DELIVERY_CONFIRMATION_CC', 'sendTemplateEmail', 'retryRateLimitedEmail', 'recordEmailSendOutcome', 'SITE_URL', 'req', 'SUPABASE_URL', 'SERVICE_KEY', 'z', 'corsHeaders', `return (async()=>{${transpile(block)}})();`);
-  const client = fixture({ purchase_orders: [{ id: 'po-1', status: 'open', supplier_id: 'sup-1', po_number: 'PO-1' }], po_items: [{ id: 'item-1', po_id: 'po-1', item_name: 'Packaging', quantity: 20 }], suppliers: [{ id: 'sup-1', email: 'supplier@example.test' }] });
+  const client = fixture({ purchase_orders: [{ id: 'po-1', status: 'open', date: new Date().toISOString().slice(0, 10), release_email_eligible_at: new Date().toISOString(), supplier_id: 'sup-1', po_number: 'PO-1' }, { id: 'historical', status: 'open', date: new Date().toISOString().slice(0, 10), supplier_id: 'sup-1' }, { id: 'invoiced', status: 'open', date: new Date().toISOString().slice(0, 10), release_email_eligible_at: new Date().toISOString(), supplier_id: 'sup-1' }], invoices: [{ id: 'inv-2', po_id: 'invoiced' }], po_items: [{ id: 'item-1', po_id: 'po-1', item_name: 'Packaging', quantity: 20 }, { id: 'item-2', po_id: 'historical', quantity: 20 }, { id: 'item-3', po_id: 'invoiced', quantity: 20 }], suppliers: [{ id: 'sup-1', email: 'supplier@example.test' }] });
   const calls: any[] = [];
   const args = [() => client, shouldNotifyPoRelease, poReleaseEmailKey, DELIVERY_CONFIRMATION_CC, async (...v: any[]) => { calls.push(v); return { sent: true }; }, async (fn: any) => fn(), async () => {}, 'https://supplierconnect.embossmarketing.in', { method: 'GET' }, '', '', { object: () => ({ safeParse: () => ({ success: true, data: {} }) }), string: () => ({ uuid: () => ({ optional: () => ({}) }) }) }, {}];
   await Promise.all([run(...args), run(...args)]); await run(...args);

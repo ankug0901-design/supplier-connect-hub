@@ -55,7 +55,9 @@ Deno.serve(async (req) => {
   // Released POs with no prior notice; daily cron is only a retry opportunity.
   let q = admin
     .from("purchase_orders")
-    .select("id, po_number, date, supplier_id, status, delivery_dates_confirmed_at, delivery_notification_sent_at, delivery_reminder_count, delivery_first_notified_at")
+    .select("id, po_number, date, supplier_id, status, release_email_eligible_at, delivery_dates_confirmed_at, delivery_notification_sent_at, delivery_reminder_count, delivery_first_notified_at")
+    .not("release_email_eligible_at", "is", null)
+    .is("delivery_dates_confirmed_at", null)
     .is("delivery_notification_sent_at", null)
     .is("delivery_first_notified_at", null)
     .in("status", ["approved", "open"]);
@@ -91,6 +93,9 @@ Deno.serve(async (req) => {
   for (const po of pos || []) {
     try {
       if (!shouldNotifyPoRelease(po)) { skipped++; continue; }
+      const { data: invoices, error: invoiceError } = await admin.from("invoices").select("id").eq("po_id", po.id);
+      if (invoiceError) throw invoiceError;
+      if (invoices?.length) { skipped++; continue; }
       const { data: items, error: itemsError } = await admin.from("po_items")
         .select("id, item_name, description, quantity").eq("po_id", po.id);
       if (itemsError) throw itemsError;

@@ -3,8 +3,14 @@ export const DELIVERY_CONFIRMATION_CC = 'hkumar@embossmarketing.in';
 export function poReleaseEmailKey(poId: string): string {
   return `po-release-${poId}`;
 }
-export function shouldNotifyPoRelease(po: { status?: string | null; delivery_notification_sent_at?: string | null; delivery_first_notified_at?: string | null }): boolean {
+export function shouldNotifyPoRelease(po: { status?: string | null; release_email_eligible_at?: string | null; date?: string | null; delivery_dates_confirmed_at?: string | null; delivery_notification_sent_at?: string | null; delivery_first_notified_at?: string | null }, now = new Date()): boolean {
+  const cutoff = new Date(now);
+  cutoff.setUTCHours(0, 0, 0, 0);
+  cutoff.setUTCDate(cutoff.getUTCDate() - 45);
+  const poDate = Date.parse(po.date || '');
   return ['approved', 'open'].includes(String(po.status || '').toLowerCase()) &&
+    Boolean(po.release_email_eligible_at) && Number.isFinite(poDate) && poDate >= cutoff.getTime() &&
+    !po.delivery_dates_confirmed_at &&
     !po.delivery_notification_sent_at && !po.delivery_first_notified_at;
 }
 export function paymentIsMade(payment: { status?: string | null; amount?: number | null }): boolean {

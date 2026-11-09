@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Prevent historical PO release mailouts with new-row eligibility, checked invoice/confirmation/age guards and atomic claim enforcement; deployed, 11 tests pass, live historical PO request sends zero emails.
+
 - [ ] Build and verify the admin Asset Library: upload, search/filter, metadata, versions, audit, comments, and sharing using existing tables/storage.
 
 - [x] Replace repeated delivery-date reminders with one PO-release notice, stable event identity, existing notification markers and hkumar@embossmarketing.in in Cc; deployed, regression tests pass.

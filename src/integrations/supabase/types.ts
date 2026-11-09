@@ -1206,6 +1206,7 @@ export type Database = {
           id: string
           po_number: string
           release_email_claimed_at: string | null
+          release_email_eligible_at: string | null
           status: string
           supplier_id: string
           updated_at: string
@@ -1232,6 +1233,7 @@ export type Database = {
           id?: string
           po_number: string
           release_email_claimed_at?: string | null
+          release_email_eligible_at?: string | null
           status?: string
           supplier_id: string
           updated_at?: string
@@ -1258,6 +1260,7 @@ export type Database = {
           id?: string
           po_number?: string
           release_email_claimed_at?: string | null
+          release_email_eligible_at?: string | null
           status?: string
           supplier_id?: string
           updated_at?: string
