@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { TICKET_PRIORITIES, TICKET_STATUSES, statusPatch, ticketLabel } from '@/lib/ticketRules';
+import { TICKET_PRIORITIES, TICKET_STATUSES, canCommentOnTicket, statusPatch, ticketLabel } from '@/lib/ticketRules';
 import { Option, Ticket, TicketActor, TicketAttachment, TicketAudit, TicketComment, addComment, errorMessage, loadAdmins, openTicketFile, ticketDate, updateTicketField, uploadTicketFiles } from '@/lib/tickets';
 import { PriorityBadge, StatusBadge, TypeBadge } from './TicketBadges';
 import { TagInput } from './TagInput';
@@ -74,7 +74,8 @@ export function TicketDetailPage({ mode }: { mode: 'admin' | 'supplier' }) {
     setBusy(true);
     try { await work(); if (ok) toast.success(ok); } catch (e) { toast.error(errorMessage(e)); } finally { setBusy(false); await load(); }
   }
-  const changeStatus = (s: string) => ticket && s !== ticket.status && run(async () => {
+  const canComment = !!ticket && canCommentOnTicket(mode, ticket, user?.id, supplier?.id);
+  const changeStatus = (s: string) => mode === 'admin' && ticket && s !== ticket.status && run(async () => {
     await updateTicketField(ticket, statusPatch(s, actor.name), 'status', ticket.status, s, actor);
     await addComment(ticket.id, actor, `${actor.name} changed status from ${ticketLabel(ticket.status)} → ${ticketLabel(s)}`, [], false, { from: ticket.status, to: s });
   }, 'Status updated');
@@ -86,6 +87,7 @@ export function TicketDetailPage({ mode }: { mode: 'admin' | 'supplier' }) {
   }, 'Assignee updated');
   const saveTags = () => ticket && run(() => updateTicketField(ticket, { tags }, 'tags', (ticket.tags || []).join(', '), tags.join(', '), actor), 'Tags saved');
   const submit = () => {
+    if (!canComment) { toast.error('You can only reply to tickets you raised or that are linked to your company.'); return; }
     if (!ticket || (!text.trim() && !files.length)) { toast.error('Write a comment or attach a file.'); return; }
     return run(async () => {
       const att = files.length ? await uploadTicketFiles(files) : [];
@@ -144,7 +146,8 @@ export function TicketDetailPage({ mode }: { mode: 'admin' | 'supplier' }) {
                   );
                 })}
               </div>
-              {!isReadOnly && <div className={cn('space-y-3 border-t p-4', internal && 'bg-amber-50/60')}>
+              {!isReadOnly && !canComment && <p className="border-t p-4 text-sm text-muted-foreground">Replies are limited to tickets you raised or that are linked to your company.</p>}
+              {!isReadOnly && canComment && <div className={cn('space-y-3 border-t p-4', internal && 'bg-amber-50/60')}>
                 <Textarea aria-label="Comment" rows={3} value={text} onChange={e => setText(e.target.value)} placeholder={internal ? 'Internal note — only admins can see this' : 'Write a reply…'} onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submit(); }} />
                 {files.length > 0 && <div className="flex flex-wrap gap-1.5">{files.map((f, i) => <Badge key={i} variant="secondary" className="gap-1">{f.name}<button type="button" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}><X className="h-3 w-3" /></button></Badge>)}</div>}
                 <div className="flex flex-wrap items-center justify-between gap-2">

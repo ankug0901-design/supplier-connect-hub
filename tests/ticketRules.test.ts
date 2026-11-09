@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { SUPPLIER_TICKET_TYPES, avgResolutionHours, nextTicketNumber, statusPatch, ticketMatches } from '../src/lib/ticketRules';
 
 const day = new Date(2026, 10, 9);
@@ -31,4 +31,13 @@ test('resolving stamps resolved_at; reopening clears it', () => {
 test('average resolution time is in hours over resolved tickets only', () => {
   expect(avgResolutionHours([{ created_at: '2026-11-09T00:00:00Z', resolved_at: '2026-11-09T04:00:00Z' }, { created_at: '2026-11-09T00:00:00Z', resolved_at: null }])).toBe(4);
   expect(avgResolutionHours([])).toBeNull();
+});
+
+import { canCommentOnTicket as canC } from '../src/lib/ticketRules';
+describe('supplier comment permission', () => {
+  const t = { created_by: 'u1', supplier_id: 's1', linked_supplier_id: null };
+  test('owner can comment', () => expect(canC('supplier', t, 'u1', 'x')).toBe(true));
+  test('linked supplier can comment', () => expect(canC('supplier', t, 'u9', 's1')).toBe(true));
+  test('unrelated supplier cannot', () => expect(canC('supplier', t, 'u9', 's9')).toBe(false));
+  test('admin always can', () => expect(canC('admin', t, null, null)).toBe(true));
 });

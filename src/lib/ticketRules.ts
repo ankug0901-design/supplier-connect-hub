@@ -56,3 +56,14 @@ export function statusPatch(status: string, actorName: string, now = new Date())
   if (status === 'resolved' || status === 'closed') return { status, resolved_at: now.toISOString(), resolved_by: actorName };
   return { status, resolved_at: null, resolved_by: null };
 }
+
+/** Suppliers may comment only on tickets they created or that are linked to their supplier record; admins always may. */
+export function canCommentOnTicket(
+  mode: 'admin' | 'supplier',
+  t: { created_by: string | null; supplier_id: string | null; linked_supplier_id?: string | null },
+  userId?: string | null, supplierId?: string | null,
+) {
+  if (mode === 'admin') return true;
+  if (userId && t.created_by === userId) return true;
+  return !!supplierId && (t.supplier_id === supplierId || t.linked_supplier_id === supplierId);
+}
