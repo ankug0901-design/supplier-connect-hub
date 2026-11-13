@@ -7,7 +7,7 @@ import { proofRpc, type Proof } from '@/lib/proofApproval';
 import { TrackingProofSection } from '@/components/proofs/TrackingProofSection';
 import { documentRpc, type OrderDocument } from '@/lib/documentHub';
 import { TrackingDocumentSection } from '@/components/documents/TrackingDocumentSection';
-import { Check, Loader2, Package, CheckCircle2, Play, X, Copy, RefreshCw, MapPin } from "lucide-react";
+import { Check, Loader2, Package, CheckCircle2, Play, X, Copy, RefreshCw, MapPin, Info } from "lucide-react";
 
 const TEAL = "#0d7377";
 const GREEN = "#22c55e";
@@ -43,6 +43,7 @@ type TrackData = {
     order_date?: string;
     expected_delivery?: string;
     overall_status?: string;
+    client_arranged_courier?: boolean;
     delivery_proof_urls?: (string | MediaItem)[];
     delivered_at?: string;
   };
@@ -267,7 +268,12 @@ export default function TrackOrder() {
 
   const order = data?.order;
   const status = (order?.overall_status || "order_received").toLowerCase();
-  let currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === status));
+  // The client arranged their own courier pickup, so there is no in-transit or
+  // delivered leg to report and the stepper stops at Dispatched.
+  const visibleSteps = order?.client_arranged_courier
+    ? STEPS.filter((s) => !["in_transit", "delivered"].includes(s.key))
+    : STEPS;
+  let currentIdx = Math.max(0, visibleSteps.findIndex((s) => s.key === status));
 
   const dispatchList = data?.dispatch || [];
   const loadedTracking = Object.values(trackingInfo);
@@ -296,8 +302,8 @@ export default function TrackOrder() {
   });
   const isDelivered = isOrderDelivered(status, dispatchList.map(shipmentStatus));
 
-  const inTransitIdx = STEPS.findIndex((s) => s.key === "in_transit");
-  const deliveredIdx = STEPS.findIndex((s) => s.key === "delivered");
+  const inTransitIdx = visibleSteps.findIndex((s) => s.key === "in_transit");
+  const deliveredIdx = visibleSteps.findIndex((s) => s.key === "delivered");
   if ((hasCurrentLocation || hasTransitMilestone || hasInTransitDispatch) && inTransitIdx >= 0) {
     currentIdx = Math.max(currentIdx, inTransitIdx);
   }
@@ -386,7 +392,7 @@ export default function TrackOrder() {
             {/* Progress */}
             <section className="rounded-2xl border border-slate-100 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
               <div className="flex items-start">
-                {STEPS.map((s, i) => {
+                {visibleSteps.map((s, i) => {
                   const done = i < currentIdx || isDelivered;
                   const active = i === currentIdx && !isDelivered;
                   return (
@@ -409,7 +415,7 @@ export default function TrackOrder() {
                             <div className="h-2 w-2 rounded-full bg-slate-300" />
                           )}
                         </div>
-                        <div className={`h-0.5 flex-1 ${i === STEPS.length - 1 ? "bg-transparent" : i < currentIdx ? "" : "bg-slate-200"}`} style={i !== STEPS.length - 1 && i < currentIdx ? { backgroundColor: TEAL } : undefined} />
+                        <div className={`h-0.5 flex-1 ${i === visibleSteps.length - 1 ? "bg-transparent" : i < currentIdx ? "" : "bg-slate-200"}`} style={i !== visibleSteps.length - 1 && i < currentIdx ? { backgroundColor: TEAL } : undefined} />
                       </div>
                       <div
                         className={`mt-2 px-0.5 text-center text-[10px] font-medium leading-tight sm:text-xs ${
@@ -422,6 +428,12 @@ export default function TrackOrder() {
                   );
                 })}
               </div>
+              {order.client_arranged_courier && (
+                <div className="mt-4 flex items-center gap-2 rounded-xl bg-teal-50 px-4 py-2.5 text-xs font-medium text-teal-800">
+                  <Info className="h-3.5 w-3.5 shrink-0 text-teal-600" />
+                  Courier pickup arranged by client
+                </div>
+              )}
               <div className="mt-5 rounded-xl bg-slate-50 px-4 py-3 text-center text-sm">
                 <span className="text-slate-500">Estimated delivery: </span>
                 <span className="font-semibold" style={{ color: TEAL }}>
@@ -545,7 +557,7 @@ export default function TrackOrder() {
                           <div className="text-xs text-slate-400">
                             {relative(u.created_at)} · {fmtDateTime(u.created_at)}
                           </div>
-                          {u.note && <p className="mt-1.5 text-sm text-slate-600">{u.note}</p>}
+                          {u.note && <p className="mt-1.5 text-sm text-slate-600 whitespace-pre-line">{u.note}</p>}
                           {media.length > 0 && <MediaGrid items={media} onOpen={setLightbox} className="mt-3" />}
                         </div>
                       );
@@ -591,8 +603,8 @@ export default function TrackOrder() {
               </section>
             )}
 
-            {/* Shipment Tracking */}
-            {trackableDispatches.length > 0 && (
+            {/* Shipment Tracking — hidden when the client arranged their own courier pickup. */}
+            {trackableDispatches.length > 0 && !order?.client_arranged_courier && (
               <section>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">📦 Shipment Tracking</h2>

@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Show client-arranged courier orders on tracking: stepper stops at Dispatched, courier note added, live shipment tracking hidden, dispatch details kept, update notes keep line breaks; deployed, 3 regression tests pass, live page verified both ways.
+
 - [x] Prevent historical PO release mailouts with new-row eligibility, checked invoice/confirmation/age guards and atomic claim enforcement; deployed, 11 tests pass, live historical PO request sends zero emails.
 
 - [ ] Build and verify the admin Asset Library: upload, search/filter, metadata, versions, audit, comments, and sharing using existing tables/storage.
