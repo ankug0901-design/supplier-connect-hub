@@ -348,6 +348,7 @@ export type Database = {
       }
       client_orders: {
         Row: {
+          client_arranged_courier: boolean | null
           client_email: string | null
           client_name: string
           client_phone: string | null
@@ -366,6 +367,7 @@ export type Database = {
           zoho_so_number: string | null
         }
         Insert: {
+          client_arranged_courier?: boolean | null
           client_email?: string | null
           client_name: string
           client_phone?: string | null
@@ -384,6 +386,7 @@ export type Database = {
           zoho_so_number?: string | null
         }
         Update: {
+          client_arranged_courier?: boolean | null
           client_email?: string | null
           client_name?: string
           client_phone?: string | null
