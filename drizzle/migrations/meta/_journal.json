@@ -71,6 +71,13 @@
       "when": 1794583829331,
       "tag": "0009_return_client_arranged_courier_in_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794584028148,
+      "tag": "0010_tighten_proof_document_dispatch_policies",
+      "breakpoints": true
     }
   ]
 }
