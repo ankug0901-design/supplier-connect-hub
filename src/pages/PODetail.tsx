@@ -80,6 +80,7 @@ export default function PODetail() {
         data.find(
           (po: any) =>
             String(po.id) === target ||
+            String(po.dbId ?? '') === target ||
             String(po.zoho_id ?? '') === target ||
             String(po.poNumber ?? '') === target,
         ) || null;
