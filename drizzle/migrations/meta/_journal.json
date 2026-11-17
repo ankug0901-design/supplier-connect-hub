@@ -78,6 +78,13 @@
       "when": 1794584028148,
       "tag": "0010_tighten_proof_document_dispatch_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794907937889,
+      "tag": "0011_tighten_dam_and_po_media_storage",
+      "breakpoints": true
     }
   ]
 }
