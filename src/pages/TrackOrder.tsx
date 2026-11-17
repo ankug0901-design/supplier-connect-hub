@@ -273,7 +273,12 @@ export default function TrackOrder() {
   const visibleSteps = order?.client_arranged_courier
     ? STEPS.filter((s) => !["in_transit", "delivered"].includes(s.key))
     : STEPS;
-  let currentIdx = Math.max(0, visibleSteps.findIndex((s) => s.key === status));
+  // When the in_transit/delivered steps are hidden (client-arranged courier),
+  // an order in either of those states still counts as Dispatched.
+  const statusKey = ["in_transit", "delivered"].includes(status) && !visibleSteps.some((s) => s.key === status)
+    ? "dispatched"
+    : status;
+  let currentIdx = Math.max(0, visibleSteps.findIndex((s) => s.key === statusKey));
 
   const dispatchList = data?.dispatch || [];
   const loadedTracking = Object.values(trackingInfo);

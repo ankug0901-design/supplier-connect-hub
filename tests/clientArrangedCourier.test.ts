@@ -8,7 +8,7 @@ const source = readFileSync(new URL('../src/pages/TrackOrder.tsx', import.meta.u
 const stepsStart = source.indexOf('const STEPS = [');
 const stepsEnd = source.indexOf('];', stepsStart) + 2;
 const deriveStart = source.indexOf('const visibleSteps = ');
-const deriveEnd = source.indexOf('let currentIdx', deriveStart);
+const deriveEnd = source.indexOf('const statusKey = ', deriveStart);
 
 const FULL_KEYS = ['order_received', 'material_sourced', 'in_production', 'dispatched', 'in_transit', 'delivered'];
 
@@ -33,6 +33,33 @@ test('Emboss-arranged courier keeps all six stepper steps', () => {
   for (const order of [{ client_arranged_courier: false }, {}, undefined]) {
     expect(stepKeysFor(order)).toEqual(FULL_KEYS);
   }
+});
+
+const idxStart = source.indexOf('const statusKey = ');
+const idxEnd = source.indexOf('\n', source.indexOf('let currentIdx', idxStart)) + 1;
+
+function currentIndexFor(order: unknown, status: string) {
+  const run = new Function(
+    'order',
+    'status',
+    `${source.slice(stepsStart, stepsEnd)}\n${source.slice(deriveStart, idxEnd)}\nreturn currentIdx;`
+  );
+  return run(order, status) as number;
+}
+
+test('client-arranged courier maps in_transit and delivered to Dispatched, not step 0', () => {
+  const order = { client_arranged_courier: true };
+  expect(currentIndexFor(order, 'in_transit')).toBe(3);
+  expect(currentIndexFor(order, 'delivered')).toBe(3);
+  expect(currentIndexFor(order, 'dispatched')).toBe(3);
+  expect(currentIndexFor(order, 'in_production')).toBe(2);
+  expect(currentIndexFor(order, 'order_received')).toBe(0);
+});
+
+test('Emboss-arranged courier keeps real in_transit and delivered positions', () => {
+  const order = { client_arranged_courier: false };
+  expect(currentIndexFor(order, 'in_transit')).toBe(4);
+  expect(currentIndexFor(order, 'delivered')).toBe(5);
 });
 
 const TRACKING_GATE = 'trackableDispatches.length > 0 && !order?.client_arranged_courier';
