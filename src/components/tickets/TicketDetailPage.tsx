@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Calendar, FileText, Link2, Loader2, Lock, Paperclip, Send, Tag, User, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, FileText, Link2, Loader2, Lock, Paperclip, Send, Tag, Upload, User, X } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -45,6 +45,9 @@ export function TicketDetailPage({ mode }: { mode: 'admin' | 'supplier' }) {
   const [files, setFiles] = useState<File[]>([]);
   const [internal, setInternal] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
+  const [respFiles, setRespFiles] = useState<File[]>([]);
+  const [respNote, setRespNote] = useState('');
+  const [dragOver, setDragOver] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -96,6 +99,20 @@ export function TicketDetailPage({ mode }: { mode: 'admin' | 'supplier' }) {
     }, internal ? 'Internal note added' : 'Comment added');
   };
 
+  const submitResponse = () => {
+    if (!ticket || !canComment) return;
+    if (!respFiles.length) { toast.error('Please attach at least one file'); return; }
+    const from = ticket.status, to = 'in_progress';
+    return run(async () => {
+      const att = await uploadTicketFiles(respFiles);
+      await addComment(ticket.id, actor, respNote.trim() || 'Response submitted with attachments', att, false);
+      await updateTicketField(ticket, statusPatch(to, actor.name), 'status', from, to, actor);
+      await addComment(ticket.id, actor, `${actor.name} submitted response and changed status from ${ticketLabel(from)} → ${ticketLabel(to)}`, [], false, { from, to });
+      setRespFiles([]); setRespNote('');
+    }, 'Response submitted successfully');
+  };
+  const addRespFiles = (list: FileList | null) => { if (list?.length) setRespFiles(f => [...f, ...Array.from(list)]); };
+
   if (loading) return <DashboardLayout title="Ticket"><div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></DashboardLayout>;
   if (error || !ticket) return <DashboardLayout title="Ticket"><div role="alert" className="space-y-3 border-l-4 border-destructive bg-destructive/10 p-5"><p className="text-sm text-destructive">{error}</p><Button variant="outline" asChild><Link to={base}>Back to tickets</Link></Button></div></DashboardLayout>;
 
@@ -125,6 +142,25 @@ export function TicketDetailPage({ mode }: { mode: 'admin' | 'supplier' }) {
         <div className="grid gap-5 lg:grid-cols-[7fr_3fr]">
           <div className="space-y-5">
             <section className="rounded-lg border bg-card p-5"><h2 className="mb-2 text-sm font-semibold">Description</h2><p className="whitespace-pre-wrap text-sm text-foreground/90">{ticket.description || <span className="text-muted-foreground">No description provided.</span>}</p><Attachments items={ticket.attachments} /></section>
+
+            {mode === 'supplier' && ticket.status === 'awaiting_supplier' && canComment && !isReadOnly && (
+              <section className="space-y-4 rounded-lg border-2 border-blue-200 bg-blue-50/60 p-5">
+                <div><h2 className="text-base font-bold">📋 Action Required — Submit Your Response</h2><p className="mt-1 text-sm text-muted-foreground">Please upload your document (e.g., CAPA report, corrective action) and add any notes.</p></div>
+                <label
+                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={e => { e.preventDefault(); setDragOver(false); addRespFiles(e.dataTransfer.files); }}
+                  className={cn('flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-center text-sm transition-colors', dragOver ? 'border-blue-500 bg-blue-100' : respFiles.length ? 'border-blue-400 bg-background' : 'border-blue-300 bg-background/70 hover:border-blue-400')}>
+                  <Upload className="h-7 w-7 text-blue-500" />
+                  <span className="font-medium">Drag &amp; drop files here, or click to browse</span>
+                  {respFiles.length > 0 && <span className="text-xs text-muted-foreground">{respFiles.length} file{respFiles.length > 1 ? 's' : ''} selected</span>}
+                  <input type="file" multiple className="sr-only" aria-label="Response files" onChange={e => { addRespFiles(e.target.files); e.target.value = ''; }} />
+                </label>
+                {respFiles.length > 0 && <div className="flex flex-wrap gap-1.5">{respFiles.map((f, i) => <Badge key={i} variant="secondary" className="gap-1"><Paperclip className="h-3 w-3" />{f.name}<button type="button" aria-label={`Remove ${f.name}`} onClick={() => setRespFiles(respFiles.filter((_, j) => j !== i))}><X className="h-3 w-3" /></button></Badge>)}</div>}
+                <Textarea aria-label="Response notes" rows={2} value={respNote} onChange={e => setRespNote(e.target.value)} placeholder="Add any notes or comments about your submission..." className="bg-background" />
+                <div className="flex justify-end"><Button size="lg" disabled={busy} onClick={submitResponse}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Submit Response</Button></div>
+              </section>
+            )}
 
             <section className="rounded-lg border bg-card">
               <h2 className="border-b px-5 py-3 text-sm font-semibold">Conversation <span className="text-muted-foreground">({comments.filter(c => !c.status_change_to).length})</span></h2>
