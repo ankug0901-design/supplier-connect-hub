@@ -1,6 +1,7 @@
 // Manage rfq_documents (list / insert / delete) via service role.
-// Auth: `x-n8n-key: <N8N_ACCESS_CODE>` (n8n / Python agent) or `apikey: <anon key>` (browser).
+// Automation uses a private key; browsers require a verified user and RFQ access.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { canManageRfq } from "../_shared/access-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,9 +32,6 @@ function authenticate(req: Request): boolean {
     "";
   const cleaned = n8nKey.trim().replace(/^["']|["']$/g, "");
   if (expected && cleaned === expected) return true;
-  const apikey = req.headers.get("apikey") ?? "";
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  if (apikey && anonKey && apikey === anonKey) return true;
   return false;
 }
 
@@ -50,7 +48,25 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  if (!authenticate(req)) return json({ error: "Unauthorized" }, 401);
+  const trustedAutomation = authenticate(req);
+  const url = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !anonKey || !serviceKey) return json({ error: "Server not configured" }, 503);
+  const authorization = req.headers.get("Authorization") ?? "";
+  const userClient = createClient(url, anonKey, { global: { headers: { Authorization: authorization } } });
+  let canManage = trustedAutomation;
+  let userId: string | null = null;
+  if (!trustedAutomation) {
+    if (!authorization.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+    const { data, error } = await userClient.auth.getUser();
+    if (error || !data.user) return json({ error: "Unauthorized" }, 401);
+    userId = data.user.id;
+    const [admin, access] = await Promise.all([
+      userClient.rpc("is_admin"), userClient.rpc("has_section_access", { _section_key: "admin-rfq" }),
+    ]);
+    canManage = canManageRfq(false, !admin.error && admin.data === true, !access.error && access.data === true);
+  }
 
   let body: any;
   try {
@@ -66,11 +82,10 @@ Deno.serve(async (req) => {
   if (!action || !["list", "insert", "delete"].includes(action)) {
     return json({ error: "action must be one of: list, insert, delete" }, 400);
   }
+  if (action !== "list" && !canManage) return json({ error: "Forbidden" }, 403);
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  // Supplier lists go through existing assignment-scoped RLS, not service-role reads.
+  const supabase = canManage ? createClient(url, serviceKey) : userClient;
 
   try {
     if (action === "list") {
@@ -122,7 +137,7 @@ Deno.serve(async (req) => {
           file_size_bytes: Number.isFinite(Number(doc.file_size_bytes))
             ? Number(doc.file_size_bytes)
             : null,
-          uploaded_by: s(doc.uploaded_by),
+          uploaded_by: trustedAutomation ? s(doc.uploaded_by) : userId,
           item_number: Number.isFinite(Number(doc.item_number)) ? Number(doc.item_number) : null,
           notes: s(doc.notes),
         });

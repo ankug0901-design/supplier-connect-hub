@@ -33,6 +33,8 @@
 - Route general frontend n8n calls through `n8nPost`; public proof-response notifications and the PO Tracker's logistics shipment fetch and email send are explicit direct-webhook exceptions required by their unauthenticated workflows.
 - Keep single-location dispatch entry in `AdminDispatchForm`; multi-location logistics synchronization belongs inside `ItemUpdateForm` and writes authenticated `po_dispatch` records before posting the production update.
 - `sync-dispatch` reconciles PO/AWB before PO/LR upserts, then recalculates affected orders best-effort to avoid duplicates and stale statuses.
+- Dispatch sync authenticates against a managed shared secret and fails closed when absent; never accept a key committed to source.
+- RFQ document browsers require verified users, assignment-scoped RLS reads and server-checked management permissions; Zoho bulk sync requires service or admin authorization, preserving supplier-only self-sync.
 - Scheduled Zoho sync requests resolve authorization from Vault at execution time; authorized syncs refresh that credential from the live runtime binding through a service-role-only RPC, without exposing credentials or embedding them in cron commands.
 - Rolling Zoho syncs process one four-supplier page using a service-role-only leased cursor; hourly syncs always use offset zero, and manual syncs never modify the cursor, preserving bounded requests independently of schedule frequency.
 - Zoho credential refresh never overwrites the separate email credential, preventing authorization conflicts.

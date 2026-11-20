@@ -1,8 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders as sdkCorsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3.23.8";
+import { validDispatchKey } from "../_shared/access-policy.ts";
 
-const SYNC_KEY = "emboss-sync-2026";
 const corsHeaders = {
   ...sdkCorsHeaders,
   "Access-Control-Allow-Headers": `${sdkCorsHeaders["Access-Control-Allow-Headers"]}, x-sync-key`,
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  if (req.headers.get("x-sync-key") !== SYNC_KEY) {
+  if (!validDispatchKey(req.headers.get("x-sync-key"), Deno.env.get("DISPATCH_SYNC_KEY"))) {
     return json(
       { success: false, inserted: 0, updated: 0, errors: ["Unauthorized"] },
       401,

@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { nextCursorOffset } from "./cursor.ts";
+import { canSyncZoho } from "../_shared/access-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,6 +46,9 @@ const passthrough = (s?: string) => (s || "pending").toLowerCase();
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return new Response(JSON.stringify({ error: "Method not allowed" }), {
+    status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
   const requestBody = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const requestedSupplierId = typeof requestBody?.supplier_id === "string" ? requestBody.supplier_id : null;
@@ -60,18 +64,12 @@ Deno.serve(async (req) => {
   // only their own supplier row.
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
-  const apikeyHeader = req.headers.get("apikey") || "";
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 
   let authorized = false;
-  // Allow scheduled cron triggers (identified by apikey=anon key, no user JWT).
-  // The function only proxies vendor data into our DB using a fixed access code,
-  // so a cron-triggered bulk sync is safe to run unauthenticated.
-  if (!token && apikeyHeader && apikeyHeader === anonKey) {
-    authorized = true;
-  } else if (token && token === serviceRoleKey) {
+  if (token && token === serviceRoleKey) {
     authorized = true;
   } else if (token) {
     const userClient = createClient(supabaseUrl, anonKey, {
@@ -81,11 +79,11 @@ Deno.serve(async (req) => {
     if (userData?.user) {
       const { data: supplierRow } = await userClient
         .from("suppliers")
-        .select("id, role")
+        .select("id")
         .eq("user_id", userData.user.id)
         .maybeSingle();
-      if (["admin", "super_user"].includes(String(supplierRow?.role || ""))) authorized = true;
-      if (requestedSupplierId && supplierRow?.id === requestedSupplierId) authorized = true;
+      const { data: admin, error: adminError } = await userClient.rpc("is_admin");
+      authorized = canSyncZoho(false, !adminError && admin === true, requestedSupplierId, supplierRow?.id ?? null);
     }
   }
 

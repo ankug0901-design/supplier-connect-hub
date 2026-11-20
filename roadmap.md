@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Fix screenshot security concerns: RFQ document authorization, private dispatch key, authenticated Zoho bulk sync; test and verify deployed denials. Dispatch automation requires the new shared key.
+
 - [x] Show client-arranged courier orders on tracking: stepper stops at Dispatched, courier note added, live shipment tracking hidden, dispatch details kept, update notes keep line breaks; deployed, 3 regression tests pass, live page verified both ways.
 
 - [x] Prevent historical PO release mailouts with new-row eligibility, checked invoice/confirmation/age guards and atomic claim enforcement; deployed, 11 tests pass, live historical PO request sends zero emails.
